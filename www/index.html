@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#121116">
+  <title>Pitayas</title>
+  <style>html, body { margin: 0; height: 100%; background: #121116; }</style>
+</head>
+<body>
+  <!--
+    POWŁOKA PITAYAS — jedyna część, która zmienia się tylko z nowym APK/IPA.
+    Ładuje rdzeń: najpierw pobrany (aktualizacja), a gdy go nie ma albo się nie uruchomi — wbudowany (www/core).
+    Rdzeń sam pobiera swoje aktualizacje i moduły (Deck, Cam…), patrz core/app.js.
+  -->
+  <script>
+    (function () {
+      var KEY = 'pitayas-core';
+      var BUNDLED = { version: null, base: 'core/' };
+      var Plugins = (window.Capacitor && window.Capacitor.Plugins) || {};
+
+      function load(core, onFail) {
+        window.PITAYAS_CORE = core;
+        window.PITAYAS_CORE_OK = false;
+        var css = document.createElement('link');
+        css.rel = 'stylesheet';
+        css.href = core.base + 'app.css';
+        document.head.appendChild(css);
+        var js = document.createElement('script');
+        js.src = core.base + 'app.js';
+        js.onload = function () { if (!window.PITAYAS_CORE_OK) fail(); };
+        js.onerror = fail;
+        document.body.appendChild(js);
+        function fail() {
+          if (!onFail) return;
+          css.remove(); js.remove();
+          document.querySelectorAll('[data-core-ui]').forEach(function (el) { el.remove(); });
+          onFail();
+        }
+      }
+
+      function bundled() {
+        // Pobrany rdzeń się nie uruchomił — zapominamy go i wracamy do wbudowanego
+        try { localStorage.removeItem(KEY); localStorage.setItem('pitayas-core-failed', '1'); } catch (e) {}
+        load(BUNDLED, null);
+      }
+
+      var installed = null;
+      try { installed = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+      if (!installed || !installed.path || !Plugins.Filesystem) return load(BUNDLED, null);
+
+      // Ścieżkę zamieniamy na adres przy każdym starcie: na iPhonie folder aplikacji zmienia się po aktualizacji
+      Plugins.Filesystem.getUri({ directory: 'DATA', path: installed.path })
+        .then(function (r) { load({ version: installed.version, base: window.Capacitor.convertFileSrc(r.uri) + '/' }, bundled); })
+        .catch(bundled);
+    })();
+  </script>
+</body>
+</html>

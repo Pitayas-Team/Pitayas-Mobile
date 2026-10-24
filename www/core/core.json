@@ -1,0 +1,5 @@
+{
+  "version": "0.1.0",
+  "minShell": "0.1.0",
+  "files": ["app.js", "app.css"]
+}

@@ -1,0 +1,17 @@
+{
+  "appId": "com.pitayas.mobile",
+  "appName": "Pitayas",
+  "webDir": "www",
+  "backgroundColor": "#121116",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true
+  },
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#121116"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "id": "deck",
+  "name": "Pitaya Deck",
+  "description": "Panel przycisków do komputera",
+  "version": "0.1.0",
+  "minCore": "0.1.0",
+  "port": { "default": 8191, "label": "Port Deck" },
+  "files": ["module.js", "icon.png"]
+}
