@@ -3,9 +3,9 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.1.6';
+const CORE_VERSION = '0.1.7';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
-const DEFAULT_ACCOUNTS = 'https://app.pitayas.com/';
+const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
 const $ = (id) => document.getElementById(id);
 const Plugins = (window.Capacitor && window.Capacitor.Plugins) || {};
@@ -511,7 +511,7 @@ async function checkUpdates(manual) {
 }
 
 // ═══════ KONTO PITAYAS ═══════
-// Logowanie loginem albo przez Discord na serwerze kont (app.pitayas.com). Serwer mówi, które moduły
+// Logowanie loginem albo przez Discord na serwerze kont (admin.pitayas.eu). Serwer mówi, które moduły
 // są tylko dla testerów i czy to konto ma do nich dostęp. Bez logowania widać moduły dla wszystkich.
 const account = ls.get('pitayas-account', { token: '', user: null, server: '' });
 const saveAccount = () => ls.set('pitayas-account', account);
