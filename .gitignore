@@ -10,3 +10,5 @@ build/
 *.jks
 *.keystore
 dist/
+
+release-keystore.txt

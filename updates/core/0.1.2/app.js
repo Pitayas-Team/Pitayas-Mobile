@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.1.1';
+const CORE_VERSION = '0.1.2';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 
 const $ = (id) => document.getElementById(id);
@@ -319,14 +319,49 @@ const source = () => {
     return s.endsWith('/') ? s : `${s}/`;
 };
 let manifest = null;
+let bundled = null;     // moduły wbudowane w aplikację (www/modules) — działają bez internetu
 let shellVersion = '0.0.0';
+
+// Dziennik aktualizacji (Ustawienia → Dziennik) — żeby było widać, co poszło nie tak na telefonie
+const updateLog = ls.get('pitayas-update-log', []);
+function logUpdate(text, error) {
+    updateLog.unshift({ t: new Date().toISOString(), text, error: Boolean(error) });
+    updateLog.length = Math.min(updateLog.length, 30);
+    ls.set('pitayas-update-log', updateLog);
+}
+const errText = (err) => (err && err.message) || String(err);
+
+async function loadBundled() {
+    try {
+        const r = await fetch(`modules/index.json?t=${Date.now()}`, { cache: 'no-store' });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const list = (await r.json()).modules || [];
+        bundled = list.map((m) => ({ ...m, src: new URL(m.base, location.href).href, bundled: true }));
+    } catch { bundled = []; }   // starsza aplikacja bez wbudowanych modułów
+}
+
+// Lista do wyboru: kanał + wbudowane; przy tej samej wersji wbudowany (nie potrzebuje internetu)
+function available() {
+    const map = new Map();
+    for (const m of manifest ? manifest.modules || [] : []) map.set(m.id, { ...m, src: `${source()}${m.base}` });
+    for (const m of bundled || []) {
+        const net = map.get(m.id);
+        if (!net || vcmp(m.version, net.version) >= 0) map.set(m.id, m);
+    }
+    return [...map.values()];
+}
 let coreReady = null;   // pobrana nowsza wersja rdzenia czeka na ponowne uruchomienie
 
 async function fetchManifest() {
-    const r = await fetch(`${source()}manifest.json?t=${Date.now()}`, { cache: 'no-store' });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    manifest = await r.json();
-    return manifest;
+    try {
+        const r = await fetch(`${source()}manifest.json?t=${Date.now()}`, { cache: 'no-store' });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        manifest = await r.json();
+        return manifest;
+    } catch (err) {
+        logUpdate(`Lista aktualizacji: ${errText(err)}`, true);
+        throw err;
+    }
 }
 
 function toBase64(buf) {
@@ -338,12 +373,15 @@ function toBase64(buf) {
 
 // Pobiera pliki do nowego folderu i dopiero gdy wszystkie są na miejscu, zwraca ścieżkę.
 // Stara wersja działa do końca, więc przerwane pobieranie niczego nie psuje.
-async function downloadTo(dir, base, files) {
+async function downloadTo(dir, src, files) {
     try { await FS.rmdir({ directory: 'DATA', path: dir, recursive: true }); } catch {}
     for (const f of files) {
-        const r = await fetch(`${source()}${base}${f}`, { cache: 'no-store' });
+        let r;
+        try { r = await fetch(`${src}${f}`, { cache: 'no-store' }); } catch (err) { throw new Error(`${f}: ${errText(err)}`); }
         if (!r.ok) throw new Error(`${f}: HTTP ${r.status}`);
-        await FS.writeFile({ directory: 'DATA', path: `${dir}/${f}`, data: toBase64(await r.arrayBuffer()), recursive: true });
+        try {
+            await FS.writeFile({ directory: 'DATA', path: `${dir}/${f}`, data: toBase64(await r.arrayBuffer()), recursive: true });
+        } catch (err) { throw new Error(`zapis ${f}: ${errText(err)}`); }
     }
     return dir;
 }
@@ -356,13 +394,13 @@ async function removeDir(dir) {
 const coreUpdate = () => manifest && manifest.core && vcmp(manifest.core.version, CORE_VERSION) > 0
     && vcmp(shellVersion, manifest.core.minShell) >= 0 ? manifest.core : null;
 const shellUpdate = () => manifest && manifest.shell && NATIVE && vcmp(manifest.shell.version, shellVersion) > 0 ? manifest.shell : null;
-const moduleUpdates = () => (manifest ? manifest.modules : []).filter((m) => installed[m.id] && vcmp(m.version, installed[m.id].version) > 0 && compatible(m));
+const moduleUpdates = () => available().filter((m) => installed[m.id] && vcmp(m.version, installed[m.id].version) > 0 && compatible(m));
 const compatible = (m) => vcmp(CORE_VERSION, m.minCore) >= 0;
 
 async function installCore(entry) {
     if (!FS) throw new Error('Aktualizacja rdzenia działa tylko w aplikacji na telefonie');
     const prev = ls.get('pitayas-core', null);
-    const dir = await downloadTo(`pitayas/core/${entry.version}`, entry.base, entry.files);
+    const dir = await downloadTo(`pitayas/core/${entry.version}`, `${source()}${entry.base}`, entry.files);
     ls.set('pitayas-core', { version: entry.version, path: dir });
     try { localStorage.removeItem('pitayas-core-failed'); } catch {}
     if (prev && prev.path !== dir) removeDir(prev.path);
@@ -375,12 +413,14 @@ async function installModule(entry) {
         id: entry.id, name: entry.name, description: entry.description, version: entry.version,
         port: entry.port || null, files: entry.files,
     };
-    if (FS) info.path = await downloadTo(`pitayas/modules/${entry.id}/${entry.version}`, entry.base, entry.files);
-    else info.url = `${source()}${entry.base}`;
+    // Wbudowany moduł w przeglądarce czytamy prosto z folderu aplikacji; w telefonie kopiujemy go jak pobrany
+    if (FS) info.path = await downloadTo(`pitayas/modules/${entry.id}/${entry.version}`, entry.src, entry.files);
+    else info.url = entry.src;
     installed[entry.id] = info;
     saveInstalled();
     if (prev && prev.path && prev.path !== info.path) removeDir(prev.path);
     await injectModule(info);
+    logUpdate(`${entry.name} ${entry.version}${entry.bundled ? ' (wbudowany)' : ''}`);
     renderHome();
 }
 
@@ -429,13 +469,20 @@ let updating = false;
 async function updateAll(manual) {
     if (updating) return;
     updating = true;
+    // Każda część osobno — błąd jednego modułu nie blokuje rdzenia ani pozostałych
+    const failed = [];
     try {
-        for (const m of moduleUpdates()) await installModule(m);
         const core = coreUpdate();
-        if (core && FS) await installCore(core);
-        if (manual) toast(coreReady ? 'Gotowe — uruchom ponownie, by użyć nowego rdzenia' : 'Wszystko aktualne');
-    } catch (err) {
-        toast(`Aktualizacja nie powiodła się: ${err.message || err}`, 'err');
+        if (core && FS) {
+            try { await installCore(core); logUpdate(`Rdzeń ${core.version} — zadziała po ponownym uruchomieniu`); }
+            catch (err) { failed.push('rdzeń'); logUpdate(`Rdzeń ${core.version}: ${errText(err)}`, true); }
+        }
+        for (const m of moduleUpdates()) {
+            try { await installModule(m); }
+            catch (err) { failed.push(m.name); logUpdate(`${m.name} ${m.version}: ${errText(err)}`, true); }
+        }
+        if (failed.length) toast(`Nie udało się zaktualizować: ${failed.join(', ')} — szczegóły w Ustawieniach`, 'err');
+        else if (manual) toast(coreReady ? 'Gotowe — uruchom ponownie, by użyć nowego rdzenia' : 'Wszystko aktualne');
     } finally {
         updating = false;
         renderBanner();
@@ -446,7 +493,10 @@ async function checkUpdates(manual) {
     try {
         await fetchManifest();
     } catch (err) {
-        if (manual) toast(`Nie mogę sprawdzić aktualizacji: ${err.message || err}`, 'err');
+        if (manual) toast(`Nie mogę sprawdzić aktualizacji: ${errText(err)}`, 'err');
+        // Bez internetu i tak można przejść na nowsze moduły wbudowane w aplikację
+        if (moduleUpdates().length) await updateAll(manual);
+        renderBanner();
         return false;
     }
     if (settings.autoUpdate || manual) await updateAll(manual);
@@ -457,8 +507,8 @@ async function checkUpdates(manual) {
 // ─── Moduły do pobrania ───
 async function openModules() {
     openSheet('Moduły', '<div class="spinner"></div>');
-    if (!manifest) {
-        try { await fetchManifest(); } catch (err) {
+    try { await fetchManifest(); } catch (err) {   // zawsze świeża lista, nie ta sprzed godziny
+        if (!available().length) {
             if ($('sheet').hidden) return;
             $('sheetBody').innerHTML = `<p class="hint">Nie mogę pobrać listy modułów (${esc(err.message || err)}). Sprawdź internet albo źródło aktualizacji w Ustawieniach.</p>
               <button class="btn ghost" id="mRetry">Spróbuj ponownie</button>`;
@@ -471,7 +521,7 @@ async function openModules() {
 
 function renderModules() {
     if ($('sheet').hidden) return;
-    const avail = manifest.modules || [];
+    const avail = available();
     const ids = new Set(avail.map((m) => m.id));
     const local = Object.values(installed).filter((m) => !ids.has(m.id));   // wycofane z kanału, ale zainstalowane
     $('sheetBody').innerHTML = `<div class="mod-list">${[...avail, ...local].map((m) => {
@@ -482,7 +532,7 @@ function renderModules() {
             : !have ? `<button class="chip" data-install="${esc(m.id)}">Pobierz</button>`
             : newer ? `<button class="chip" data-install="${esc(m.id)}">Aktualizuj</button>`
             : '<span class="mod-note">Aktualny</span>';
-        const icon = have && have.base ? `${have.base}icon.png` : `${source()}${m.base}icon.png`;
+        const icon = have && have.base ? `${have.base}icon.png` : `${m.src}icon.png`;
         return `
           <div class="mod-item">
             <img src="${esc(icon)}" alt="">
@@ -494,7 +544,7 @@ function renderModules() {
         const entry = avail.find((m) => m.id === b.dataset.install);
         b.disabled = true; b.textContent = 'Pobieranie…';
         try { await installModule(entry); toast(`${entry.name} ${entry.version} gotowy`); }
-        catch (err) { toast(`Nie udało się pobrać: ${err.message || err}`, 'err'); }
+        catch (err) { logUpdate(`${entry.name} ${entry.version}: ${errText(err)}`, true); toast(`Nie udało się pobrać: ${errText(err)}`, 'err'); }
         renderModules();
         renderBanner();
     }));
@@ -521,7 +571,9 @@ function openSettings() {
         <button class="btn" id="sCheck">Sprawdź aktualizacje</button>
         ${shell ? `<button class="btn ghost" id="sShell">Pobierz aplikację ${esc(shell.version)}</button>` : ''}
         <div><label for="sSource">Źródło aktualizacji</label><input id="sSource" autocapitalize="off" inputmode="url" placeholder="${esc(DEFAULT_SOURCE)}" value="${esc(settings.source)}"></div>
-        <p class="hint">Puste = oficjalny kanał Pitayas na GitHubie.</p>`);
+        <p class="hint">Puste = oficjalny kanał Pitayas na GitHubie.</p>
+        <div><label>Dziennik aktualizacji</label>
+          <div class="log">${updateLog.length ? updateLog.map((e) => `<div class="${e.error ? 'err' : ''}"><small>${esc(new Date(e.t).toLocaleString('pl-PL'))}</small>${esc(e.text)}</div>`).join('') : '<div><small>Pusto</small></div>'}</div></div>`);
     $('sAuto').onchange = () => { settings.autoUpdate = $('sAuto').checked; ls.set('pitayas-settings', settings); };
     $('sSource').onchange = () => { settings.source = $('sSource').value.trim(); manifest = null; ls.set('pitayas-settings', settings); };
     $('sCheck').onclick = async () => {
@@ -552,6 +604,7 @@ window.PITAYAS_CORE_OK = true;   // powłoka wie, że rdzeń się uruchomił
 Promise.all(Object.values(installed).map(injectModule)).then(renderTiles);
 setInterval(() => { if (!activeView && document.visibilityState === 'visible') refreshStatus(); }, 5000);
 (Plugins.App && NATIVE ? Plugins.App.getInfo().then((i) => { shellVersion = i.version; }).catch(() => {}) : Promise.resolve())
+    .then(loadBundled)
     .then(() => checkUpdates(false))
     .then(() => {
         if (!Object.keys(installed).length) openModules();

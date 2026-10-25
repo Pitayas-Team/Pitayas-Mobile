@@ -16,7 +16,16 @@
   <script>
     (function () {
       var KEY = 'pitayas-core';
-      var BUNDLED = { version: null, base: 'core/' };
+      var BUNDLED = { version: '0.1.2', base: 'core/' };   // wersję wpisuje scripts/channel.js
+      // „0.1.10” > „0.1.9”; dopisek „-beta” się nie liczy
+      function newer(a, b) {
+        var pa = String(a || '0').split('-')[0].split('.'), pb = String(b || '0').split('-')[0].split('.');
+        for (var i = 0; i < Math.max(pa.length, pb.length); i++) {
+          var d = (+pa[i] || 0) - (+pb[i] || 0);
+          if (d) return d > 0;
+        }
+        return false;
+      }
       var Plugins = (window.Capacitor && window.Capacitor.Plugins) || {};
 
       function load(core, onFail) {
@@ -47,7 +56,8 @@
 
       var installed = null;
       try { installed = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
-      if (!installed || !installed.path || !Plugins.Filesystem) return load(BUNDLED, null);
+      // Pobrany rdzeń tylko wtedy, gdy jest nowszy od wbudowanego (nowa aplikacja ma świeższy rdzeń w sobie)
+      if (!installed || !installed.path || !Plugins.Filesystem || !newer(installed.version, BUNDLED.version)) return load(BUNDLED, null);
 
       // Ścieżkę zamieniamy na adres przy każdym starcie: na iPhonie folder aplikacji zmienia się po aktualizacji
       Plugins.Filesystem.getUri({ directory: 'DATA', path: installed.path })

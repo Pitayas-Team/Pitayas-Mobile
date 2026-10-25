@@ -1,6 +1,6 @@
 {
   "name": "pitayas-mobile",
-  "version": "0.1.0-beta",
+  "version": "0.1.1-beta",
   "description": "Pitayas na telefon — Pitaya Deck i Pitaya Cam w jednej aplikacji (Android i iPhone)",
   "private": true,
   "scripts": {

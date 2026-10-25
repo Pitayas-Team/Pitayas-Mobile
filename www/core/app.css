@@ -123,3 +123,6 @@ input:focus, select:focus { outline: none; border-color: var(--m-accent); }
 .hint.warn { color: var(--m-warn); }
 .spinner { width: 28px; height: 28px; margin: 20px auto; border: 3px solid var(--m-item); border-top-color: var(--m-accent); border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
+.log { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; background: var(--m-panel); border-radius: 14px; font-size: 13px; color: var(--m-text-2); user-select: text; -webkit-user-select: text; }
+.log small { display: block; font-size: 11px; color: var(--m-text-3); }
+.log .err { color: var(--m-danger); }

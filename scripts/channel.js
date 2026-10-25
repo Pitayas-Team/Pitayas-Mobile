@@ -56,6 +56,19 @@ for (const id of fs.existsSync(path.join(OUT, 'modules')) ? fs.readdirSync(path.
     if (!modules.some((m) => m.id === id)) fs.rmSync(path.join(OUT, 'modules', id), { recursive: true, force: true });
 }
 
+// Kopie w aplikacji (www/): rdzeń jest tam zawsze, moduły w www/modules/<id>/ — działają bez internetu,
+// a nowy APK/IPA od razu ma najnowsze wersje. Kanał i tak dostarcza późniejsze poprawki.
+const WWW_MODS = path.join(ROOT, 'www', 'modules');
+fs.rmSync(WWW_MODS, { recursive: true, force: true });
+for (const m of modules) {
+    const dest = path.join(WWW_MODS, m.id);
+    fs.mkdirSync(dest, { recursive: true });
+    for (const f of m.files) fs.copyFileSync(path.join(ROOT, 'modules', m.id, f), path.join(dest, f));
+}
+fs.writeFileSync(path.join(WWW_MODS, 'index.json'), JSON.stringify({ modules: modules.map((m) => ({ ...m, base: `modules/${m.id}/` })) }, null, 2) + '\n');
+const loaderPath = path.join(ROOT, 'www', 'index.html');
+fs.writeFileSync(loaderPath, fs.readFileSync(loaderPath, 'utf8').replace(/var BUNDLED = \{ version: '[^']*'/, `var BUNDLED = { version: '${core.version}'`));
+
 const manifest = {
     schema: 1,
     generated: new Date().toISOString(),
