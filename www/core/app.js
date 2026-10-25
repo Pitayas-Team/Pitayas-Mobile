@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.1.8';
+const CORE_VERSION = '0.1.9';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -597,14 +597,30 @@ function openLogin() {
 // Discord: serwer daje jednorazowy kod, logowanie odbywa się w przeglądarce, aplikacja pyta serwer, czy już gotowe.
 // Dzięki temu nie trzeba własnego adresu pitayas:// (to wymagałoby nowej aplikacji).
 let discordPoll = null;
+// Logowanie w okienku wewnątrz aplikacji (InAppBrowser WebView); bez wtyczki — przeglądarka
+const WEBVIEW = {
+    showToolbar: true, showURL: false, clearCache: false, clearSessionCache: false, mediaPlaybackRequiresUserAction: false,
+    closeButtonText: 'Zamknij', toolbarPosition: 0, showNavigationButtons: false, leftToRight: false, customWebViewUserAgent: null,
+    android: { allowZoom: false, hardwareBack: true, pauseMedia: true, isIsolated: false, successUrlPatterns: [] },
+    iOS: { allowOverScroll: true, enableViewportScale: false, allowInLineMediaPlayback: false, surpressIncrementalRendering: false, viewStyle: 2, animationEffect: 2, allowsBackForwardNavigationGestures: true },
+};
+function openDiscordWindow(url) {
+    const iab = Plugins.InAppBrowser;
+    if (!iab) return window.open(url, '_blank');
+    iab.openInWebView({ url, options: WEBVIEW })
+        .catch(() => iab.openInExternalBrowser({ url }))
+        .catch(() => window.open(url, '_blank'));
+}
+function closeDiscordWindow() {
+    if (Plugins.InAppBrowser) Promise.resolve().then(() => Plugins.InAppBrowser.close()).catch(() => {});
+}
 async function loginDiscord() {
     let start;
     try { start = await accountFetch('api/discord/start', {}); } catch (err) { return toast(`Discord: ${errText(err)}`, 'err'); }
-    if (Plugins.InAppBrowser) Plugins.InAppBrowser.openInExternalBrowser({ url: start.url }).catch(() => window.open(start.url, '_blank'));
-    else window.open(start.url, '_blank');
-    openSheet('Discord', `<div class="spinner"></div><p class="hint">Zaloguj się w przeglądarce i wróć do aplikacji.</p>
+    openDiscordWindow(start.url);
+    openSheet('Discord', `<div class="spinner"></div><p class="hint">Zaloguj się w okienku Discorda — aplikacja zaloguje się sama.</p>
         <button class="btn ghost" id="dcCancel">Anuluj</button>`, openSettings);
-    $('dcCancel').onclick = () => { clearInterval(discordPoll); openSettings(); };
+    $('dcCancel').onclick = () => { clearInterval(discordPoll); closeDiscordWindow(); openSettings(); };
     const until = Date.now() + 5 * 60 * 1000;
     clearInterval(discordPoll);
     discordPoll = setInterval(async () => {
@@ -613,10 +629,12 @@ async function loginDiscord() {
             const d = await accountFetch(`api/discord/poll?c=${encodeURIComponent(start.code)}`);
             if (d.pending) return;
             clearInterval(discordPoll);
+            closeDiscordWindow();
             setLogin(d);
             if (!$('sheet').hidden) openSettings();
         } catch (err) {
             clearInterval(discordPoll);
+            setTimeout(closeDiscordWindow, 4000);   // chwila na przeczytanie komunikatu w okienku
             toast(errText(err), 'err');
             if (!$('sheet').hidden) openSettings();
         }
