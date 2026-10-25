@@ -229,7 +229,7 @@
         });
         const d = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
-        Object.assign(store.streams, { server: server === DEFAULT_STREAMS ? '' : server, token: d.token || '', login: d.login || login, logged: true });
+        Object.assign(store.streams, { server: server === DEFAULT_STREAMS ? '' : server, token: d.token || '', login: d.login || login, logged: true, viaAccount: false });
         save();
     }
 
@@ -360,9 +360,23 @@
         renderPage();
     }
 
+    // Konto Pitayas z Ustawień działa też w Pitaya Streams — bez osobnego logowania
+    function syncAccount() {
+        const acc = api.account ? api.account() : null;
+        const st = store.streams;
+        if (acc && (!st.logged || (st.viaAccount && st.token !== acc.token))) {
+            Object.assign(st, { server: '', token: acc.token, login: acc.user.name || acc.user.login, logged: true, viaAccount: true });
+            save();
+        } else if (!acc && st.viaAccount) {
+            Object.assign(st, { token: '', logged: false, viaAccount: false });
+            save();
+        }
+    }
+
     function renderPage() {
         const page = q('.md-page');
         if (!page) return;
+        syncAccount();
         if (tab === 'search') page.innerHTML = store.streams.logged ? searchHtml() : loginHtml();
         else if (tab === 'link') page.innerHTML = linkHtml();
         else page.innerHTML = filesHtml();
@@ -374,7 +388,7 @@
         return `
             <form class="md-panel" data-login>
               <b class="md-h">Zaloguj się do Pitaya Streams</b>
-              <p class="hint">To samo konto co na stronie konfiguracji dodatku Stremio.</p>
+              <p class="hint">Najprościej: zaloguj się na konto Pitayas w Ustawieniach aplikacji — Pitaya Streams użyje go samo. Albo podaj login tutaj.</p>
               <div><label>Serwer</label><input name="server" inputmode="url" autocapitalize="off" placeholder="${esc(DEFAULT_STREAMS)}" value="${esc(store.streams.server)}"></div>
               <div><label>Login</label><input name="login" autocapitalize="off" autocomplete="username" value="${esc(store.streams.login)}"></div>
               <div><label>Hasło</label><input name="password" type="password" autocomplete="current-password"></div>
@@ -545,7 +559,10 @@
         };
         const sf = q('[data-search]');
         if (sf) sf.onsubmit = (e) => { e.preventDefault(); search.q = sf.elements.q.value; sf.elements.q.blur(); doSearch(); };
-        on('[data-logout]', () => { Object.assign(store.streams, { token: '', logged: false }); save(); renderPage(); });
+        on('[data-logout]', () => {
+            if (store.streams.viaAccount) return api.toast('Używasz konta Pitayas — wyloguj się w Ustawieniach aplikacji');
+            Object.assign(store.streams, { token: '', logged: false }); save(); renderPage();
+        });
         on('[data-res]', (b) => openTitle(search.results[Number(b.dataset.res)]));
         on('[data-back]', (b) => {
             if (b.dataset.back === 'title' && search.meta && search.meta.type === 'series') Object.assign(search, { target: null, streams: null, error: '' });

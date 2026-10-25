@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated": "2026-10-25T21:23:46.789Z",
+  "generated": "2026-10-25T22:47:45.805Z",
   "shell": {
     "version": "0.1.1",
     "android": "https://github.com/Pitayas-Team/Pitayas-Mobile/releases/download/v0.1.1-beta/Pitayas-0.1.1-beta.apk",
@@ -73,7 +73,7 @@
       "id": "media",
       "name": "Pitayas Media",
       "description": "Filmy i seriale z Pitaya Streams, YouTube i linki — pobieranie na telefon",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "minCore": "0.1.1",
       "port": {
         "default": 8193,
@@ -85,7 +85,7 @@
         "module.css",
         "icon.png"
       ],
-      "base": "modules/media/0.1.0/"
+      "base": "modules/media/0.1.1/"
     }
   ]
 }
