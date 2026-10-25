@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.1.3';
+const CORE_VERSION = '0.1.4';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 
 const $ = (id) => document.getElementById(id);
@@ -653,6 +653,7 @@ if (Plugins.App) {
     });
     Plugins.App.addListener('appStateChange', ({ isActive }) => {
         if (!isActive && activeView && defs[activeView.id] && defs[activeView.id].pause) defs[activeView.id].pause();
+        if (isActive && activeView && defs[activeView.id] && defs[activeView.id].resume) defs[activeView.id].resume();
         if (isActive && !activeView) { refreshStatus(); checkUpdates(false); }
     });
 }

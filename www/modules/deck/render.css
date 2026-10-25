@@ -72,6 +72,14 @@
 .pd-gauges.rings.n3 .pd-ring:last-child { grid-column: span 2; }
 .pd-ring { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; min-height: 0; }
 .pd-ring svg { height: 100%; max-width: 100%; transform: rotate(-90deg); }
+/* Safari / iPhone: wiersze siatki muszą mieć określoną wysokość, inaczej height:100% zwija koło do rozmiaru tekstu */
+.pd-gauges.rings { grid-auto-rows: minmax(0, 1fr); align-items: stretch; justify-items: stretch; }
+@supports (container-type: size) {
+    .pd-ring { container-type: size; }
+    .pd-ring svg { width: min(100cqw, 100cqh); height: min(100cqw, 100cqh); max-width: none; }
+    .pd-ring-text b { font-size: min(calc(var(--pd-font) * 1.15), 26cqmin); }
+    .pd-ring-text span { font-size: min(calc(var(--pd-font) * 0.7), 15cqmin); }
+}
 .pd-ring-bg, .pd-ring-fg { fill: none; stroke-width: 3.4; }
 .pd-ring-bg { stroke: rgba(255,255,255,0.1); }
 .pd-ring-fg { stroke: hsl(var(--hue), 85%, 58%); stroke-linecap: round; transition: stroke-dasharray 400ms ease; }

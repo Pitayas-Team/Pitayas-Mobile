@@ -16,8 +16,9 @@
   --m-text: #eeedf3;
   --m-text-2: #c2c0cc;
   --m-text-3: #8e8c9b;
-  --top: max(16px, env(safe-area-inset-top));
-  --bottom: max(16px, env(safe-area-inset-bottom));
+  /* Android: Capacitor podaje marginesy w --safe-area-inset-*, iPhone: env() */
+  --top: max(16px, var(--safe-area-inset-top, env(safe-area-inset-top)));
+  --bottom: max(16px, var(--safe-area-inset-bottom, env(safe-area-inset-bottom)));
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, system-ui, 'Segoe UI', Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }

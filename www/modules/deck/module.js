@@ -45,8 +45,8 @@
     const PREFS_KEY = 'pitayas-deck-prefs';
     const SAVER_OPTIONS = [[0, 'Wyłączony'], [30, '30 s'], [60, '1 min'], [120, '2 min'], [300, '5 min'], [600, '10 min']];
     const prefs = (() => {
-        try { return Object.assign({ keepAwake: true, saver: 120 }, JSON.parse(localStorage.getItem(PREFS_KEY))); }
-        catch { return { keepAwake: true, saver: 120 }; }
+        try { return Object.assign({ keepAwake: true, saver: 120, fullscreen: true }, JSON.parse(localStorage.getItem(PREFS_KEY))); }
+        catch { return { keepAwake: true, saver: 120, fullscreen: true }; }
     })();
     const savePrefs = () => { try { localStorage.setItem(PREFS_KEY, JSON.stringify(prefs)); } catch {} };
 
@@ -75,8 +75,11 @@
     // ───── Połączenie ─────
     function connect() {
         if (!el) return;
+        clearTimeout(retryTimer); retryPending = false;
+        if (ws) { ws.onclose = null; try { ws.close(); } catch {} ws = null; }
         const url = api.url('/ws', 'ws');
         let opened = false;
+        connectingSince = Date.now();
         try { ws = new WebSocket(url); } catch (err) {
             return screen('Nie mogę się połączyć', `Błąd: ${escapeHtml(err.message)}<br>Adres: <b>${escapeHtml(url)}</b>`, false);
         }
@@ -86,6 +89,7 @@
             ws.send(JSON.stringify({ t: 'hello', deviceId: deviceId(), name: deviceName() }));
         };
         ws.onmessage = (e) => {
+            lastMsg = Date.now();
             let msg;
             try { msg = JSON.parse(e.data); } catch { return; }
             if (msg.t === 'state') {
@@ -104,10 +108,54 @@
             if (!el) return;
             const delay = Math.min(8000, 500 * 2 ** retry++);
             if (!state || retry > 1) failScreen(url, opened);
-            retryTimer = setTimeout(connect, delay);
+            if (document.visibilityState === 'hidden') return;   // połączymy po powrocie (onVisibility)
+            retryPending = true;
+            retryTimer = setTimeout(() => { retryPending = false; connect(); }, delay);
         };
         ws.onerror = () => {};
     }
+    // Po wygaszeniu ekranu (AOD, blokada) system po cichu zabija połączenie, a czasem zostawia „martwe”,
+    // które wygląda na otwarte. Po powrocie zawsze łączymy od nowa, od razu, bez czekania na licznik prób.
+    let connectingSince = 0, lastMsg = 0, hiddenAt = 0, watchdog = null;
+    function reconnectNow() {
+        if (!el) return;
+        retry = 0;
+        connect();
+    }
+    function onVisibility() {
+        if (!el) return;
+        if (document.visibilityState === 'hidden') {
+            hiddenAt = Date.now();
+            clearTimeout(retryTimer);   // w tle nie próbujemy — i tak się nie uda
+            return;
+        }
+        applyBars();
+        applyAwake();
+        if (!ws || ws.readyState !== 1 || Date.now() - hiddenAt > 1500) reconnectNow();
+    }
+    function checkAlive() {
+        if (!el || document.visibilityState !== 'visible') return;
+        // Wisi na „łączeniu” dłużej niż 6 s (typowe po wybudzeniu Wi‑Fi) — próbujemy jeszcze raz
+        if (ws && ws.readyState === 0 && Date.now() - connectingSince > 6000) reconnectNow();
+        // Brak gniazda i brak zaplanowanej próby — np. timer zgubiony podczas uśpienia
+        if (!ws && !retryTimerActive()) reconnectNow();
+    }
+    const retryTimerActive = () => retryTimer && retryPending;
+    let retryPending = false;
+
+    // ───── Pełny ekran: ukrywa paski systemu (Capacitor SystemBars, wbudowany w aplikację) ─────
+    let barsHiddenAt = 0;
+    function applyBars() {
+        const bars = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SystemBars;
+        if (!bars || !api || !api.native) return;
+        (prefs.fullscreen && el ? bars.hide() : bars.show()).catch(() => {});
+        barsHiddenAt = Date.now();
+    }
+    // Android pokazuje paski po przeciągnięciu od krawędzi — po chwili chowamy je znowu
+    function rehideBars() {
+        if (prefs.fullscreen && Date.now() - barsHiddenAt > 3000) applyBars();
+    }
+
     // Ekran „nie ma połączenia”: wskazówki, wynik testu HTTP i wyjście awaryjne przez Safari / przeglądarkę
     let httpCheck = null;
     async function failScreen(url, opened) {
@@ -336,6 +384,7 @@
             return;
         }
         resetIdle();
+        rehideBars();
     }
 
     function openPanel() {
@@ -343,6 +392,8 @@
         p.innerHTML = `
             <div class="panel-card">
               <div class="panel-head"><b>Ekran</b><button class="deck-btn panel-close" title="Zamknij"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+              ${api.native ? `<label class="panel-row"><span>Pełny ekran<small>Ukrywa pasek stanu i nawigacji telefonu</small></span>
+                <input type="checkbox" class="p-full" ${prefs.fullscreen ? 'checked' : ''}></label>` : ''}
               <label class="panel-row"><span>Nie wygaszaj ekranu<small>Telefon nie zgaśnie, póki deck jest otwarty</small></span>
                 <input type="checkbox" class="p-awake" ${prefs.keepAwake ? 'checked' : ''}></label>
               <div class="panel-row"><span>Wygaszacz z zegarem<small>Po bezczynności deck chowa się pod dużym zegarem</small></span></div>
@@ -352,6 +403,7 @@
         p.hidden = false;
         p.querySelector('.panel-close').onclick = closePanel;
         p.onclick = (e) => { if (e.target === p) closePanel(); };
+        if (p.querySelector('.p-full')) p.querySelector('.p-full').onchange = (e) => { prefs.fullscreen = e.target.checked; savePrefs(); applyBars(); };
         p.querySelector('.p-awake').onchange = (e) => { prefs.keepAwake = e.target.checked; savePrefs(); applyAwake(); };
         p.querySelectorAll('[data-saver]').forEach((b) => (b.onclick = () => {
             prefs.saver = Number(b.dataset.saver);
@@ -410,29 +462,38 @@
             clock();
             ticks = [setInterval(clock, 5000), setInterval(() => window.PitayaDeckRender && el && PitayaDeckRender.tickClocks($('.grid')), 1000)];
             addEventListener('resize', onResize);
+            document.addEventListener('visibilitychange', onVisibility);
+            addEventListener('online', reconnectNow);
+            watchdog = setInterval(checkAlive, 3000);
+            applyBars();
             applyAwake();
             resetIdle();
             try { await loadRender(); } catch (err) { return screen('Błąd modułu', escapeHtml(err.message), false); }
             connect();
         },
 
-        // W tle system i tak zrywa połączenie — po powrocie łączymy od razu
+        // W tle system i tak zrywa połączenie — zamykamy porządnie, a po powrocie łączymy od razu
         pause() {
+            hiddenAt = Date.now();
             if (ws) { ws.onclose = null; ws.close(); ws = null; }
-            clearTimeout(retryTimer);
-            retryTimer = setTimeout(connect, 300);
+            clearTimeout(retryTimer); retryPending = false;
         },
+        resume() { onVisibility(); },
 
         unmount() {
             const awake = api && api.Plugins.KeepAwake;
             if (awake) awake.allowSleep().catch(() => {});
             removeEventListener('resize', onResize);
+            document.removeEventListener('visibilitychange', onVisibility);
+            removeEventListener('online', reconnectNow);
+            clearInterval(watchdog);
             ticks.forEach(clearInterval);
             clearTimeout(idleTimer);
             clearInterval(driftTimer);
             clearTimeout(retryTimer);
             if (ws) { ws.onclose = null; ws.close(); ws = null; }
             state = null; retry = 0; el = null; view = null;
+            applyBars();   // el = null → pokaż paski z powrotem
         },
     });
 })();
