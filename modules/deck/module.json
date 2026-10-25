@@ -2,8 +2,21 @@
   "id": "deck",
   "name": "Pitaya Deck",
   "description": "Panel przycisków do komputera",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "minCore": "0.1.0",
-  "port": { "default": 8191, "label": "Port Deck" },
-  "files": ["module.js", "icon.png"]
+  "port": {
+    "default": 8191,
+    "label": "Port Deck"
+  },
+  "files": [
+    "module.js",
+    "module.css",
+    "render.js",
+    "render.css",
+    "icon.png"
+  ],
+  "copyFrom": {
+    "render.js": "../../../Pitayas-Deck/shared/render.js",
+    "render.css": "../../../Pitayas-Deck/shared/render.css"
+  }
 }

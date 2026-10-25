@@ -10,7 +10,7 @@ Instalujesz raz małą aplikację **Pitayas**, a w niej pobierasz moduły, któr
 
 | Moduł | Co robi | Na komputerze |
 | --- | --- | --- |
-| **Pitaya Deck** | panel przycisków do komputera (pełny ekran w aplikacji) | Pitaya Deck, port 8191 |
+| **Pitaya Deck** | panel przycisków do komputera w aplikacji, opcja „nie wygaszaj ekranu” i wygaszacz z zegarem | Pitaya Deck, port 8191 |
 | **Pitaya Cam** | aparat telefonu jako kamera internetowa w komputerze | Pitaya Cam, port 2139 (port strony iPhone + 2) |
 
 Rdzeń aplikacji i moduły **aktualizują się same** — bez pobierania nowego APK/IPA.

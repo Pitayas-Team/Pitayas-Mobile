@@ -1,0 +1,57 @@
+/* ═══════ PITAYA DECK (moduł) — wygląd jak strona decka (Pitaya Deck → client/client.css) ═══════ */
+.view.deck-full { padding: 0; max-width: none; gap: 0; overflow: hidden; }
+.view.deck-full > .bar { display: none; }
+.view.deck-full > .view-body { flex: 1; min-height: 0; }
+
+.deck-mod {
+    --bg: #121116; --text: #eeedf3; --text-3: #8e8c9b; --accent: #ff4fa6;
+    position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 0 !important;
+    color: var(--text); touch-action: manipulation; overscroll-behavior: none;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    background: radial-gradient(700px 400px at 100% -10%, rgba(255,60,160,0.16), transparent 70%), var(--bg);
+}
+.deck-mod .deck-bar { height: 48px; flex-shrink: 0; display: flex; align-items: center; gap: 8px; padding: 0 10px; }
+.deck-mod .deck-btn { width: 38px; height: 38px; border-radius: 50%; border: none; background: rgba(255,255,255,0.07); color: var(--text); display: grid; place-items: center; flex-shrink: 0; }
+.deck-mod .deck-btn svg { width: 20px; height: 20px; }
+.deck-mod .deck-btn:active { background: rgba(255,255,255,0.16); }
+.deck-mod .deck-title { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 8px; }
+.deck-mod .deck-title span { font-weight: 800; font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.deck-mod .deck-title small { font-size: 12px; color: var(--text-3); white-space: nowrap; }
+.deck-mod .bar-clock { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--text-3); font-size: 14px; }
+
+.deck-mod .grid-wrap { flex: 1; min-height: 0; min-width: 0; width: 100%; overflow: hidden; display: flex; flex-direction: column; gap: 14px; align-items: center; justify-content: center; padding: 6px 12px 12px; }
+.deck-mod .grid { display: grid; gap: var(--gap, 12px); }
+.deck-mod .grid .pd-btn { width: auto; height: auto; min-width: 0; min-height: 0; cursor: pointer; }
+.deck-mod .rotate-hint { font-size: 12.5px; color: var(--text-3); display: flex; align-items: center; gap: 8px; }
+.deck-mod .rotate-hint svg { width: 18px; height: 18px; }
+
+.deck-mod .screen { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--bg); z-index: 20; }
+.deck-mod .screen.hidden { display: none; }
+.deck-mod .screen-card { text-align: center; max-width: 360px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+.deck-mod .screen-logo { width: 96px; height: 96px; border-radius: 24px; filter: drop-shadow(0 14px 30px rgba(255,60,160,0.35)); }
+.deck-mod .screen-title { font-size: 22px; font-weight: 800; }
+.deck-mod .screen-text { font-size: 14px; color: var(--text-3); line-height: 1.5; text-align: left; }
+.deck-mod .screen-text b { color: var(--text); }
+.deck-mod .spinner { margin: 0; }
+.deck-mod .spinner.hidden { display: none; }
+
+.deck-mod .toast { position: absolute; bottom: calc(18px + env(safe-area-inset-bottom)); z-index: 30; }
+.deck-mod .toast.error { background: #5a1f2a; }
+
+/* Wygaszacz z zegarem */
+.deck-mod .saver { position: absolute; inset: 0; z-index: 40; background: #000; display: flex; align-items: center; justify-content: center; }
+.deck-mod .saver-clock { text-align: center; transition: transform 2s ease; }
+.deck-mod .saver-time { font-size: min(22vw, 38vh); font-weight: 800; letter-spacing: -0.04em; line-height: 1; color: #d9d7e2; font-variant-numeric: tabular-nums; }
+.deck-mod .saver-date { margin-top: 8px; font-size: min(5vw, 6vh); font-weight: 600; color: #6f6d7b; text-transform: capitalize; }
+
+/* Ustawienia ekranu */
+.deck-mod .panel { position: absolute; inset: 0; z-index: 35; background: rgba(0,0,0,0.55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.deck-mod .panel-card { width: 100%; max-width: 420px; background: #1c1b22; border: 1px solid rgba(255,255,255,0.08); border-radius: 22px; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+.deck-mod .panel-head { display: flex; align-items: center; justify-content: space-between; font-size: 18px; }
+.deck-mod .panel-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; text-transform: none; letter-spacing: 0; color: var(--text); font-size: 15px; font-weight: 600; }
+.deck-mod .panel-row small { display: block; font-size: 12.5px; font-weight: 500; color: var(--text-3); margin-top: 2px; }
+.deck-mod .panel-row input { width: 22px; height: 22px; padding: 0; flex-shrink: 0; accent-color: var(--accent); -webkit-appearance: checkbox; appearance: auto; }
+.deck-mod .panel-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.deck-mod .p-chip { border: 1px solid rgba(255,255,255,0.11); background: #17161c; color: var(--text); border-radius: 999px; padding: 8px 14px; font-size: 14px; font-weight: 600; }
+.deck-mod .p-chip.on { background: var(--accent); border-color: var(--accent); color: #1d1206; }
+.deck-mod .p-test { border: none; border-radius: 999px; padding: 12px; font-size: 15px; font-weight: 700; background: #2a2932; color: var(--text); }

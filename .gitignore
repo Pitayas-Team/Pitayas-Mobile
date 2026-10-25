@@ -9,3 +9,4 @@ ios/DerivedData/
 build/
 *.jks
 *.keystore
+dist/

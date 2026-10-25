@@ -42,6 +42,12 @@ for (const id of fs.readdirSync(path.join(ROOT, 'modules')).sort()) {
     if (!fs.existsSync(path.join(dir, 'module.json'))) continue;
     const m = read(`modules/${id}/module.json`);
     if (m.id !== id) throw new Error(`modules/${id}/module.json ma id „${m.id}”`);
+    // Pliki wspólne z aplikacją na komputer (np. rysowanie widżetów z Pitaya Deck) — kopiujemy świeże, jeśli jest obok
+    for (const [file, from] of Object.entries(m.copyFrom || {})) {
+        const src = path.join(dir, from);
+        if (fs.existsSync(src)) fs.copyFileSync(src, path.join(dir, file));
+    }
+    delete m.copyFrom;
     copyVersion(dir, m.files, path.join(OUT, 'modules', id, m.version));
     modules.push({ ...m, base: `modules/${id}/${m.version}/` });
 }

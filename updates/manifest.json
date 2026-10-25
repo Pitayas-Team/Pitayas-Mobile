@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated": "2026-10-24T22:20:17.047Z",
+  "generated": "2026-10-24T23:58:24.303Z",
   "shell": {
     "version": "0.1.0",
     "android": "https://github.com/Pitayas-Team/Pitayas-Mobile/releases/download/v0.1.0-beta/Pitayas-0.1.0-beta.apk",
@@ -38,7 +38,7 @@
       "id": "deck",
       "name": "Pitaya Deck",
       "description": "Panel przycisków do komputera",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "minCore": "0.1.0",
       "port": {
         "default": 8191,
@@ -46,9 +46,12 @@
       },
       "files": [
         "module.js",
+        "module.css",
+        "render.js",
+        "render.css",
         "icon.png"
       ],
-      "base": "modules/deck/0.1.0/"
+      "base": "modules/deck/0.2.0/"
     }
   ]
 }
