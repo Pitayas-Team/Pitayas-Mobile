@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.1.7';
+const CORE_VERSION = '0.1.8';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -170,7 +170,7 @@ async function refreshStatus() {
 
 // ═══════ EKRAN STARTOWY ═══════
 function renderTiles() {
-    const list = Object.values(installed).sort((a, b) => a.name.localeCompare(b.name));
+    const list = Object.values(installed).filter((m) => !isHidden(m.id)).sort((a, b) => a.name.localeCompare(b.name));
     $('tiles').innerHTML = list.map((m) => `
         <button class="tile${hasAccess(m.id) ? '' : ' locked'}" data-open="${esc(m.id)}">
           <img src="${esc((m.base || '') + 'icon.png')}" alt="">
@@ -521,6 +521,8 @@ const accountServer = () => {
     return s.endsWith('/') ? s : `${s}/`;
 };
 const hasAccess = (id) => !access[id] || !access[id].testersOnly || Boolean(access[id].access);
+// Ukryta aplikacja: bez dostępu nie widać jej ani na ekranie głównym, ani w „Moduły”
+const isHidden = (id) => Boolean(access[id] && access[id].hidden && !hasAccess(id));
 
 async function accountFetch(path, body) {
     const ctrl = new AbortController();
@@ -652,9 +654,9 @@ async function openModules() {
 
 function renderModules() {
     if ($('sheet').hidden) return;
-    const avail = available();
+    const avail = available().filter((m) => !isHidden(m.id));
     const ids = new Set(avail.map((m) => m.id));
-    const local = Object.values(installed).filter((m) => !ids.has(m.id));   // wycofane z kanału, ale zainstalowane
+    const local = Object.values(installed).filter((m) => !ids.has(m.id) && !isHidden(m.id));   // wycofane z kanału, ale zainstalowane
     $('sheetBody').innerHTML = `<div class="mod-list">${[...avail, ...local].map((m) => {
         const have = installed[m.id];
         const newer = have && vcmp(m.version, have.version) > 0;
