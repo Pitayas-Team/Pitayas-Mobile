@@ -2,7 +2,7 @@
   "id": "deck",
   "name": "Pitaya Deck",
   "description": "Panel przycisków do komputera",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "minCore": "0.1.0",
   "port": {
     "default": 8191,

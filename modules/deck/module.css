@@ -55,3 +55,5 @@
 .deck-mod .p-chip { border: 1px solid rgba(255,255,255,0.11); background: #17161c; color: var(--text); border-radius: 999px; padding: 8px 14px; font-size: 14px; font-weight: 600; }
 .deck-mod .p-chip.on { background: var(--accent); border-color: var(--accent); color: #1d1206; }
 .deck-mod .p-test { border: none; border-radius: 999px; padding: 12px; font-size: 15px; font-weight: 700; background: #2a2932; color: var(--text); }
+.deck-mod .screen-ext { display: block; width: 100%; margin-top: 16px; border: none; border-radius: 999px; padding: 13px; font-size: 15px; font-weight: 700; color: #1d1206; background: linear-gradient(135deg, #ff7fc0, #e6007e); }
+.deck-mod .screen-ext-hint { display: block; margin-top: 8px; text-align: center; }

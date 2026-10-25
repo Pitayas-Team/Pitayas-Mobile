@@ -68,6 +68,10 @@
 	<string>Pitaya Cam wysyła obraz z aparatu do komputera jako kamerę internetową.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Pitayas łączy się z Pitaya Deck i Pitaya Cam na Twoim komputerze w sieci lokalnej.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_pitayas._tcp</string>
+	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>

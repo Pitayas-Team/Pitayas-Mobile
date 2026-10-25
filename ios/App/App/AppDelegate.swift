@@ -1,14 +1,29 @@
 import UIKit
 import Capacitor
+import Network
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
     var window: UIWindow?
+    private var localNetworkBrowser: NWBrowser?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
-        // Override point for customization after application launch.
+        requestLocalNetworkAccess()
         return true
+    }
+
+    // Ruch z WebView (Deck, Cam) sam nie wywołuje pytania iOS o „Sieć lokalną” i jest po cichu blokowany.
+    // Krótkie wyszukiwanie Bonjour pokazuje to pytanie przy pierwszym starcie — po zgodzie WebView widzi komputer.
+    private func requestLocalNetworkAccess() {
+        let browser = NWBrowser(for: .bonjour(type: "_pitayas._tcp", domain: nil), using: .tcp)
+        browser.browseResultsChangedHandler = { _, _ in }
+        browser.start(queue: .main)
+        localNetworkBrowser = browser
+        DispatchQueue.main.asyncAfter(deadline: .now() + 15) { [weak self] in
+            self?.localNetworkBrowser?.cancel()
+            self?.localNetworkBrowser = nil
+        }
     }
 
     func applicationWillResignActive(_ application: UIApplication) {

@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.1.0';
+const CORE_VERSION = '0.1.1';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 
 const $ = (id) => document.getElementById(id);
@@ -190,8 +190,8 @@ $('tiles').addEventListener('click', (e) => {
     if (e.target.closest('[data-modules]')) return openModules();
     const tile = e.target.closest('[data-open]');
     if (!tile) return;
-    if (!current()) return openPcs();
     const id = tile.dataset.open;
+    if (!current() && installed[id] && installed[id].port) return openPcs();   // Deck, Cam potrzebują komputera; Convert nie
     const def = defs[id];
     if (!def) return toast('Moduł się nie wczytał — zaktualizuj go w „Moduły”.', 'err');
     if (def.open) return def.open(makeApi(id));

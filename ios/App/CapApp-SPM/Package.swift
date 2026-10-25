@@ -15,7 +15,8 @@ let package = Package(
         .package(name: "CapacitorCommunityKeepAwake", path: "../../../node_modules/@capacitor-community/keep-awake"),
         .package(name: "CapacitorApp", path: "../../../node_modules/@capacitor/app"),
         .package(name: "CapacitorFilesystem", path: "../../../node_modules/@capacitor/filesystem"),
-        .package(name: "CapacitorInappbrowser", path: "../../../node_modules/@capacitor/inappbrowser")
+        .package(name: "CapacitorInappbrowser", path: "../../../node_modules/@capacitor/inappbrowser"),
+        .package(name: "CapacitorShare", path: "../../../node_modules/@capacitor/share")
     ],
     targets: [
         .target(
@@ -26,7 +27,8 @@ let package = Package(
                 .product(name: "CapacitorCommunityKeepAwake", package: "CapacitorCommunityKeepAwake"),
                 .product(name: "CapacitorApp", package: "CapacitorApp"),
                 .product(name: "CapacitorFilesystem", package: "CapacitorFilesystem"),
-                .product(name: "CapacitorInappbrowser", package: "CapacitorInappbrowser")
+                .product(name: "CapacitorInappbrowser", package: "CapacitorInappbrowser"),
+                .product(name: "CapacitorShare", package: "CapacitorShare")
             ]
         )
     ]

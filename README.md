@@ -3,7 +3,7 @@
 <p align="center">
   <img src="www/icons/pitayas.png" width="200">
 </p>
-<h4 align="center"> Jedna aplikacja na Androida i iPhone'a dla rodziny Pitayas — Pitaya Deck, Pitaya Cam i kolejne moduły </h4>
+<h4 align="center"> Jedna aplikacja na Androida i iPhone'a dla rodziny Pitayas — Pitaya Deck, Pitaya Cam, Pitaya Convert i kolejne moduły </h4>
 
 ### [+] Opis
 Instalujesz raz małą aplikację **Pitayas**, a w niej pobierasz moduły, których potrzebujesz:
@@ -12,6 +12,7 @@ Instalujesz raz małą aplikację **Pitayas**, a w niej pobierasz moduły, któr
 | --- | --- | --- |
 | **Pitaya Deck** | panel przycisków do komputera w aplikacji, opcja „nie wygaszaj ekranu” i wygaszacz z zegarem | Pitaya Deck, port 8191 |
 | **Pitaya Cam** | aparat telefonu jako kamera internetowa w komputerze | Pitaya Cam, port 2139 (port strony iPhone + 2) |
+| **Pitaya Convert** | zdjęcia (także HEIC), muzyka i filmy konwertowane na telefonie; FFmpeg (32 MB) pobiera się przy pierwszym użyciu | niepotrzebny |
 
 Rdzeń aplikacji i moduły **aktualizują się same** — bez pobierania nowego APK/IPA.
 

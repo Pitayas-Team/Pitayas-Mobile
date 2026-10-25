@@ -13,3 +13,6 @@ project(':capacitor-filesystem').projectDir = new File('../node_modules/@capacit
 
 include ':capacitor-inappbrowser'
 project(':capacitor-inappbrowser').projectDir = new File('../node_modules/@capacitor/inappbrowser/android')
+
+include ':capacitor-share'
+project(':capacitor-share').projectDir = new File('../node_modules/@capacitor/share/android')

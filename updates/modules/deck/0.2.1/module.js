@@ -103,19 +103,41 @@
             ws = null;
             if (!el) return;
             const delay = Math.min(8000, 500 * 2 ** retry++);
-            if (!state || retry > 1) {
-                const ios = /iPhone|iPad/.test(navigator.userAgent);
-                screen('Łączenie…', `Nie ma połączenia z <b>${escapeHtml(url.replace(/^ws:\/\/|\/ws$/g, ''))}</b>.<br><br>
-                    • Pitaya Deck musi działać na komputerze.<br>
-                    • Telefon w tej samej sieci Wi‑Fi co komputer.<br>
-                    ${ios ? '• iPhone: <b>Ustawienia → Prywatność i ochrona → Sieć lokalna → Pitayas</b> musi być włączone.<br>' : ''}
-                    • Zapora na komputerze musi przepuszczać port ${escapeHtml(api.port())}.
-                    ${opened ? '' : `<br><br><small>Próba ${retry}</small>`}`);
-            }
+            if (!state || retry > 1) failScreen(url, opened);
             retryTimer = setTimeout(connect, delay);
         };
         ws.onerror = () => {};
     }
+    // Ekran „nie ma połączenia”: wskazówki, wynik testu HTTP i wyjście awaryjne przez Safari / przeglądarkę
+    let httpCheck = null;
+    async function failScreen(url, opened) {
+        const ios = /iPhone|iPad/.test(navigator.userAgent);
+        const addr = url.replace(/^ws:\/\/|\/ws$/g, '');
+        const draw = () => screen('Łączenie…', `Nie ma połączenia z <b>${escapeHtml(addr)}</b>.
+            ${httpCheck === null ? '' : `<br>Test HTTP: <b>${httpCheck ? 'komputer odpowiada' : 'brak odpowiedzi'}</b>`}<br><br>
+            • Pitaya Deck musi działać na komputerze.<br>
+            • Telefon w tej samej sieci Wi‑Fi co komputer.<br>
+            ${ios ? '• <b>Ustawienia → Prywatność i ochrona → Sieć lokalna → Pitayas</b> musi być włączone. Jeśli Pitayas tam nie ma — zaktualizuj aplikację (Ustawienia w Pitayas).<br>' : ''}
+            • Zapora na komputerze musi przepuszczać port ${escapeHtml(api.port())}.
+            ${opened ? '' : `<br><small>Próba ${retry}</small>`}
+            ${api.native && api.Plugins.InAppBrowser ? `<button class="screen-ext" data-ext>${ios ? 'Otwórz w Safari' : 'Otwórz w przeglądarce'}</button>
+              <small class="screen-ext-hint">Strona decka w ${ios ? 'Safari' : 'przeglądarce'} — działa także bez zgody na sieć lokalną.</small>` : ''}`);
+        draw();
+        if (httpCheck === null) {
+            httpCheck = Boolean(await api.probe(api.url('/icons/32x32.png'), false));
+            if (el && !$('.screen').classList.contains('hidden')) draw();
+        }
+    }
+    function openExternal() {
+        api.Plugins.InAppBrowser.openInSystemBrowser({
+            url: api.url('/'),
+            options: {
+                android: { showTitle: true, hideToolbarOnScroll: true, viewStyle: 1, startAnimation: 2, exitAnimation: 3 },
+                iOS: { closeButtonText: 2, viewStyle: 2, animationEffect: 2, enableBarsCollapsing: true, enableReadersMode: false },
+            },
+        }).catch((err) => toast(`Nie udało się otworzyć: ${err.message || err}`, 'error'));
+    }
+
     function send(msg) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(msg)); }
 
     function absolutize(msg) {
@@ -382,6 +404,8 @@
             $('.btn-close').onclick = () => api.close();
             $('.btn-back').onclick = () => send({ t: 'nav', to: 'back' });
             $('.btn-screen').onclick = openPanel;
+            $('.screen').addEventListener('click', (e) => { if (e.target.closest('[data-ext]')) openExternal(); });
+            httpCheck = null;
             el.addEventListener('pointerdown', onActivity, true);
             clock();
             ticks = [setInterval(clock, 5000), setInterval(() => window.PitayaDeckRender && el && PitayaDeckRender.tickClocks($('.grid')), 1000)];

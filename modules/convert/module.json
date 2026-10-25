@@ -1,0 +1,8 @@
+{
+  "id": "convert",
+  "name": "Pitaya Convert",
+  "description": "Konwersja zdjęć, muzyki i filmów na telefonie",
+  "version": "0.1.0",
+  "minCore": "0.1.1",
+  "files": ["module.js", "module.css", "ffmpeg.js", "814.ffmpeg.js", "icon.png"]
+}
