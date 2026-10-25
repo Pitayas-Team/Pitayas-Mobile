@@ -3,8 +3,9 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.1.4';
+const CORE_VERSION = '0.1.5';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
+const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
 const $ = (id) => document.getElementById(id);
 const Plugins = (window.Capacitor && window.Capacitor.Plugins) || {};
@@ -102,8 +103,11 @@ function makeApi(id) {
         url: (path = '/', proto = 'http') => `${proto}://${hostOf(current())}:${portOf(current(), id)}${path}`,
         probe,
         close: () => showHome(),
+        account: () => (account.token ? { user: account.user, token: account.token, server: accountServer() } : null),
     };
 }
+// Moduł, który działa też bez komputera (port w module.json z "optional": true)
+const needsPc = (m) => Boolean(m && m.port && !m.port.optional);
 
 async function moduleBase(m) {
     if (m.url) return m.url;
@@ -158,7 +162,7 @@ async function refreshStatus() {
         const dot = $(`dot-${id}`);
         if (dot) dot.className = `dot ${online[id] ? 'on' : 'off'}`;
     });
-    const off = ids.filter((id) => !online[id]).map((id) => installed[id].name);
+    const off = ids.filter((id) => !online[id] && needsPc(installed[id])).map((id) => installed[id].name);
     $('homeHint').textContent = off.length
         ? `Nie widzę: ${off.join(', ')} na ${pc.host}. Uruchom na komputerze i sprawdź, czy telefon jest w tej samej sieci.`
         : '';
@@ -168,7 +172,7 @@ async function refreshStatus() {
 function renderTiles() {
     const list = Object.values(installed).sort((a, b) => a.name.localeCompare(b.name));
     $('tiles').innerHTML = list.map((m) => `
-        <button class="tile" data-open="${esc(m.id)}">
+        <button class="tile${hasAccess(m.id) ? '' : ' locked'}" data-open="${esc(m.id)}">
           <img src="${esc((m.base || '') + 'icon.png')}" alt="">
           <div class="tile-text"><b>${esc(m.name)}</b><small>${esc(m.description)}</small></div>
           <span class="dot ${online[m.id] === true ? 'on' : online[m.id] === false ? 'off' : ''}" id="dot-${esc(m.id)}"></span>
@@ -192,7 +196,8 @@ $('tiles').addEventListener('click', (e) => {
     const tile = e.target.closest('[data-open]');
     if (!tile) return;
     const id = tile.dataset.open;
-    if (!current() && installed[id] && installed[id].port) return openPcs();   // Deck, Cam potrzebują komputera; Convert nie
+    if (!hasAccess(id)) return toast(account.token ? 'Ten moduł jest tylko dla testerów' : 'Moduł dla testerów — zaloguj się w Ustawieniach', 'err');
+    if (!current() && needsPc(installed[id])) return openPcs();   // Deck, Cam potrzebują komputera; Convert nie
     const def = defs[id];
     if (!def) return toast('Moduł się nie wczytał — zaktualizuj go w „Moduły”.', 'err');
     if (def.open) return def.open(makeApi(id));
@@ -505,6 +510,130 @@ async function checkUpdates(manual) {
     return true;
 }
 
+// ═══════ KONTO PITAYAS ═══════
+// Logowanie loginem albo przez Discord na serwerze kont (admin.pitayas.eu). Serwer mówi, które moduły
+// są tylko dla testerów i czy to konto ma do nich dostęp. Bez logowania widać moduły dla wszystkich.
+const account = ls.get('pitayas-account', { token: '', user: null, server: '' });
+const saveAccount = () => ls.set('pitayas-account', account);
+let access = ls.get('pitayas-access', {});    // { id: { testersOnly, access } } — ostatnia znana odpowiedź serwera
+const accountServer = () => {
+    const s = (account.server || DEFAULT_ACCOUNTS).trim();
+    return s.endsWith('/') ? s : `${s}/`;
+};
+const hasAccess = (id) => !access[id] || !access[id].testersOnly || Boolean(access[id].access);
+
+async function accountFetch(path, body) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 10000);
+    try {
+        const headers = { 'Content-Type': 'application/json' };
+        if (account.token) headers.Authorization = `Bearer ${account.token}`;
+        const r = await fetch(`${accountServer()}${path}`, {
+            method: body ? 'POST' : 'GET', headers, body: body ? JSON.stringify(body) : undefined, cache: 'no-store', signal: ctrl.signal,
+        });
+        const data = await r.json().catch(() => ({}));
+        if (r.status === 401 && account.token && path === 'api/access') logoutLocal();
+        if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+        return data;
+    } finally { clearTimeout(timer); }
+}
+
+async function refreshAccess() {
+    try {
+        const d = await accountFetch('api/access');
+        access = d.apps || {};
+        ls.set('pitayas-access', access);
+        if (d.user) { account.user = d.user; saveAccount(); }
+    } catch {}   // bez internetu zostaje ostatnia znana lista
+    renderTiles();
+    if (!$('sheet').hidden && $('sheetTitle').textContent === 'Moduły') renderModules();
+}
+
+function setLogin(d) {
+    account.token = d.token;
+    account.user = d.user;
+    saveAccount();
+    toast(`Zalogowano: ${d.user.name || d.user.login}`);
+    refreshAccess();
+}
+
+function logoutLocal() {
+    account.token = '';
+    account.user = null;
+    saveAccount();
+}
+
+async function logout() {
+    try { await accountFetch('api/logout', {}); } catch {}
+    logoutLocal();
+    await refreshAccess();
+    openSettings();
+}
+
+function openLogin() {
+    openSheet('Zaloguj się', `
+        <form class="pc-form" id="lgForm">
+          <div><label for="lgLogin">Login</label><input id="lgLogin" autocapitalize="off" autocomplete="username" required></div>
+          <div><label for="lgPass">Hasło</label><input id="lgPass" type="password" autocomplete="current-password" required></div>
+          <button type="submit" class="btn">Zaloguj</button>
+        </form>`, openSettings);
+    setTimeout(() => $('lgLogin') && $('lgLogin').focus(), 250);
+    $('lgForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const btn = $('lgForm').querySelector('.btn');
+        btn.disabled = true;
+        try {
+            setLogin(await accountFetch('api/login', { login: $('lgLogin').value.trim(), password: $('lgPass').value }));
+            openSettings();
+        } catch (err) { toast(errText(err), 'err'); btn.disabled = false; }
+    };
+}
+
+// Discord: serwer daje jednorazowy kod, logowanie odbywa się w przeglądarce, aplikacja pyta serwer, czy już gotowe.
+// Dzięki temu nie trzeba własnego adresu pitayas:// (to wymagałoby nowej aplikacji).
+let discordPoll = null;
+async function loginDiscord() {
+    let start;
+    try { start = await accountFetch('api/discord/start', {}); } catch (err) { return toast(`Discord: ${errText(err)}`, 'err'); }
+    if (Plugins.InAppBrowser) Plugins.InAppBrowser.openInExternalBrowser({ url: start.url }).catch(() => window.open(start.url, '_blank'));
+    else window.open(start.url, '_blank');
+    openSheet('Discord', `<div class="spinner"></div><p class="hint">Zaloguj się w przeglądarce i wróć do aplikacji.</p>
+        <button class="btn ghost" id="dcCancel">Anuluj</button>`, openSettings);
+    $('dcCancel').onclick = () => { clearInterval(discordPoll); openSettings(); };
+    const until = Date.now() + 5 * 60 * 1000;
+    clearInterval(discordPoll);
+    discordPoll = setInterval(async () => {
+        if (Date.now() > until) { clearInterval(discordPoll); return toast('Logowanie przez Discord wygasło', 'err'); }
+        try {
+            const d = await accountFetch(`api/discord/poll?c=${encodeURIComponent(start.code)}`);
+            if (d.pending) return;
+            clearInterval(discordPoll);
+            setLogin(d);
+            if (!$('sheet').hidden) openSettings();
+        } catch (err) {
+            clearInterval(discordPoll);
+            toast(errText(err), 'err');
+            if (!$('sheet').hidden) openSettings();
+        }
+    }, 2000);
+}
+
+function accountHtml() {
+    const u = account.token && account.user;
+    return `<div><label>Konto Pitayas</label>
+        ${u ? `<div class="mod-item"><div class="pc-text"><b>${esc(u.name || u.login)}</b><small>${esc(u.login)}${u.discord ? ' · Discord' : ''}</small></div>
+                 <div class="mod-actions"><button class="chip ghost" id="aOut">Wyloguj</button></div></div>`
+            : `<div class="row"><button class="btn ghost" id="aLogin">Login i hasło</button><button class="btn ghost" id="aDiscord">Discord</button></div>
+               <p class="hint">Konto daje dostęp do modułów dla testerów.</p>`}
+      </div>`;
+}
+
+function bindAccount() {
+    if ($('aOut')) $('aOut').onclick = logout;
+    if ($('aLogin')) $('aLogin').onclick = openLogin;
+    if ($('aDiscord')) $('aDiscord').onclick = loginDiscord;
+}
+
 // ─── Moduły do pobrania ───
 async function openModules() {
     openSheet('Moduły', '<div class="spinner"></div>');
@@ -529,7 +658,8 @@ function renderModules() {
         const have = installed[m.id];
         const newer = have && vcmp(m.version, have.version) > 0;
         const ok = compatible(m);
-        const action = !ok ? `<span class="mod-note">Wymaga rdzenia ${esc(m.minCore)}</span>`
+        const action = !hasAccess(m.id) ? `<span class="mod-note">🔒 Dla testerów</span>`
+            : !ok ? `<span class="mod-note">Wymaga rdzenia ${esc(m.minCore)}</span>`
             : !have ? `<button class="chip" data-install="${esc(m.id)}">Pobierz</button>`
             : newer ? `<button class="chip" data-install="${esc(m.id)}">Aktualizuj</button>`
             : '<span class="mod-note">Aktualny</span>';
@@ -562,6 +692,7 @@ function openSettings() {
     const shell = shellUpdate();
     const core = ls.get('pitayas-core', null);
     openSheet('Ustawienia', `
+        ${accountHtml()}
         <div class="info-grid">
           <span>Aplikacja</span><b>${esc(shellVersion)}</b>
           <span>Rdzeń</span><b>${esc(CORE_VERSION)}${core ? '' : ' (wbudowany)'}${coreReady ? ` → ${esc(coreReady)} po restarcie` : ''}</b>
@@ -573,8 +704,11 @@ function openSettings() {
         ${shell ? `<button class="btn ghost" id="sShell">Pobierz aplikację ${esc(shell.version)}</button>` : ''}
         <div><label for="sSource">Źródło aktualizacji</label><input id="sSource" autocapitalize="off" inputmode="url" placeholder="${esc(DEFAULT_SOURCE)}" value="${esc(settings.source)}"></div>
         <p class="hint">Puste = oficjalny kanał Pitayas na GitHubie.</p>
+        <div><label for="sAccounts">Serwer kont</label><input id="sAccounts" autocapitalize="off" inputmode="url" placeholder="${esc(DEFAULT_ACCOUNTS)}" value="${esc(account.server)}"></div>
         <div><label>Dziennik aktualizacji</label>
           <div class="log">${updateLog.length ? updateLog.map((e) => `<div class="${e.error ? 'err' : ''}"><small>${esc(new Date(e.t).toLocaleString('pl-PL'))}</small>${esc(e.text)}</div>`).join('') : '<div><small>Pusto</small></div>'}</div></div>`);
+    bindAccount();
+    $('sAccounts').onchange = () => { account.server = $('sAccounts').value.trim(); saveAccount(); refreshAccess(); };
     $('sAuto').onchange = () => { settings.autoUpdate = $('sAuto').checked; ls.set('pitayas-settings', settings); };
     $('sSource').onchange = () => { settings.source = $('sSource').value.trim(); manifest = null; ls.set('pitayas-settings', settings); };
     $('sCheck').onclick = async () => {
@@ -654,7 +788,7 @@ if (Plugins.App) {
     Plugins.App.addListener('appStateChange', ({ isActive }) => {
         if (!isActive && activeView && defs[activeView.id] && defs[activeView.id].pause) defs[activeView.id].pause();
         if (isActive && activeView && defs[activeView.id] && defs[activeView.id].resume) defs[activeView.id].resume();
-        if (isActive && !activeView) { refreshStatus(); checkUpdates(false); }
+        if (isActive && !activeView) { refreshStatus(); checkUpdates(false); refreshAccess(); }
     });
 }
 
@@ -665,7 +799,7 @@ Promise.all(Object.values(installed).map(injectModule)).then(renderTiles);
 setInterval(() => { if (!activeView && document.visibilityState === 'visible') refreshStatus(); }, 5000);
 (Plugins.App && NATIVE ? Plugins.App.getInfo().then((i) => { shellVersion = i.version; }).catch(() => {}) : Promise.resolve())
     .then(loadBundled)
-    .then(() => checkUpdates(false))
+    .then(() => { refreshAccess(); return checkUpdates(false); })
     .then(() => {
         if (!Object.keys(installed).length) openModules();
         else if (!pcs.list.length) editPc(null);

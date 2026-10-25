@@ -156,3 +156,7 @@ input:focus, select:focus { outline: none; border-color: var(--m-accent); }
 .egg-tools { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
 .egg-tools .chip { padding: 11px 16px; font-size: 15px; }
 .egg-tools .chip.ghost { background: var(--m-item); color: var(--m-text); }
+/* Konto Pitayas: moduły tylko dla testerów */
+.tile.locked { opacity: .5; }
+.tile.locked .tile-text b::after { content: ' 🔒'; font-size: 14px; }
+.chip.ghost { background: var(--m-item); color: var(--m-text); }
