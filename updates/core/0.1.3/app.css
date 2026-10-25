@@ -126,3 +126,32 @@ input:focus, select:focus { outline: none; border-color: var(--m-accent); }
 .log { max-height: 220px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; background: var(--m-panel); border-radius: 14px; font-size: 13px; color: var(--m-text-2); user-select: text; -webkit-user-select: text; }
 .log small { display: block; font-size: 11px; color: var(--m-text-3); }
 .log .err { color: var(--m-danger); }
+
+/* Odświeżanie przeciągnięciem */
+.ptr { position: fixed; left: 50%; top: var(--top); z-index: 5; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--m-panel); border: 1px solid var(--m-line-strong); color: var(--m-text-3); opacity: 0; transform: translate(-50%, -60px); pointer-events: none; box-shadow: 0 8px 20px rgba(0,0,0,.4); }
+.ptr.ready { color: var(--m-accent); border-color: var(--m-accent); }
+.ptr.back { transition: transform .25s, opacity .25s; }
+.ptr.spin { color: var(--m-accent); transition: none; animation: ptrspin .8s linear infinite; }
+@keyframes ptrspin { from { transform: translate(-50%, 70px) rotate(0); } to { transform: translate(-50%, 70px) rotate(360deg); } }
+
+/* Easter egg: hasło */
+.head-logo { -webkit-user-select: none; user-select: none; }
+.egg-lock { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.egg-lock-card { width: 100%; max-width: 340px; background: var(--m-bg); border: 1px solid var(--m-line-strong); border-radius: 24px; padding: 20px 16px 16px; display: flex; flex-direction: column; align-items: center; gap: 12px; color: var(--m-text); animation: up .2s ease-out; }
+.egg-lock-card .row { width: 100%; }
+.egg-lock-icon { font-size: 34px; }
+.egg-lock-card.shake { animation: shake .4s; }
+@keyframes shake { 20%, 60% { transform: translateX(-10px); } 40%, 80% { transform: translateX(10px); } }
+
+/* Easter egg: Pitaya Lab */
+.egg-lab { position: fixed; inset: 0; z-index: 40; background: var(--m-bg); display: flex; flex-direction: column; padding: var(--top) 16px var(--bottom); touch-action: none; }
+.egg-bar { display: flex; align-items: center; gap: 10px; }
+.egg-title { flex: 1; font-size: 18px; font-weight: 800; color: var(--m-text); }
+.egg-title span { background: var(--m-title-grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.egg-count { font-size: 13px; font-weight: 700; color: var(--m-text-3); font-variant-numeric: tabular-nums; }
+.egg-lab canvas { flex: 1; min-height: 0; width: 100%; touch-action: none; }
+.egg-hint { text-align: center; font-size: 13px; color: var(--m-text-3); margin: 6px 0 12px; transition: opacity .4s; }
+.egg-hint.gone { opacity: 0; }
+.egg-tools { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+.egg-tools .chip { padding: 11px 16px; font-size: 15px; }
+.egg-tools .chip.ghost { background: var(--m-item); color: var(--m-text); }

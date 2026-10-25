@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.1.2';
+const CORE_VERSION = '0.1.3';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 
 const $ = (id) => document.getElementById(id);
@@ -38,6 +38,7 @@ function toast(text, tone) {
 
 // ─── Wygląd ───
 document.body.insertAdjacentHTML('beforeend', `
+  <div class="ptr" id="ptr" data-core-ui><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></div>
   <section class="view" id="home" data-core-ui>
     <header class="head">
       <img src="icons/pitayas.png" alt="" class="head-logo">
@@ -585,9 +586,67 @@ function openSettings() {
 }
 $('setBtn').onclick = openSettings;
 
+// ═══════ EASTER EGG: 5× logo ═══════
+// Kod (egg.js) wczytujemy dopiero teraz — leży obok app.js, w tym samym folderze rdzenia
+let logoTaps = [];
+document.querySelector('.head-logo').addEventListener('click', () => {
+    const now = Date.now();
+    logoTaps = logoTaps.filter((t) => now - t < 1500).concat(now);
+    if (logoTaps.length < 5) return;
+    logoTaps = [];
+    if (navigator.vibrate) navigator.vibrate(25);
+    const start = () => window.PitayasEgg && window.PitayasEgg.start();
+    if (window.PitayasEgg) return start();
+    const base = (window.PITAYAS_CORE && window.PITAYAS_CORE.base) || 'core/';
+    const js = document.createElement('script');
+    js.src = `${base}egg.js?v=${CORE_VERSION}`;
+    js.onload = start;
+    document.body.appendChild(js);
+});
+
+// ═══════ ODŚWIEŻANIE: mocne przeciągnięcie w dół na ekranie startowym ═══════
+// Sprawdza aktualizacje i przeładowuje aplikację (nowy rdzeń i moduły od razu w użyciu)
+(() => {
+    const PULL = 130;   // „mocno” — tyle trzeba przeciągnąć (po oporze), żeby odświeżyć
+    const home = $('home'), ptr = $('ptr');
+    let y0 = null, dist = 0, busy = false;
+    const show = (d) => {
+        ptr.style.transform = `translate(-50%, ${Math.min(d, PULL + 30) - 60}px) rotate(${d * 2.4}deg)`;
+        ptr.style.opacity = Math.min(1, d / 60);
+        ptr.classList.toggle('ready', d >= PULL);
+    };
+    home.addEventListener('touchstart', (e) => {
+        if (busy || home.hidden || home.scrollTop > 0 || !$('sheet').hidden || e.touches.length > 1) return;
+        y0 = e.touches[0].clientY; dist = 0;
+        ptr.classList.remove('back');
+    }, { passive: true });
+    home.addEventListener('touchmove', (e) => {
+        if (y0 == null) return;
+        const dy = e.touches[0].clientY - y0;
+        if (dy <= 0 || home.scrollTop > 0) { dist = 0; show(0); return; }
+        dist = dy * 0.55;   // opór: palec musi przejechać ok. 240 px
+        show(dist);
+    }, { passive: true });
+    const end = async () => {
+        if (y0 == null) return;
+        y0 = null;
+        if (dist < PULL) { ptr.classList.add('back'); show(0); return; }
+        busy = true;
+        ptr.classList.add('spin');
+        if (navigator.vibrate) navigator.vibrate(20);
+        try { await Promise.race([checkUpdates(false), new Promise((r) => setTimeout(r, 6000))]); } catch {}
+        location.reload();
+    };
+    home.addEventListener('touchend', end);
+    home.addEventListener('touchcancel', () => { y0 = null; ptr.classList.add('back'); show(0); });
+})();
+
 // ═══════ PRZYCISK „WSTECZ” (Android) I PRACA W TLE ═══════
 if (Plugins.App) {
     Plugins.App.addListener('backButton', () => {
+        const lock = document.querySelector('.egg-lock');
+        if (lock) return lock.remove();
+        if (window.PitayasEgg && window.PitayasEgg.onClose) return window.PitayasEgg.onClose();
         if (!$('sheet').hidden) return sheetBack ? sheetBack() : closeSheet();
         if (activeView) return showHome();
         Plugins.App.minimizeApp();

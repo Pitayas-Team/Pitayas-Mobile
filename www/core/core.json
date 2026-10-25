@@ -1,5 +1,9 @@
 {
-  "version": "0.1.2",
+  "version": "0.1.3",
   "minShell": "0.1.0",
-  "files": ["app.js", "app.css"]
+  "files": [
+    "app.js",
+    "app.css",
+    "egg.js"
+  ]
 }
