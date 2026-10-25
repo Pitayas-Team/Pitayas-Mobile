@@ -160,3 +160,10 @@ input:focus, select:focus { outline: none; border-color: var(--m-accent); }
 .tile.locked { opacity: .5; }
 .tile.locked .tile-text b::after { content: ' 🔒'; font-size: 14px; }
 .chip.ghost { background: var(--m-item); color: var(--m-text); }
+.account-btn { display: flex; align-items: center; gap: 14px; width: 100%; padding: 14px 16px; background: var(--m-panel); border: 1px solid var(--m-line); border-radius: 18px; color: var(--m-text); text-align: left; }
+.account-btn > svg:first-child { width: 40px; height: 40px; padding: 9px; border-radius: 50%; background: var(--m-grad); stroke: #1d1206; fill: none; stroke-width: 2; flex-shrink: 0; }
+.account-btn .pc-text { flex: 1; min-width: 0; }
+.account-btn .pc-text small { text-transform: none; letter-spacing: 0; font-weight: 500; }
+.btn.discord { display: flex; align-items: center; justify-content: center; gap: 10px; background: #5865f2; color: #fff; box-shadow: 0 8px 22px rgba(88,101,242,.35); }
+.btn.discord svg { width: 22px; height: 22px; fill: currentColor; }
+.or { text-align: center; font-size: 13px; color: var(--m-text-3); margin: 4px 0; }

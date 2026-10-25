@@ -3,9 +3,9 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.1.5';
+const CORE_VERSION = '0.1.6';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
-const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
+const DEFAULT_ACCOUNTS = 'https://app.pitayas.com/';
 
 const $ = (id) => document.getElementById(id);
 const Plugins = (window.Capacitor && window.Capacitor.Plugins) || {};
@@ -511,7 +511,7 @@ async function checkUpdates(manual) {
 }
 
 // ═══════ KONTO PITAYAS ═══════
-// Logowanie loginem albo przez Discord na serwerze kont (admin.pitayas.eu). Serwer mówi, które moduły
+// Logowanie loginem albo przez Discord na serwerze kont (app.pitayas.com). Serwer mówi, które moduły
 // są tylko dla testerów i czy to konto ma do nich dostęp. Bez logowania widać moduły dla wszystkich.
 const account = ls.get('pitayas-account', { token: '', user: null, server: '' });
 const saveAccount = () => ls.set('pitayas-account', account);
@@ -576,7 +576,10 @@ function openLogin() {
           <div><label for="lgLogin">Login</label><input id="lgLogin" autocapitalize="off" autocomplete="username" required></div>
           <div><label for="lgPass">Hasło</label><input id="lgPass" type="password" autocomplete="current-password" required></div>
           <button type="submit" class="btn">Zaloguj</button>
-        </form>`, openSettings);
+        </form>
+        <div class="or">albo</div>
+        <button class="btn discord" id="lgDiscord"><svg viewBox="0 0 24 24"><path d="M19.6 5.3A17 17 0 0 0 15.4 4l-.5 1.1a15.6 15.6 0 0 0-5.8 0L8.6 4a17 17 0 0 0-4.2 1.3C1.7 9.3 1 13.2 1.3 17a17 17 0 0 0 5.2 2.6l1.1-1.8-1.8-.9.4-.3a12 12 0 0 0 11.6 0l.4.3-1.8.9 1.1 1.8a17 17 0 0 0 5.2-2.6c.4-4.4-.7-8.3-3.1-11.7zM8.5 14.7c-1 0-1.9-1-1.9-2.1s.8-2.1 1.9-2.1 1.9 1 1.9 2.1-.8 2.1-1.9 2.1zm7 0c-1 0-1.9-1-1.9-2.1s.8-2.1 1.9-2.1 1.9 1 1.9 2.1-.8 2.1-1.9 2.1z"/></svg>Zaloguj przez Discord</button>`, openSettings);
+    $('lgDiscord').onclick = loginDiscord;
     setTimeout(() => $('lgLogin') && $('lgLogin').focus(), 250);
     $('lgForm').onsubmit = async (e) => {
         e.preventDefault();
@@ -623,15 +626,13 @@ function accountHtml() {
     return `<div><label>Konto Pitayas</label>
         ${u ? `<div class="mod-item"><div class="pc-text"><b>${esc(u.name || u.login)}</b><small>${esc(u.login)}${u.discord ? ' · Discord' : ''}</small></div>
                  <div class="mod-actions"><button class="chip ghost" id="aOut">Wyloguj</button></div></div>`
-            : `<div class="row"><button class="btn ghost" id="aLogin">Login i hasło</button><button class="btn ghost" id="aDiscord">Discord</button></div>
-               <p class="hint">Konto daje dostęp do modułów dla testerów.</p>`}
+            : `<button class="account-btn" id="aLogin"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg><div class="pc-text"><b>Zaloguj się</b><small>Login i hasło albo Discord — dostęp do modułów dla testerów</small></div><svg viewBox="0 0 24 24" class="pc-chev"><path d="M9 6l6 6-6 6"/></svg></button>`}
       </div>`;
 }
 
 function bindAccount() {
     if ($('aOut')) $('aOut').onclick = logout;
     if ($('aLogin')) $('aLogin').onclick = openLogin;
-    if ($('aDiscord')) $('aDiscord').onclick = loginDiscord;
 }
 
 // ─── Moduły do pobrania ───
@@ -704,11 +705,9 @@ function openSettings() {
         ${shell ? `<button class="btn ghost" id="sShell">Pobierz aplikację ${esc(shell.version)}</button>` : ''}
         <div><label for="sSource">Źródło aktualizacji</label><input id="sSource" autocapitalize="off" inputmode="url" placeholder="${esc(DEFAULT_SOURCE)}" value="${esc(settings.source)}"></div>
         <p class="hint">Puste = oficjalny kanał Pitayas na GitHubie.</p>
-        <div><label for="sAccounts">Serwer kont</label><input id="sAccounts" autocapitalize="off" inputmode="url" placeholder="${esc(DEFAULT_ACCOUNTS)}" value="${esc(account.server)}"></div>
         <div><label>Dziennik aktualizacji</label>
           <div class="log">${updateLog.length ? updateLog.map((e) => `<div class="${e.error ? 'err' : ''}"><small>${esc(new Date(e.t).toLocaleString('pl-PL'))}</small>${esc(e.text)}</div>`).join('') : '<div><small>Pusto</small></div>'}</div></div>`);
     bindAccount();
-    $('sAccounts').onchange = () => { account.server = $('sAccounts').value.trim(); saveAccount(); refreshAccess(); };
     $('sAuto').onchange = () => { settings.autoUpdate = $('sAuto').checked; ls.set('pitayas-settings', settings); };
     $('sSource').onchange = () => { settings.source = $('sSource').value.trim(); manifest = null; ls.set('pitayas-settings', settings); };
     $('sCheck').onclick = async () => {
