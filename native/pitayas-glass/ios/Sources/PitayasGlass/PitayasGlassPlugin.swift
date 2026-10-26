@@ -43,19 +43,23 @@ public class PitayasGlassPlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func setButtons(_ call: CAPPluginCall) {
         let list = call.getArray("buttons", JSObject.self) ?? []
         DispatchQueue.main.async {
-            self.apply(list)
-            call.resolve()
+            call.resolve(["placed": self.apply(list)])
         }
     }
 
+    // Warstwa jako podwidok samego WebView (w Capacitorze widok kontrolera to WebView), współrzędne = współrzędne strony
     private func container() -> GlassPassthroughView? {
-        guard let webView = bridge?.webView, let host = webView.superview else { return nil }
+        guard let host = bridge?.webView else { return nil }
         if let o = overlay, o.superview === host {
-            o.frame = webView.frame
+            o.frame = host.bounds
             host.bringSubviewToFront(o)
             return o
         }
-        let o = GlassPassthroughView(frame: webView.frame)
+        // Nowa warstwa — stare przyciski zostały w poprzedniej
+        buttons.values.forEach { $0.removeFromSuperview() }
+        buttons = [:]
+        badges = [:]
+        let o = GlassPassthroughView(frame: host.bounds)
         o.backgroundColor = .clear
         o.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         host.addSubview(o)
@@ -70,9 +74,11 @@ public class PitayasGlassPlugin: CAPPlugin, CAPBridgedPlugin {
         return 0
     }
 
-    private func apply(_ list: [JSObject]) {
-        guard PitayasGlassPlugin.available, let box = container() else { return }
+    @discardableResult
+    private func apply(_ list: [JSObject]) -> Int {
+        guard PitayasGlassPlugin.available, let box = container() else { return 0 }
         var keep = Set<String>()
+        var placed = 0
         for item in list {
             guard let id = item["id"] as? String, !id.isEmpty else { continue }
             keep.insert(id)
@@ -81,12 +87,14 @@ public class PitayasGlassPlugin: CAPPlugin, CAPBridgedPlugin {
             button.frame = CGRect(x: number(item["x"]), y: number(item["y"]), width: number(item["w"]), height: number(item["h"]))
             setSymbol(button, symbol)
             setBadge(id: id, on: button, text: (item["badge"] as? String) ?? "")
+            if button.superview === box, button.configuration?.image != nil { placed += 1 }
         }
         for (id, b) in buttons where !keep.contains(id) {
             b.removeFromSuperview()
             buttons[id] = nil
             badges[id] = nil
         }
+        return placed
     }
 
     private func makeButton(id: String, in box: UIView) -> UIButton {

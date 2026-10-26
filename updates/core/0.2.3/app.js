@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.2.2';
+const CORE_VERSION = '0.2.3';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -903,8 +903,18 @@ function syncGlass() {
             if (r.width < 4 || r.bottom < 0 || r.top > vh) return null;
             return { id: el.id, symbol: el.dataset.glass, x: r.left, y: r.top, w: r.width, h: r.height, badge: el.dataset.badge || '' };
         }).filter(Boolean);
-        Plugins.PitayasGlass.setButtons({ buttons }).catch(() => {});
+        // Natywna warstwa mówi, ile przycisków postawiła. Jeśli mniej (albo starsza wersja nic nie mówi) —
+        // wyłączamy natywne szkło, żeby przyciski HTML znowu były widoczne i działały.
+        Plugins.PitayasGlass.setButtons({ buttons }).then((r) => {
+            if (buttons.length && (!r || typeof r.placed !== 'number' || r.placed < buttons.length)) disableGlass();
+        }).catch(disableGlass);
     });
+}
+function disableGlass() {
+    if (!glassOn) return;
+    glassOn = false;
+    document.documentElement.classList.remove('native-glass');
+    Plugins.PitayasGlass.setButtons({ buttons: [] }).catch(() => {});
 }
 if (hasPlugin('PitayasGlass')) {
     Plugins.PitayasGlass.isSupported().then((r) => {
@@ -912,7 +922,7 @@ if (hasPlugin('PitayasGlass')) {
         glassOn = true;
         document.documentElement.classList.add('native-glass');
         Plugins.PitayasGlass.addListener('tap', (e) => { const el = document.getElementById(e.id); if (el) el.click(); });
-        new MutationObserver(syncGlass).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'class', 'style'] });
+        new MutationObserver(syncGlass).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'class'] });   // bez „style” — paski postępu i animacje nie przeliczają szkła co klatkę
         addEventListener('scroll', syncGlass, true);
         addEventListener('resize', syncGlass);
         syncGlass();
