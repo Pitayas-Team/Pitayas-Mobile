@@ -345,17 +345,42 @@
         b.textContent = pcOnline ? 'Komputer połączony' : api.pc() ? 'Komputer: nie widzę Pitayas Media' : 'Bez komputera';
     }
 
+    // Kapsuła pod wybraną zakładką: przesuwa się sprężyście i na chwilę „rozciąga” jak płyn (styl iOS 26)
+    function placePill(animate) {
+        const bar = q('.md-tabs'), on = q('.md-tabs button.on'), pill = q('.md-pill');
+        if (!bar || !on || !pill) return;
+        if (!animate) pill.style.transition = 'none';
+        pill.style.setProperty('--x', `${on.offsetLeft}px`);
+        pill.style.setProperty('--w', `${on.offsetWidth}px`);
+        if (!animate) { void pill.offsetWidth; pill.style.transition = ''; return; }
+        pill.classList.remove('stretch'); void pill.offsetWidth; pill.classList.add('stretch');
+    }
+
+    function selectTab(id) {
+        if (id === tab) return;
+        tab = id;
+        qa('.md-tabs button').forEach((b) => b.classList.toggle('on', b.dataset.tab === id));
+        placePill(true);
+        if (navigator.vibrate) navigator.vibrate(8);
+        renderPage();
+    }
+
     function render() {
         if (!el) return;
+        // „Filmy i seriale” (Pitaya Streams) tylko po zalogowaniu na konto Pitayas albo do dodatku
+        const streamsOk = Boolean((api.account && api.account()) || (store.streams.logged && !store.streams.viaAccount));
+        const tabs = [...(streamsOk ? [['search', 'Filmy i seriale']] : []), ['link', 'Link'], ['files', 'Pobrane']];
+        if (!tabs.some(([id]) => id === tab)) tab = 'link';
         el.innerHTML = `
-            <div class="md-tabs">
-              <button data-tab="search" class="${tab === 'search' ? 'on' : ''}">Filmy i seriale</button>
-              <button data-tab="link" class="${tab === 'link' ? 'on' : ''}">Link</button>
-              <button data-tab="files" class="${tab === 'files' ? 'on' : ''}">Pobrane</button>
+            <div class="md-tabs" style="--n:${tabs.length}">
+              <i class="md-pill"></i>
+              ${tabs.map(([id, label]) => `<button data-tab="${id}" class="${tab === id ? 'on' : ''}">${label}</button>`).join('')}
             </div>
+            ${streamsOk ? '' : '<p class="hint md-c md-locked">Filmy i seriale z Pitaya Streams pojawią się po zalogowaniu: Ustawienia → Zaloguj się.</p>'}
             <div class="md-pcstate"></div>
             <div class="md-page"></div>`;
-        qa('[data-tab]').forEach((b) => (b.onclick = () => { tab = b.dataset.tab; render(); }));
+        qa('[data-tab]').forEach((b) => (b.onclick = () => selectTab(b.dataset.tab)));
+        placePill(false);
         renderBar();
         renderPage();
     }
