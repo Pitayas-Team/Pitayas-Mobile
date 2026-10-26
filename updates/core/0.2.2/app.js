@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.2.1';
+const CORE_VERSION = '0.2.2';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -213,7 +213,7 @@ function openView(id) {
     view.dataset.coreUi = '';
     view.innerHTML = `
         <header class="bar">
-          <button class="bar-btn" data-back title="Wstecz"><svg viewBox="0 0 24 24"><path d="M14 6l-6 6 6 6"/></svg></button>
+          <button class="bar-btn" data-back id="viewBack" data-glass="chevron.left" title="Wstecz"><svg viewBox="0 0 24 24"><path d="M14 6l-6 6 6 6"/></svg></button>
           <div class="bar-title">${esc(installed[id].name).replace(/^Pitaya /, 'Pitaya <span>') + (installed[id].name.startsWith('Pitaya ') ? '</span>' : '')}</div>
           <div class="bar-slot"></div>
         </header>
@@ -564,6 +564,7 @@ function logoutLocal() {
     account.token = '';
     account.user = null;
     saveAccount();
+    if (typeof syncRunner === 'function') syncRunner();
 }
 
 async function logout() {
@@ -686,6 +687,41 @@ const seen = new Set(ls.get('pitayas-notifs-seen', []));
 const saveSeen = () => ls.set('pitayas-notifs-seen', [...seen].slice(-300));
 const NOTIF_ICON = (n) => (n.level === 'critical' ? '⚠️' : n.kind === 'update' ? '⬇️' : '🔔');
 
+// Aplikacja 0.2.0+: prawdziwe powiadomienia systemowe (LocalNotifications) i sprawdzanie w tle (BackgroundRunner)
+const hasPlugin = (name) => Boolean(window.Capacitor && window.Capacitor.isPluginAvailable && window.Capacitor.isPluginAvailable(name));
+const RUNNER = 'com.pitayas.mobile.notifications';
+const notified = new Set(ls.get('pitayas-notified', []));
+const intId = (str) => { let h = 0; for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0; return Math.abs(h) || 1; };
+
+async function askNotifyPermission() {
+    if (!hasPlugin('LocalNotifications')) return false;
+    try {
+        let p = await Plugins.LocalNotifications.checkPermissions();
+        if (p.display === 'prompt' || p.display === 'prompt-with-rationale') p = await Plugins.LocalNotifications.requestPermissions();
+        return p.display === 'granted';
+    } catch { return false; }
+}
+
+// Runner w tle musi wiedzieć, kim jesteś i co już widziałeś — inaczej pokazałby to samo drugi raz
+function syncRunner() {
+    if (!hasPlugin('BackgroundRunner')) return;
+    Plugins.BackgroundRunner.dispatchEvent({
+        label: RUNNER, event: 'setAccount',
+        details: { server: accountServer(), token: account.token || '', notified: [...notified].slice(-300) },
+    }).catch(() => {});
+}
+
+async function systemNotify(list) {
+    if (!list.length || !(await askNotifyPermission())) return false;
+    try {
+        await Plugins.LocalNotifications.schedule({ notifications: list.slice(0, 5).map((n) => ({
+            id: intId(n.id), title: `${n.level === 'critical' ? '⚠️ ' : ''}${n.title}`, body: n.body || '', largeBody: n.body || '',
+            threadIdentifier: 'pitayas', group: 'pitayas', extra: { pitayasId: n.id },
+        })) });
+        return true;
+    } catch { return false; }
+}
+
 async function refreshNotifs() {
     try {
         notifs = (await accountFetch('api/notifications')).notifications || [];
@@ -693,18 +729,28 @@ async function refreshNotifs() {
     } catch { return; }
     renderBell();
     const fresh = notifs.filter((n) => !seen.has(n.id));
+    // Każde powiadomienie raz jako systemowe (też gdy aplikacja jest otwarta)
+    const toSystem = fresh.filter((n) => !notified.has(n.id));
+    const shown = await systemNotify(toSystem);
+    notifs.forEach((n) => notified.add(n.id));
+    ls.set('pitayas-notified', [...notified].slice(-300));
+    syncRunner();
     const critical = fresh.find((n) => n.level === 'critical');
     if (critical) return showCritical(critical);
     const normal = fresh.filter((n) => n.level !== 'critical');
-    if (normal.length) showNotifBanner(normal[0], normal.length);
+    if (normal.length && !(shown && toSystem.length)) showNotifBanner(normal[0], normal.length);
 }
+if (hasPlugin('LocalNotifications')) Plugins.LocalNotifications.addListener('localNotificationActionPerformed', () => setTimeout(openNotifs, 300)).catch(() => {});
+if (hasPlugin('BackgroundRunner')) Plugins.BackgroundRunner.addListener('backgroundRunnerNotificationReceived', () => setTimeout(openNotifs, 300)).catch(() => {});
 
 function renderBell() {
     const b = $('bellBtn');
     if (!b) return;
     const unread = notifs.filter((n) => !seen.has(n.id)).length;
     b.querySelector('.badge').textContent = unread > 9 ? '9+' : unread;
+    b.dataset.badge = unread ? (unread > 9 ? '9+' : String(unread)) : '';
     b.classList.toggle('has', unread > 0);
+    syncGlass();
 }
 
 function showNotifBanner(n, count) {
@@ -838,6 +884,40 @@ $('setBtn').onclick = openSettings;
 $('setBtn').insertAdjacentHTML('beforebegin', '<button class="bar-btn bell glass" id="bellBtn" title="Powiadomienia"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><span class="badge"></span></button>');
 $('setBtn').classList.add('glass');
 $('bellBtn').onclick = openNotifs;
+$('bellBtn').dataset.glass = 'bell';
+$('setBtn').dataset.glass = 'gearshape';
+
+// ═══════ LIQUID GLASS (iOS 26, aplikacja 0.2.0+) ═══════
+// Natywna wtyczka PitayasGlass stawia prawdziwe szklane przyciski (UIButton .glass()) nad przyciskami z data-glass.
+// Przycisk HTML zostaje pod spodem (niewidoczny) i to on obsługuje kliknięcie.
+let glassOn = false, glassFrame = 0;
+function syncGlass() {
+    if (!glassOn || glassFrame) return;
+    glassFrame = requestAnimationFrame(() => {
+        glassFrame = 0;
+        const blocked = !$('sheet').hidden || document.querySelector('.critical, .egg-lock, .md-player, .notif-pop.show');
+        const vh = window.innerHeight;
+        const buttons = blocked ? [] : [...document.querySelectorAll('[data-glass]')].map((el) => {
+            if (!el.id || el.offsetParent === null) return null;
+            const r = el.getBoundingClientRect();
+            if (r.width < 4 || r.bottom < 0 || r.top > vh) return null;
+            return { id: el.id, symbol: el.dataset.glass, x: r.left, y: r.top, w: r.width, h: r.height, badge: el.dataset.badge || '' };
+        }).filter(Boolean);
+        Plugins.PitayasGlass.setButtons({ buttons }).catch(() => {});
+    });
+}
+if (hasPlugin('PitayasGlass')) {
+    Plugins.PitayasGlass.isSupported().then((r) => {
+        if (!r.supported) return;
+        glassOn = true;
+        document.documentElement.classList.add('native-glass');
+        Plugins.PitayasGlass.addListener('tap', (e) => { const el = document.getElementById(e.id); if (el) el.click(); });
+        new MutationObserver(syncGlass).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'class', 'style'] });
+        addEventListener('scroll', syncGlass, true);
+        addEventListener('resize', syncGlass);
+        syncGlass();
+    }).catch(() => {});
+}
 // iPhone: wygląd „szkła” (Liquid Glass) na części przycisków
 if (window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'ios') document.documentElement.classList.add('ios');
 
@@ -921,7 +1001,7 @@ Promise.all(Object.values(installed).map(injectModule)).then(renderTiles);
 setInterval(() => { if (!activeView && document.visibilityState === 'visible') refreshStatus(); }, 5000);
 (Plugins.App && NATIVE ? Plugins.App.getInfo().then((i) => { shellVersion = i.version; }).catch(() => {}) : Promise.resolve())
     .then(loadBundled)
-    .then(() => { refreshAccess(); refreshNotifs(); setInterval(refreshNotifs, 5 * 60 * 1000); return checkUpdates(false); })
+    .then(() => { refreshAccess(); askNotifyPermission().finally(refreshNotifs); setInterval(refreshNotifs, 5 * 60 * 1000); return checkUpdates(false); })
     .then(() => {
         if (!Object.keys(installed).length) openModules();
         else if (!pcs.list.length) editPc(null);

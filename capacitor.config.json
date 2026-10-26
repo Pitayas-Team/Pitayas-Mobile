@@ -13,5 +13,19 @@
   "ios": {
     "contentInset": "never",
     "backgroundColor": "#121116"
+  },
+  "plugins": {
+    "BackgroundRunner": {
+      "label": "com.pitayas.mobile.notifications",
+      "src": "runners/notifications.js",
+      "event": "checkNotifications",
+      "repeat": true,
+      "interval": 15,
+      "autoStart": true
+    },
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_pitayas",
+      "iconColor": "#FF4FA6"
+    }
   }
 }

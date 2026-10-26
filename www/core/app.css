@@ -233,3 +233,5 @@ input:focus, select:focus { outline: none; border-color: var(--m-accent); }
 .ios .critical-card { background: linear-gradient(180deg, rgba(50,30,40,.7), rgba(26,20,28,.85)) !important; border-color: rgba(255,107,127,.45) !important; }
 .ios .notif-pop { background: linear-gradient(180deg, rgba(60,55,70,.55), rgba(30,27,36,.7)) !important; }
 .ios .bar-btn.bell { overflow: visible; }
+/* Natywny Liquid Glass (iOS 26): przyciski HTML pod szkłem są niewidoczne, ale dalej obsługują kliknięcie */
+.native-glass [data-glass] { visibility: hidden !important; }

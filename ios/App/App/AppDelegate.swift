@@ -1,5 +1,6 @@
 import UIKit
 import Capacitor
+import CapacitorBackgroundRunner
 import Network
 
 @UIApplicationMain
@@ -10,6 +11,9 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         requestLocalNetworkAccess()
+        // Powiadomienia w tle: co jakiś czas (iOS decyduje kiedy) runner sprawdza serwer kont Pitayas
+        BackgroundRunnerPlugin.registerBackgroundTask()
+        BackgroundRunnerPlugin.handleApplicationDidFinishLaunching(launchOptions: launchOptions)
         return true
     }
 
