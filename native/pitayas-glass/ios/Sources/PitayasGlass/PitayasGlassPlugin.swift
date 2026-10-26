@@ -8,6 +8,15 @@ import Capacitor
 // UIButton z konfiguracją .glass(). Dotknięcie wraca do JS zdarzeniem „tap”, a JS klika ukryty przycisk HTML.
 // Rdzeń aktualizuje się bez nowej aplikacji, więc to, które przyciski są szklane, decyduje JS.
 
+extension UIColor {
+    convenience init?(hex: String) {
+        var s = hex.trimmingCharacters(in: .whitespaces)
+        if s.hasPrefix("#") { s.removeFirst() }
+        guard s.count == 6, let v = UInt32(s, radix: 16) else { return nil }
+        self.init(red: CGFloat((v >> 16) & 255) / 255, green: CGFloat((v >> 8) & 255) / 255, blue: CGFloat(v & 255) / 255, alpha: 1)
+    }
+}
+
 /// Przezroczysta warstwa: dotyk poza przyciskami idzie dalej do WebView
 final class GlassPassthroughView: UIView {
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
@@ -37,7 +46,8 @@ public class PitayasGlassPlugin: CAPPlugin, CAPBridgedPlugin {
     }
 
     @objc func isSupported(_ call: CAPPluginCall) {
-        call.resolve(["supported": PitayasGlassPlugin.available])
+        // titles: ta wersja umie przyciski z tekstem i kolorem (rdzeń sprawdza to przed użyciem)
+        call.resolve(["supported": PitayasGlassPlugin.available, "titles": true])
     }
 
     @objc func setButtons(_ call: CAPPluginCall) {
@@ -82,12 +92,20 @@ public class PitayasGlassPlugin: CAPPlugin, CAPBridgedPlugin {
         for item in list {
             guard let id = item["id"] as? String, !id.isEmpty else { continue }
             keep.insert(id)
-            let symbol = (item["symbol"] as? String) ?? "circle"
-            let button = buttons[id] ?? makeButton(id: id, in: box)
+            let symbol = (item["symbol"] as? String) ?? ""
+            let title = (item["title"] as? String) ?? ""
+            let prominent = (item["style"] as? String) == "prominent"
+            let key = prominent ? "p" : "n"
+            if let old = buttons[id], old.accessibilityHint != key {   // zmiana stylu = nowy przycisk
+                old.removeFromSuperview(); buttons[id] = nil; badges[id] = nil
+            }
+            let button = buttons[id] ?? makeButton(id: id, in: box, prominent: prominent)
+            button.accessibilityHint = key
             button.frame = CGRect(x: number(item["x"]), y: number(item["y"]), width: number(item["w"]), height: number(item["h"]))
-            setSymbol(button, symbol)
+            if let hex = item["tint"] as? String, let color = UIColor(hex: hex) { button.tintColor = color }
+            setContent(button, symbol: symbol, title: title, light: prominent)
             setBadge(id: id, on: button, text: (item["badge"] as? String) ?? "")
-            if button.superview === box, button.configuration?.image != nil { placed += 1 }
+            if button.superview === box, button.configuration?.image != nil || button.configuration?.title != nil { placed += 1 }
         }
         for (id, b) in buttons where !keep.contains(id) {
             b.removeFromSuperview()
@@ -97,11 +115,11 @@ public class PitayasGlassPlugin: CAPPlugin, CAPBridgedPlugin {
         return placed
     }
 
-    private func makeButton(id: String, in box: UIView) -> UIButton {
+    private func makeButton(id: String, in box: UIView, prominent: Bool = false) -> UIButton {
         let button = UIButton(type: .system)
         #if compiler(>=6.2)
         if #available(iOS 26.0, *) {
-            var cfg = UIButton.Configuration.glass()
+            var cfg = prominent ? UIButton.Configuration.prominentGlass() : UIButton.Configuration.glass()
             cfg.cornerStyle = .capsule
             cfg.baseForegroundColor = .white
             button.configuration = cfg
@@ -117,13 +135,22 @@ public class PitayasGlassPlugin: CAPPlugin, CAPBridgedPlugin {
         return button
     }
 
-    private func setSymbol(_ button: UIButton, _ symbol: String) {
+    private func setContent(_ button: UIButton, symbol: String, title: String, light: Bool) {
         guard var cfg = button.configuration else { return }
-        let image = UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: 17, weight: .semibold))
-        if cfg.image != image {
-            cfg.image = image
-            button.configuration = cfg
+        let image = symbol.isEmpty ? nil : UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: title.isEmpty ? 17 : 14, weight: .semibold))
+        var changed = false
+        if cfg.image != image { cfg.image = image; changed = true }
+        if cfg.title != (title.isEmpty ? nil : title) {
+            if title.isEmpty { cfg.attributedTitle = nil; cfg.title = nil } else {
+                var t = AttributedString(title)
+                t.font = .systemFont(ofSize: 15, weight: .bold)
+                cfg.attributedTitle = t
+            }
+            cfg.imagePadding = 6
+            changed = true
         }
+        cfg.baseForegroundColor = .white
+        if changed { button.configuration = cfg }
     }
 
     private func setBadge(id: String, on button: UIButton, text: String) {

@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.2.9';
+const CORE_VERSION = '0.3.0';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -693,7 +693,8 @@ function accountHtml() {
 }
 
 function bindAccount() {
-    if ($('aOut')) $('aOut').onclick = logout;
+    if ($('aOut')) $('aOut').onclick = () => { if (confirm('Wylogować z konta Pitayas?')) logout(); };
+    if ($('aOpen')) $('aOpen').onclick = openAccount;
     if ($('aLogin')) $('aLogin').onclick = openLogin;
 }
 
@@ -856,7 +857,7 @@ function renderModules() {
             <img class="mod-ic" src="${esc(icon)}" alt="" onerror="this.style.visibility='hidden'">
             <div class="mod-t"><b>${esc(m.name)}</b><p>${esc(m.description)}</p>
               <small>Wersja ${ver}${m.port && !m.port.optional ? ' · potrzebuje komputera' : ''}</small></div>
-            <div class="mod-a">${action}${have ? `<button class="mod-del" data-remove="${esc(m.id)}" title="Usuń"><svg viewBox="0 0 24 24"><path d="M5 7h14M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>` : ''}</div>
+            <div class="mod-a">${action}${have ? `<button class="mod-del" data-remove="${esc(m.id)}" id="del-${esc(m.id)}" data-glass="trash" title="Usuń"><svg viewBox="0 0 24 24"><path d="M5 7h14M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>` : ''}</div>
           </div>`;
     };
     const all = [...avail, ...local];
@@ -897,9 +898,12 @@ function openSettings() {
     const unread = notifs.filter((n) => !seen.has(n.id)).length;
     openSheet('Ustawienia', `
         <div class="set-profile">
-          ${u ? `<div class="set-av">${esc((u.name || u.login).trim().slice(0, 1).toUpperCase())}</div>
-                 <div class="set-pt"><b>${esc(u.name || u.login)}</b><small>${esc(u.login)}${u.discord ? ' · Discord' : ''}${u.admin ? ' · Administrator' : ''}</small></div>
-                 <button class="chip ghost out-btn" id="aOut" data-glass="rectangle.portrait.and.arrow.right" title="Wyloguj">Wyloguj</button>`
+          ${u ? `<div class="acc-row">
+                   <button class="acc-main" id="aOpen"><span class="set-av">${esc((u.name || u.login).trim().slice(0, 1).toUpperCase())}</span>
+                     <span class="set-pt"><b>${esc(u.name || u.login)}</b><small>Konto Pitayas${u.admin ? ' · Administrator' : ''}</small></span>
+                     <svg viewBox="0 0 24 24" class="set-chev"><path d="M9 6l6 6-6 6"/></svg></button>
+                   <button class="bar-btn out-btn" id="aOut" data-glass="rectangle.portrait.and.arrow.right" title="Wyloguj"><svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4"/></svg></button>
+                 </div>`
               : `<button class="account-btn" id="aLogin">${setIcon('user', 'var(--m-grad)')}<div class="pc-text"><b>Zaloguj się</b><small>Login i hasło albo Discord</small></div><svg viewBox="0 0 24 24" class="pc-chev"><path d="M9 6l6 6-6 6"/></svg></button>`}
         </div>
 
@@ -941,6 +945,26 @@ function openSettings() {
     $('sDev').onclick = openDeveloper;
 }
 
+// Konto: dane, dostęp do aplikacji dla testerów, wylogowanie
+function openAccount() {
+    const u = account.user || {};
+    const apps = Object.entries(access).filter(([, a]) => a.testersOnly);
+    openSheet('Konto', `
+        <div class="acc-hero"><span class="set-av big">${esc((u.name || u.login || '?').trim().slice(0, 1).toUpperCase())}</span>
+          <b>${esc(u.name || u.login || '')}</b><small>${esc(u.login || '')}</small></div>
+        <div class="set-label">Dane</div>
+        <div class="set-group">
+          ${setRow(setIcon('user', '#ff4fa6'), 'Login', esc(u.login || ''))}
+          ${setRow(setIcon('code', '#5865f2'), 'Discord', u.discord ? 'połączony' : 'nie')}
+          ${setRow(setIcon('core', '#7ddc5a'), 'Rola', u.admin ? 'Administrator' : 'Użytkownik')}
+        </div>
+        <div class="set-label">Dostęp do aplikacji dla testerów</div>
+        <div class="set-group">${apps.length ? apps.map(([id, a]) => setRow(setIcon('box', a.access ? '#7ddc5a' : '#5b6170'), esc(a.name || id), a.access ? '<span class="ok">✓ masz dostęp</span>' : '<span class="no">brak</span>')).join('') : setRow('', 'Wszystkie moduły są dla wszystkich', '')}</div>
+        <p class="hint">Dostęp nadaje administrator w panelu Pitayas. Hasło zmienia też administrator.</p>
+        <button class="btn danger-btn" id="accOut">Wyloguj</button>`, openSettings);
+    $('accOut').onclick = () => { if (confirm('Wylogować z konta Pitayas?')) logout(); };
+}
+
 // Developer: źródło aktualizacji, diagnostyka i dziennik — schowane, żeby nie straszyły w zwykłych ustawieniach
 function openDeveloper() {
     const plug = (p) => (window.Capacitor && window.Capacitor.isPluginAvailable && window.Capacitor.isPluginAvailable(p));
@@ -976,22 +1000,48 @@ $('setBtn').dataset.glass = 'gearshape';
 // Natywna wtyczka PitayasGlass stawia prawdziwe szklane przyciski (UIButton .glass()) nad przyciskami z data-glass.
 // Przycisk HTML zostaje pod spodem (niewidoczny) i to on obsługuje kliknięcie.
 let glassOn = false, glassFrame = 0, glassState = 'brak wtyczki (aplikacja < 0.2.0)';
+// Przyciski z tekstem (Pobierz, Zaloguj…) — gdy aplikacja 0.2.3+ umie tekst w natywnym szkle, wszystkie stają się Liquid Glass
+let glassTitles = false, glassAutoId = 0;
+const GLASS_AUTO = '.btn, .chip, .mod-get, .account-btn';
+const GLASS_TINT = (el) => el.classList.contains('discord') ? '#5865f2' : el.classList.contains('upd') ? '#3fa8ff'
+    : el.classList.contains('danger') || el.classList.contains('danger-btn') || el.classList.contains('stop') ? '#e5484d' : '#ff4fa6';
+// Widoczny obszar przycisku: w okienku pod nagłówkiem, w module pod paskiem — żeby szkło nie wchodziło na nagłówek przy przewijaniu
+function glassClip(el) {
+    const card = el.closest('.sheet-card');
+    if (card) {
+        const c = card.getBoundingClientRect(), head = card.querySelector('.sheet-head');
+        return { top: head && !head.contains(el) ? head.getBoundingClientRect().bottom : c.top, bottom: c.bottom };
+    }
+    const view = el.closest('.view');
+    const bar = view && view.querySelector(':scope > .bar');
+    return { top: bar && !bar.contains(el) ? bar.getBoundingClientRect().bottom : 0, bottom: window.innerHeight };
+}
 function syncGlass() {
     if (!glassOn || glassFrame) return;
     glassFrame = requestAnimationFrame(() => {
         glassFrame = 0;
-        // Otwarte okienko zasłania ekran — wtedy szklane są tylko przyciski w okienku (zamknij, cofnij, wyloguj)
+        // Otwarte okienko zasłania ekran — wtedy szklane są tylko przyciski w okienku
         const blocked = document.querySelector('.critical, .egg-lock, .md-player, .notif-pop.show');
-        const scope = $('sheet').hidden ? document : $('sheet');
-        const vh = window.innerHeight;
-        const buttons = blocked ? [] : [...scope.querySelectorAll('[data-glass]')].filter((el) => $('sheet').hidden ? !$('sheet').contains(el) : true).map((el) => {
-            if (!el.id || el.offsetParent === null) return null;
+        const sheetOpen = !$('sheet').hidden;
+        const scope = sheetOpen ? $('sheet') : document;
+        const sel = glassTitles ? `[data-glass], ${GLASS_AUTO}` : '[data-glass]';
+        const buttons = blocked ? [] : [...scope.querySelectorAll(sel)].filter((el) => sheetOpen || !$('sheet').contains(el)).map((el) => {
+            if (el.offsetParent === null || el.disabled) return null;
             const r = el.getBoundingClientRect();
-            if (r.width < 4 || r.bottom < 0 || r.top > vh) return null;
-            return { id: el.id, symbol: el.dataset.glass, x: r.left, y: r.top, w: r.width, h: r.height, badge: el.dataset.badge || '' };
+            const clip = glassClip(el);
+            if (r.width < 4 || r.top < clip.top - 1 || r.bottom > clip.bottom + 1) return null;   // tylko w całości widoczne
+            const symbol = el.dataset.glass || '';
+            const title = symbol ? (el.dataset.glassTitle || '') : (el.innerText || '').trim().replace(/\s+/g, ' ');
+            if (!symbol && (!title || title.length > 28)) return null;
+            if (!symbol) el.dataset.glassAuto = '';
+            if (!el.id) el.id = `glass${++glassAutoId}`;
+            const prominent = !symbol && !el.classList.contains('ghost') && !el.classList.contains('account-btn');
+            return { id: el.id, symbol, title, x: r.left, y: r.top, w: r.width, h: r.height, badge: el.dataset.badge || '',
+                style: prominent ? 'prominent' : 'normal', tint: prominent ? GLASS_TINT(el) : '' };
         }).filter(Boolean);
-        // Natywna warstwa mówi, ile przycisków postawiła. Jeśli mniej (albo starsza wersja nic nie mówi) —
-        // wyłączamy natywne szkło, żeby przyciski HTML znowu były widoczne i działały.
+        // Widoczne nad szkłem są tylko postawione przyciski; reszta HTML zostaje normalna
+        const ids = new Set(buttons.map((x) => x.id));
+        document.querySelectorAll('[data-glass-auto]').forEach((el) => el.classList.toggle('glass-on', ids.has(el.id)));
         Plugins.PitayasGlass.setButtons({ buttons }).then((r) => {
             if (buttons.length && (!r || typeof r.placed !== 'number' || r.placed < buttons.length)) disableGlass();
         }).catch(disableGlass);
@@ -1017,6 +1067,7 @@ if (GLASS_ENABLED && hasPlugin('PitayasGlass')) {
     glassState = 'sprawdzam…';
     Plugins.PitayasGlass.isSupported().then((r) => {
         if (!r.supported) { glassState = 'niedostępne (iOS < 26)'; return; }
+        glassTitles = Boolean(r.titles);
         glassOn = true;
         glassState = 'aktywne';
         document.documentElement.classList.add('lg');
