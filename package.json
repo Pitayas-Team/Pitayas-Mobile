@@ -1,6 +1,6 @@
 {
   "name": "pitayas-mobile",
-  "version": "0.2.4-beta",
+  "version": "0.2.5-beta",
   "description": "Pitayas na telefon — Pitaya Deck i Pitaya Cam w jednej aplikacji (Android i iPhone)",
   "private": true,
   "scripts": {
@@ -19,7 +19,8 @@
     "@capacitor/ios": "^8.5.3",
     "@capacitor/local-notifications": "^8.3.1",
     "@capacitor/share": "^8.0.3",
-    "pitayas-glass": "file:native/pitayas-glass"
+    "pitayas-glass": "file:native/pitayas-glass",
+    "pitayas-usb": "file:native/pitayas-usb"
   },
   "devDependencies": {
     "@capacitor/cli": "^8.5.3"

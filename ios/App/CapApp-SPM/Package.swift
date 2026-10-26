@@ -19,7 +19,8 @@ let package = Package(
         .package(name: "CapacitorInappbrowser", path: "../../../node_modules/@capacitor/inappbrowser"),
         .package(name: "CapacitorLocalNotifications", path: "../../../node_modules/@capacitor/local-notifications"),
         .package(name: "CapacitorShare", path: "../../../node_modules/@capacitor/share"),
-        .package(name: "PitayasGlass", path: "../../../native/pitayas-glass")
+        .package(name: "PitayasGlass", path: "../../../native/pitayas-glass"),
+        .package(name: "PitayasUsb", path: "../../../native/pitayas-usb")
     ],
     targets: [
         .target(
@@ -34,7 +35,8 @@ let package = Package(
                 .product(name: "CapacitorInappbrowser", package: "CapacitorInappbrowser"),
                 .product(name: "CapacitorLocalNotifications", package: "CapacitorLocalNotifications"),
                 .product(name: "CapacitorShare", package: "CapacitorShare"),
-                .product(name: "PitayasGlass", package: "PitayasGlass")
+                .product(name: "PitayasGlass", package: "PitayasGlass"),
+                .product(name: "PitayasUsb", package: "PitayasUsb")
             ]
         )
     ]

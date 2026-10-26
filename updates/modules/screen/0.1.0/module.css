@@ -1,0 +1,26 @@
+/* ═══════ PITAYAS SCREEN (moduł) ═══════ */
+.scr-mod { display: flex; flex-direction: column; gap: 12px; }
+.scr-mod .scr-hero { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; padding: 18px 16px; background: var(--m-panel); border: 1px solid var(--m-line); border-radius: 22px; }
+.scr-mod .scr-art { width: 150px; height: 100px; fill: none; stroke: var(--m-accent); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; margin-bottom: 4px; }
+.scr-mod .scr-art .cable { stroke: var(--m-leaf); stroke-dasharray: 3 4; animation: scr-flow 1s linear infinite; }
+@keyframes scr-flow { to { stroke-dashoffset: -14; } }
+.scr-mod .scr-hero b { font-size: 19px; color: var(--m-text); }
+.scr-mod .scr-hero small { font-size: 13.5px; line-height: 1.45; color: var(--m-text-3); max-width: 320px; }
+.scr-mod .scr-chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 4px; background: var(--m-panel); border: 1px solid var(--m-line); border-radius: 999px; }
+.scr-mod .scr-chip { border: none; background: none; color: var(--m-text-2); border-radius: 999px; padding: 9px 4px; font-size: 14px; font-weight: 700; }
+.scr-mod .scr-chip.on { background: var(--m-grad); color: #1d1206; }
+.scr-mod .scr-status { font-size: 13.5px; text-align: center; color: var(--m-text-2); min-height: 18px; }
+.scr-mod .scr-status.err { color: var(--m-danger); } .scr-mod .scr-status.warn { color: var(--m-warn); }
+
+/* Pełny ekran: obraz z komputera */
+.scr-full { position: fixed; inset: 0; z-index: 80; background: #000; touch-action: none; user-select: none; -webkit-user-select: none; }
+.scr-full canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; touch-action: none; }
+.scr-full .scr-wait { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(80%, 340px); text-align: center; color: rgba(255,255,255,.75); font-size: 15px; line-height: 1.5; }
+.scr-full .scr-kbd { position: absolute; left: -1000px; top: 0; opacity: 0; width: 10px; height: 10px; }
+.scr-full .scr-handle { position: absolute; right: max(10px, env(safe-area-inset-right)); bottom: max(10px, env(safe-area-inset-bottom)); width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(255,255,255,.18); background: rgba(30,28,36,.55); -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); color: #fff; display: grid; place-items: center; opacity: .55; }
+.scr-full .scr-handle:active { opacity: 1; }
+.scr-full .scr-handle svg, .scr-full .scr-menu svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.scr-full .scr-menu { position: absolute; right: max(10px, env(safe-area-inset-right)); bottom: calc(max(10px, env(safe-area-inset-bottom)) + 54px); display: flex; flex-direction: column; gap: 4px; padding: 6px; border-radius: 20px; border: 1px solid rgba(255,255,255,.16); background: rgba(30,28,36,.82); -webkit-backdrop-filter: blur(20px) saturate(170%); backdrop-filter: blur(20px) saturate(170%); }
+.scr-full .scr-menu button { display: flex; align-items: center; gap: 10px; border: none; background: none; color: #fff; font-size: 15px; font-weight: 600; padding: 10px 14px; border-radius: 14px; text-align: left; }
+.scr-full .scr-menu button:active { background: rgba(255,255,255,.1); }
+.scr-full .scr-menu .off { color: #ff6b7f; }

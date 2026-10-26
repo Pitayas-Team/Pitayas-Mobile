@@ -1,0 +1,8 @@
+{
+  "name": "pitayas-usb",
+  "version": "0.1.0",
+  "description": "Pitayas: przekaźnik WebSocket na iPhonie dla połączeń z komputera przez kabel (usbmux)",
+  "main": "index.js",
+  "license": "MIT",
+  "capacitor": { "ios": { "src": "." } }
+}

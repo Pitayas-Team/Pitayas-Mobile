@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.3.2';
+const CORE_VERSION = '0.3.3';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -985,12 +985,55 @@ function openDeveloper() {
           ${setRow('', 'Serwer kont', esc(accountServer().replace(/^https?:\/\//, '').replace(/\/$/, '')))}
         </div>
 
+        <div id="devAndroid"></div>
+
         ${jsErrors.length ? `<div class="set-label">Błędy</div><div class="log">${jsErrors.map((e) => `<div class="err">${esc(e)}</div>`).join('')}</div>` : ''}
 
         <div class="set-label">Dziennik aktualizacji <button class="link" id="sClearLog">Wyczyść</button></div>
         <div class="log">${updateLog.length ? updateLog.map((e) => `<div class="${e.error ? 'err' : ''}"><small>${esc(new Date(e.t).toLocaleString('pl-PL'))}</small>${esc(e.text)}</div>`).join('') : '<div><small>Pusto</small></div>'}</div>`, openSettings);
     $('sSource').onchange = () => { settings.source = $('sSource').value.trim(); manifest = null; ls.set('pitayas-settings', settings); toast('Źródło zapisane'); };
     $('sClearLog').onclick = () => { updateLog.length = 0; ls.set('pitayas-update-log', updateLog); openDeveloper(); };
+    renderDevAndroid();
+}
+
+// ═══════ ANDROID: aplikacja domowa, start po włączeniu, ekran (aplikacja 0.2.5+) ═══════
+const device = () => (hasPlugin('PitayasDevice') ? Plugins.PitayasDevice : null);
+let dimTimer = null, dimmed = false;
+function applyScreenMode() {
+    const d = device();
+    if (!d) return;
+    const mode = settings.screenMode || 'normal';
+    d.keepScreenOn({ on: mode !== 'normal' }).catch(() => {});
+    clearTimeout(dimTimer);
+    if (dimmed) { dimmed = false; d.setBrightness({ value: -1 }).catch(() => {}); }
+    // Przyciemnianie: po minucie bez dotyku jasność spada prawie do zera, ekran się nie wyłącza
+    if (mode === 'dim') dimTimer = setTimeout(() => { dimmed = true; d.setBrightness({ value: 0.02 }).catch(() => {}); }, 60000);
+}
+['touchstart', 'keydown', 'pointerdown'].forEach((ev) => document.addEventListener(ev, () => { if ((settings.screenMode || 'normal') === 'dim') applyScreenMode(); }, { passive: true, capture: true }));
+
+async function renderDevAndroid() {
+    const box = $('devAndroid'), d = device();
+    if (!box || !d) return;
+    let st = {};
+    try { st = await d.getState(); } catch {}
+    const mode = settings.screenMode || 'normal';
+    box.innerHTML = `
+        <div class="set-label">Android</div>
+        <div class="set-group">
+          ${setRow(setIcon('phone', '#ff4fa6'), 'Aplikacja domowa', null, { toggle: st.home, toggleId: 'dHome', sub: st.defaultHome ? 'Pitayas jest ekranem głównym' : 'Startuje z telefonem jako ekran główny' })}
+          ${setRow(setIcon('refresh', '#7ddc5a'), 'Uruchamiaj po włączeniu telefonu', null, { toggle: st.boot, toggleId: 'dBoot', sub: st.boot && !st.overlay ? 'Zezwól na „Wyświetlanie nad innymi aplikacjami”' : 'Bez ustawiania jako ekran główny' })}
+        </div>
+        <div class="set-label">Ekran</div>
+        <div class="seg">${[['normal', 'Normalnie'], ['on', 'Nie wygaszaj'], ['dim', 'Przyciemniaj']].map(([v, l]) => `<button data-mode="${v}" class="${mode === v ? 'on' : ''}">${l}</button>`).join('')}</div>
+        <p class="hint">„Przyciemniaj” — ekran się nie wyłącza, po minucie bez dotyku jasność spada prawie do zera; dotknięcie przywraca jasność.</p>`;
+    $('dHome').onchange = async () => { await d.setHome({ enabled: $('dHome').checked }).catch(() => {}); setTimeout(renderDevAndroid, 1500); };
+    $('dBoot').onchange = async () => { await d.setBoot({ enabled: $('dBoot').checked }).catch(() => {}); setTimeout(renderDevAndroid, 1500); };
+    box.querySelectorAll('[data-mode]').forEach((b) => (b.onclick = () => {
+        settings.screenMode = b.dataset.mode;
+        ls.set('pitayas-settings', settings);
+        applyScreenMode();
+        renderDevAndroid();
+    }));
 }
 $('setBtn').onclick = openSettings;
 $('setBtn').insertAdjacentHTML('beforebegin', '<button class="bar-btn bell glass" id="bellBtn" title="Powiadomienia"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><span class="badge"></span></button>');
@@ -1184,7 +1227,7 @@ Promise.all(Object.values(installed).map(injectModule)).then(renderTiles);
 setInterval(() => { if (!activeView && document.visibilityState === 'visible') refreshStatus(); }, 5000);
 (Plugins.App && NATIVE ? Plugins.App.getInfo().then((i) => { shellVersion = i.version; }).catch(() => {}) : Promise.resolve())
     .then(loadBundled)
-    .then(() => { refreshAccess(); askNotifyPermission().finally(refreshNotifs); setInterval(refreshNotifs, 5 * 60 * 1000); return checkUpdates(false); })
+    .then(() => { applyScreenMode(); refreshAccess(); askNotifyPermission().finally(refreshNotifs); setInterval(refreshNotifs, 5 * 60 * 1000); return checkUpdates(false); })
     .then(() => {
         if (!Object.keys(installed).length) openModules();
         else if (!pcs.list.length) editPc(null);

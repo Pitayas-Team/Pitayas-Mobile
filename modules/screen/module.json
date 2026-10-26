@@ -1,0 +1,8 @@
+{
+  "id": "screen",
+  "name": "Pitayas Screen",
+  "description": "Telefon jako dodatkowy monitor komputera — przez kabel USB",
+  "version": "0.1.0",
+  "minCore": "0.3.2",
+  "files": ["module.js", "module.css", "icon.png"]
+}
