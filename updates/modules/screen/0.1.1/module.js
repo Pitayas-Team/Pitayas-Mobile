@@ -11,8 +11,12 @@
     const opts = (() => { try { return Object.assign({ quality: 'mid', scale: 1.5 }, JSON.parse(localStorage.getItem(KEY))); } catch { return { quality: 'mid', scale: 1.5 }; } })();
     const saveOpts = () => { try { localStorage.setItem(KEY, JSON.stringify(opts)); } catch {} };
 
+    let stepTimer = null;
     let el = null, api = null, ws = null, decoder = null, full = null, canvas = null, ctx = null;
     let size = [0, 0], ts = 0, live = false, resizeTimer = null, statusText = '', statusTone = '';
+    // Kroki połączenia widoczne na ekranie modułu: link (kabel/aplikacja) → pc (komputer) → video (obraz)
+    let phase = 'idle', phaseSince = Date.now(), paused = false, linkError = '';
+    function setPhase(p) { if (p !== phase) { phase = p; phaseSince = Date.now(); } renderSteps(); }
     const q = (s) => el && el.querySelector(s);
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
@@ -39,42 +43,46 @@
 
     // ───── Połączenie ─────
     async function connect() {
-        if (!('VideoDecoder' in window)) return setStatus('Ten telefon nie ma dekodera wideo w aplikacji (WebCodecs) — potrzebny iOS 16.4+ albo Android z Chrome 94+.', 'err');
+        if (!('VideoDecoder' in window)) { linkError = 'Ten telefon nie ma dekodera wideo (WebCodecs) — potrzebny iOS 16.4+ albo Android z aktualnym Chrome.'; return renderSteps(); }
         if (PLATFORM === 'ios') {
             const usb = api.Plugins.PitayasUsb;
-            if (!usb) return setStatus('Na iPhonie potrzebna jest aplikacja Pitayas 0.2.5 lub nowsza (Ustawienia → Nowa aplikacja).', 'err');
-            try { await usb.start({ port: PORT }); } catch (err) { return setStatus(`Nie mogę nasłuchiwać: ${err.message || err}`, 'err'); }
+            if (!usb) { linkError = 'Potrzebna aplikacja Pitayas 0.2.5 lub nowsza.'; return renderSteps(); }
+            try { await usb.start({ port: PORT }); } catch (err) { linkError = `Nie mogę nasłuchiwać: ${err.message || err}`; return renderSteps(); }
         }
-        openFull();
-        setStatus(PLATFORM === 'ios' ? 'Podłącz iPhone kablem do komputera z Pitayas Screen…' : 'Łączenie z komputerem przez kabel…');
+        paused = false;
+        linkError = '';
+        setPhase(PLATFORM === 'ios' ? 'link' : 'idle');
         awake(true);
+        window.addEventListener('resize', onResize);
         open();
     }
 
     let retry = null;
     function open() {
         clearTimeout(retry);
-        if (!full) return;
+        if (paused || !el) return;
         ws = new WebSocket(`ws://127.0.0.1:${PORT}/`);
         ws.binaryType = 'arraybuffer';
         ws.onopen = () => {
             ws.send(JSON.stringify({ role: 'app' }));
-            if (PLATFORM !== 'ios') hello();   // Android: od razu komputer; iPhone: czekamy, aż przekaźnik powie, że komputer jest
+            // Android: otwarte połączenie = komputer jest po drugiej stronie kabla; iPhone: czekamy, aż przekaźnik powie, że komputer się połączył
+            if (PLATFORM !== 'ios') { setPhase('pc'); hello(); } else setPhase('link');
         };
         ws.onmessage = (e) => {
             if (typeof e.data !== 'string') return frame(new Uint8Array(e.data));
             let m; try { m = JSON.parse(e.data); } catch { return; }
             if (m.t === 'peer' && m.role === 'pc') {
-                if (m.state === 'up') { setStatus('Komputer połączony — uruchamiam ekran…'); hello(); }
-                else { live = false; setStatus('Komputer odłączony — podłącz kabel ponownie'); }
-            } else if (m.t === 'config') configure(m);
-            else if (m.t === 'error') setStatus(`Komputer: ${m.message}`, 'err');
+                if (m.state === 'up') { setPhase('pc'); hello(); }
+                else { live = false; closeFull(); setPhase('link'); }
+            } else if (m.t === 'config') { openFull(); configure(m); setPhase('video'); }
+            else if (m.t === 'error') { linkError = `Komputer: ${m.message}`; renderSteps(); }
         };
         ws.onclose = () => {
             ws = null;
             live = false;
-            if (!full) return;
-            setStatus(PLATFORM === 'ios' ? 'Czekam na komputer…' : 'Brak połączenia — podłącz kabel, włącz Debugowanie USB i uruchom Pitayas Screen na komputerze.', PLATFORM === 'ios' ? '' : 'warn');
+            closeFull();
+            if (paused || !el) return;
+            setPhase(PLATFORM === 'ios' ? 'link' : 'idle');
             retry = setTimeout(open, 1500);
         };
     }
@@ -101,16 +109,21 @@
         try { decoder.decode(new EncodedVideoChunk({ type: key ? 'key' : 'delta', timestamp: ts, data: buf.subarray(1) })); } catch {}
     }
 
-    function disconnect() {
-        clearTimeout(retry);
-        if (ws) { ws.onclose = null; ws.close(); ws = null; }
+    function closeFull() {
         if (decoder) { try { decoder.close(); } catch {} decoder = null; }
         live = false;
-        awake(false);
         if (full) { full.remove(); full = null; }
+    }
+
+    function disconnect() {
+        paused = true;
+        clearTimeout(retry);
+        if (ws) { ws.onclose = null; ws.close(); ws = null; }
+        closeFull();
+        awake(false);
         if (PLATFORM === 'ios' && api && api.Plugins.PitayasUsb) api.Plugins.PitayasUsb.stop().catch(() => {});
         window.removeEventListener('resize', onResize);
-        setStatus('Rozłączono');
+        setPhase('idle');
     }
 
     function onResize() {
@@ -120,6 +133,7 @@
 
     // ───── Pełny ekran i dotyk ─────
     function openFull() {
+        if (full) return;
         full = document.createElement('div');
         full.className = 'scr-full md-player';   // md-player: rdzeń chowa wtedy szklane przyciski
         full.innerHTML = `
@@ -135,6 +149,7 @@
             </div>`;
         document.body.appendChild(full);
         canvas = full.querySelector('canvas');
+        full.querySelector('.scr-wait').textContent = 'Komputer tworzy ekran… (na komputerze może pojawić się pytanie o udostępnienie)';
         ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
         const menu = full.querySelector('.scr-menu'), kbd = full.querySelector('.scr-kbd');
         let rightNext = false;
@@ -143,7 +158,7 @@
             const b = e.target.closest('[data-a]');
             if (!b) return;
             menu.hidden = true;
-            if (b.dataset.a === 'off') disconnect();
+            if (b.dataset.a === 'off') { disconnect(); render(); }
             else if (b.dataset.a === 'kbd') { kbd.value = ''; kbd.focus(); }
             else if (b.dataset.a === 'esc') sendMsg({ t: 'key', sym: 'Escape' });
             else if (b.dataset.a === 'right') { rightNext = true; api.toast('Dotknij miejsca — prawy klik'); }
@@ -153,7 +168,6 @@
             const map = { Backspace: 'Backspace', Enter: 'Enter', Tab: 'Tab', ArrowLeft: 'Left', ArrowRight: 'Right', ArrowUp: 'Up', ArrowDown: 'Down', Escape: 'Escape', Delete: 'Delete' };
             if (map[e.key]) { e.preventDefault(); sendMsg({ t: 'key', sym: map[e.key] }); }
         });
-        window.addEventListener('resize', onResize);
 
         // Pozycja dotyku → 0–1 w obrazie (canvas ma object-fit: contain, więc odejmujemy czarne pasy)
         const point = (t) => {
@@ -221,26 +235,54 @@
         }, { passive: false });
     }
 
-    // ───── Ekran modułu ─────
+    // ───── Ekran modułu: kroki połączenia ─────
+    const STEPS = PLATFORM === 'ios'
+        ? [['link', 'Aplikacja czeka na komputer', 'Podłącz iPhone kablem do komputera i potwierdź „Zaufaj”.'],
+           ['pc', 'Komputer połączony', 'Uruchom na komputerze Pitayas Screen — połączy się sam przez kabel.'],
+           ['video', 'Obraz', 'Na komputerze zgódź się na udostępnienie ekranu (pyta tylko za pierwszym razem).']]
+        : [['link', 'Kabel USB', 'Opcje programisty → Debugowanie USB, podłącz kabel i zezwól na debugowanie.'],
+           ['pc', 'Komputer połączony', 'Uruchom na komputerze Pitayas Screen — tunel przez kabel zrobi sam.'],
+           ['video', 'Obraz', 'Na komputerze zgódź się na udostępnienie ekranu (pyta tylko za pierwszym razem).']];
+    const ORDER = { idle: -1, link: 0, pc: 1, video: 2 };
+
+    function renderSteps() {
+        const box = q('.scr-steps');
+        if (!box) return;
+        // Android nie widzi samego kabla — „link” = udało się połączyć z komputerem; iPhone: link = przekaźnik nasłuchuje
+        const reached = PLATFORM === 'ios' ? ORDER[phase] : Math.max(ORDER[phase], phase === 'idle' ? -1 : 0);
+        const current = paused ? -1 : reached + 1;
+        const slow = Date.now() - phaseSince > 4000;
+        box.innerHTML = STEPS.map(([id, title, help], i) => {
+            const done = i <= reached && !paused;
+            const now = i === current && !paused;
+            return `<div class="scr-step ${done ? 'done' : now ? 'now' : ''}">
+                <span class="scr-mark">${done ? '✓' : now ? '<i class="mini-spin"></i>' : i + 1}</span>
+                <span class="scr-st"><b>${title}</b>${now && slow ? `<small>${help}</small>` : ''}</span></div>`;
+        }).join('') + (linkError ? `<p class="scr-status err">${esc(linkError)}</p>` : '');
+        const go = q('.scr-go');
+        if (go) go.hidden = !paused;
+    }
+
     function render() {
         if (!el) return;
         const chips = (name, list, cur) => list.map(([v, l]) => `<button class="scr-chip ${String(cur) === String(v) ? 'on' : ''}" data-${name}="${v}">${l}</button>`).join('');
         el.innerHTML = `
             <div class="scr-hero">
-              <svg viewBox="0 0 120 80" class="scr-art"><rect x="4" y="6" width="74" height="48" rx="5"/><path d="M30 66h22M41 54v12"/><rect x="88" y="22" width="28" height="50" rx="5"/><path d="M78 40c4 0 6 2 10 2" class="cable"/></svg>
+              <svg viewBox="0 0 120 80" class="scr-art ${phase === 'pc' || phase === 'video' ? 'linked' : ''}"><rect x="4" y="6" width="74" height="48" rx="5"/><path d="M30 66h22M41 54v12"/><rect x="88" y="22" width="28" height="50" rx="5"/><path d="M78 40c4 0 6 2 10 2" class="cable"/></svg>
               <b>Telefon jako monitor</b>
-              <small>${PLATFORM === 'ios' ? 'Podłącz iPhone kablem do komputera z Pitayas Screen i zaufaj komputerowi.' : 'Włącz Opcje programisty → Debugowanie USB, podłącz kabel i zezwól na debugowanie. Na komputerze uruchom Pitayas Screen.'}</small>
+              <small>Wszystko łączy się samo przez kabel — wystarczy, że Pitayas Screen działa na komputerze.</small>
             </div>
+            <div class="scr-steps"></div>
+            <button class="btn scr-go" hidden>Połącz ponownie</button>
             <div class="set-label">Rozmiar tekstu na monitorze</div>
             <div class="scr-chips">${chips('scale', [[1, 'Mały'], [1.5, 'Średni'], [2, 'Duży']], opts.scale)}</div>
             <div class="set-label">Jakość obrazu</div>
             <div class="scr-chips">${chips('quality', [['high', 'Najlepsza'], ['mid', 'Zbalansowana'], ['low', 'Oszczędna']], opts.quality)}</div>
-            <button class="btn scr-go">Uruchom ekran</button>
-            <div class="scr-status ${statusTone}">${esc(statusText)}</div>
             <p class="hint">Stuknięcie — klik · przytrzymanie — prawy klik · przeciągnięcie — przeciąganie · dwa palce — przewijanie. Menu w rogu: klawiatura i rozłączenie.</p>`;
-        el.querySelectorAll('[data-scale]').forEach((b) => (b.onclick = () => { opts.scale = Number(b.dataset.scale); saveOpts(); render(); }));
-        el.querySelectorAll('[data-quality]').forEach((b) => (b.onclick = () => { opts.quality = b.dataset.quality; saveOpts(); render(); }));
-        q('.scr-go').onclick = connect;
+        el.querySelectorAll('[data-scale]').forEach((b) => (b.onclick = () => { opts.scale = Number(b.dataset.scale); saveOpts(); render(); hello(); }));
+        el.querySelectorAll('[data-quality]').forEach((b) => (b.onclick = () => { opts.quality = b.dataset.quality; saveOpts(); render(); hello(); }));
+        q('.scr-go').onclick = () => { connect(); render(); };
+        renderSteps();
     }
 
     Pitayas.register({
@@ -250,8 +292,11 @@
             el = body;
             el.classList.add('scr-mod');
             render();
+            connect();   // od razu: nasłuch (iPhone) / szukanie komputera przez kabel (Android)
+            stepTimer = setInterval(renderSteps, 1500);
         },
-        pause() { if (full) disconnect(); },
-        unmount() { disconnect(); el = null; },
+        pause() { if (!paused) { disconnect(); render(); } },
+        resume() { if (el && paused) { connect(); render(); } },
+        unmount() { clearInterval(stepTimer); disconnect(); el = null; },
     });
 })();

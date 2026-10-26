@@ -24,3 +24,13 @@
 .scr-full .scr-menu button { display: flex; align-items: center; gap: 10px; border: none; background: none; color: #fff; font-size: 15px; font-weight: 600; padding: 10px 14px; border-radius: 14px; text-align: left; }
 .scr-full .scr-menu button:active { background: rgba(255,255,255,.1); }
 .scr-full .scr-menu .off { color: #ff6b7f; }
+
+/* Kroki połączenia */
+.scr-mod .scr-steps { display: flex; flex-direction: column; background: var(--m-panel); border: 1px solid var(--m-line); border-radius: 20px; overflow: hidden; }
+.scr-mod .scr-step { display: flex; align-items: flex-start; gap: 12px; padding: 13px 14px; position: relative; color: var(--m-text-3); }
+.scr-mod .scr-step + .scr-step::before { content: ''; position: absolute; top: 0; left: 54px; right: 0; height: 1px; background: var(--m-line); }
+.scr-mod .scr-mark { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: var(--m-item); font-size: 13px; font-weight: 800; flex-shrink: 0; }
+.scr-mod .scr-step.done { color: var(--m-text); } .scr-mod .scr-step.done .scr-mark { background: #34c759; color: #fff; }
+.scr-mod .scr-step.now { color: var(--m-text); } .scr-mod .scr-step.now .scr-mark { background: rgba(255,79,166,.15); }
+.scr-mod .scr-st b { display: block; font-size: 15px; padding-top: 4px; } .scr-mod .scr-st small { display: block; font-size: 13px; color: var(--m-text-2); line-height: 1.4; margin-top: 3px; }
+.scr-mod .scr-art.linked .cable { stroke: var(--m-leaf); stroke-dasharray: none; }
