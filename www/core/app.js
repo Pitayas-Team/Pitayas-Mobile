@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.3.3';
+const CORE_VERSION = '0.3.4';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -1120,7 +1120,8 @@ if (GLASS_ENABLED && hasPlugin('PitayasGlass')) {
     glassState = 'sprawdzam…';
     Plugins.PitayasGlass.isSupported().then((r) => {
         if (!r.supported) { glassState = 'niedostępne (iOS < 26)'; return; }
-        glassTitles = Boolean(r.titles);
+        // Przyciski z tekstem tylko z poprawioną wtyczką (textStable) — wcześniejsza przebudowywała je przy każdym przewinięciu (miganie)
+        glassTitles = Boolean(r.titles && r.textStable);
         glassSegments = Boolean(r.segments);
         glassOn = true;
         glassState = 'aktywne';

@@ -48,7 +48,7 @@ public class PitayasGlassPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func isSupported(_ call: CAPPluginCall) {
         // titles: ta wersja umie przyciski z tekstem i kolorem (rdzeń sprawdza to przed użyciem)
-        call.resolve(["supported": PitayasGlassPlugin.available, "titles": true, "segments": true])
+        call.resolve(["supported": PitayasGlassPlugin.available, "titles": true, "segments": true, "textStable": true])
     }
 
     @objc func setButtons(_ call: CAPPluginCall) {
@@ -173,13 +173,19 @@ public class PitayasGlassPlugin: CAPPlugin, CAPBridgedPlugin {
         return button
     }
 
+    // Zawartość zmieniamy tylko wtedy, gdy naprawdę się zmieniła — przebudowa konfiguracji przy każdym przewinięciu
+    // powodowała miganie i gubienie dotknięć. Ostatnio ustawioną treść pamiętamy w accessibilityValue.
     private func setContent(_ button: UIButton, symbol: String, title: String, light: Bool) {
+        let sig = "\(symbol)|\(title)"
+        if button.accessibilityValue == sig { return }
+        button.accessibilityValue = sig
         guard var cfg = button.configuration else { return }
         let image = symbol.isEmpty ? nil : UIImage(systemName: symbol, withConfiguration: UIImage.SymbolConfiguration(pointSize: title.isEmpty ? 17 : 14, weight: .semibold))
         var changed = false
         if cfg.image != image { cfg.image = image; changed = true }
         if cfg.title != (title.isEmpty ? nil : title) {
             if title.isEmpty { cfg.attributedTitle = nil; cfg.title = nil } else {
+                cfg.title = title
                 var t = AttributedString(title)
                 t.font = .systemFont(ofSize: 15, weight: .bold)
                 cfg.attributedTitle = t
