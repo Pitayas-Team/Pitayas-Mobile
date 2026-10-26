@@ -1,16 +1,16 @@
 {
   "schema": 1,
-  "generated": "2026-10-26T15:16:28.421Z",
+  "generated": "2026-10-26T15:22:20.528Z",
   "shell": {
-    "version": "0.2.1",
-    "android": "https://github.com/Pitayas-Team/Pitayas-Mobile/releases/download/v0.2.1-beta/Pitayas-0.2.1-beta.apk",
-    "ios": "https://github.com/Pitayas-Team/Pitayas-Mobile/releases/download/v0.2.1-beta/Pitayas-0.2.1-beta.ipa",
+    "version": "0.2.2",
+    "android": "https://github.com/Pitayas-Team/Pitayas-Mobile/releases/download/v0.2.2-beta/Pitayas-0.2.2-beta.apk",
+    "ios": "https://github.com/Pitayas-Team/Pitayas-Mobile/releases/download/v0.2.2-beta/Pitayas-0.2.2-beta.ipa",
     "page": "https://github.com/Pitayas-Team/Pitayas-Mobile/releases/latest"
   },
   "core": {
-    "version": "0.2.5",
+    "version": "0.2.6",
     "minShell": "0.1.0",
-    "base": "core/0.2.5/",
+    "base": "core/0.2.6/",
     "files": [
       "app.js",
       "app.css",

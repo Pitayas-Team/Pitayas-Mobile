@@ -3,14 +3,20 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.2.5';
+const CORE_VERSION = '0.2.6';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
 const $ = (id) => document.getElementById(id);
 // Ostatnie błędy JS — widać je w Ustawieniach → Diagnostyka (łatwiej pomóc na odległość)
 const jsErrors = [];
-window.addEventListener('error', (e) => { jsErrors.unshift(`${e.message} (${String(e.filename || '').split('/').pop()}:${e.lineno})`); jsErrors.length = Math.min(jsErrors.length, 8); });
+window.addEventListener('error', (e) => {
+    jsErrors.unshift(`${e.message} (${String(e.filename || '').split('/').pop()}:${e.lineno})`);
+    jsErrors.length = Math.min(jsErrors.length, 8);
+    // Błąd widać od razu na ekranie głównym — zrzut ekranu wystarczy do naprawy
+    const h = document.getElementById('homeHint');
+    if (h) { h.textContent = `Błąd: ${jsErrors[0]}`; h.style.color = '#ff6b7f'; }
+});
 window.addEventListener('unhandledrejection', (e) => { jsErrors.unshift(`Promise: ${(e.reason && e.reason.message) || e.reason}`); jsErrors.length = Math.min(jsErrors.length, 8); });
 const Plugins = (window.Capacitor && window.Capacitor.Plugins) || {};
 const NATIVE = Boolean(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
@@ -744,8 +750,10 @@ async function refreshNotifs() {
     const normal = fresh.filter((n) => n.level !== 'critical');
     if (normal.length && !(shown && toSystem.length)) showNotifBanner(normal[0], normal.length);
 }
-if (hasPlugin('LocalNotifications')) Plugins.LocalNotifications.addListener('localNotificationActionPerformed', () => setTimeout(openNotifs, 300)).catch(() => {});
-if (hasPlugin('BackgroundRunner')) Plugins.BackgroundRunner.addListener('backgroundRunnerNotificationReceived', () => setTimeout(openNotifs, 300)).catch(() => {});
+// Wtyczki natywne nie mogą wywrócić rdzenia — każde wywołanie osobno, w try
+const safely = (fn) => { try { const r = fn(); if (r && r.catch) r.catch(() => {}); } catch (err) { jsErrors.unshift(`Wtyczka: ${errText(err)}`); } };
+if (hasPlugin('LocalNotifications')) safely(() => Plugins.LocalNotifications.addListener('localNotificationActionPerformed', () => setTimeout(openNotifs, 300)));
+if (hasPlugin('BackgroundRunner')) safely(() => Plugins.BackgroundRunner.addListener('backgroundRunnerNotificationReceived', () => setTimeout(openNotifs, 300)));
 
 function renderBell() {
     const b = $('bellBtn');
@@ -928,7 +936,7 @@ function disableGlass(err) {
 const GLASS_ENABLED = false;
 if (!GLASS_ENABLED && hasPlugin('PitayasGlass')) {
     glassState = 'wyłączone (naprawiam)';
-    Plugins.PitayasGlass.setButtons({ buttons: [] }).catch(() => {});
+    safely(() => Plugins.PitayasGlass.setButtons({ buttons: [] }));
 }
 if (GLASS_ENABLED && hasPlugin('PitayasGlass')) {
     glassState = 'sprawdzam…';
