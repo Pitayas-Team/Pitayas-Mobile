@@ -232,3 +232,4 @@ input:focus, select:focus { outline: none; border-color: var(--m-accent); }
 .ios .sheet-card { background: linear-gradient(180deg, rgba(40,36,48,.72), rgba(24,22,30,.82)) !important; }
 .ios .critical-card { background: linear-gradient(180deg, rgba(50,30,40,.7), rgba(26,20,28,.85)) !important; border-color: rgba(255,107,127,.45) !important; }
 .ios .notif-pop { background: linear-gradient(180deg, rgba(60,55,70,.55), rgba(30,27,36,.7)) !important; }
+.ios .bar-btn.bell { overflow: visible; }
