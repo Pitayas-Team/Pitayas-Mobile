@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.2.4';
+const CORE_VERSION = '0.2.5';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -924,7 +924,13 @@ function disableGlass(err) {
     document.documentElement.classList.remove('native-glass');
     Plugins.PitayasGlass.setButtons({ buttons: [] }).catch(() => {});
 }
-if (hasPlugin('PitayasGlass')) {
+// Natywne szkło chwilowo wyłączone: na iOS 27 warstwa blokowała dotyk całej aplikacji. Włączymy po poprawce.
+const GLASS_ENABLED = false;
+if (!GLASS_ENABLED && hasPlugin('PitayasGlass')) {
+    glassState = 'wyłączone (naprawiam)';
+    Plugins.PitayasGlass.setButtons({ buttons: [] }).catch(() => {});
+}
+if (GLASS_ENABLED && hasPlugin('PitayasGlass')) {
     glassState = 'sprawdzam…';
     Plugins.PitayasGlass.isSupported().then((r) => {
         if (!r.supported) { glassState = 'niedostępne (iOS < 26)'; return; }
