@@ -3,11 +3,15 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.2.3';
+const CORE_VERSION = '0.2.4';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
 const $ = (id) => document.getElementById(id);
+// Ostatnie błędy JS — widać je w Ustawieniach → Diagnostyka (łatwiej pomóc na odległość)
+const jsErrors = [];
+window.addEventListener('error', (e) => { jsErrors.unshift(`${e.message} (${String(e.filename || '').split('/').pop()}:${e.lineno})`); jsErrors.length = Math.min(jsErrors.length, 8); });
+window.addEventListener('unhandledrejection', (e) => { jsErrors.unshift(`Promise: ${(e.reason && e.reason.message) || e.reason}`); jsErrors.length = Math.min(jsErrors.length, 8); });
 const Plugins = (window.Capacitor && window.Capacitor.Plugins) || {};
 const NATIVE = Boolean(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 const FS = NATIVE ? Plugins.Filesystem : null;
@@ -859,6 +863,8 @@ function openSettings() {
         ${accountHtml()}
         <div class="info-grid">
           <span>Aplikacja</span><b>${esc(shellVersion)}</b>
+          <span>Wtyczki</span><b>${['LocalNotifications', 'BackgroundRunner', 'PitayasGlass'].map((p) => `${p.replace('LocalNotifications', 'Powiad.').replace('BackgroundRunner', 'Tło').replace('PitayasGlass', 'Szkło')} ${window.Capacitor && window.Capacitor.isPluginAvailable && window.Capacitor.isPluginAvailable(p) ? '✓' : '✗'}`).join(' · ')}</b>
+          <span>Liquid Glass</span><b>${esc(glassState)}</b>
           <span>Rdzeń</span><b>${esc(CORE_VERSION)}${core ? '' : ' (wbudowany)'}${coreReady ? ` → ${esc(coreReady)} po restarcie` : ''}</b>
           ${Object.values(installed).map((m) => `<span>${esc(m.name)}</span><b>${esc(m.version)}</b>`).join('')}
         </div>
@@ -868,6 +874,7 @@ function openSettings() {
         ${shell ? `<button class="btn ghost" id="sShell">Pobierz aplikację ${esc(shell.version)}</button>` : ''}
         <div><label for="sSource">Źródło aktualizacji</label><input id="sSource" autocapitalize="off" inputmode="url" placeholder="${esc(DEFAULT_SOURCE)}" value="${esc(settings.source)}"></div>
         <p class="hint">Puste = oficjalny kanał Pitayas na GitHubie.</p>
+        ${jsErrors.length ? `<div><label>Błędy</label><div class="log">${jsErrors.map((e) => `<div class="err">${esc(e)}</div>`).join('')}</div></div>` : ''}
         <div><label>Dziennik aktualizacji</label>
           <div class="log">${updateLog.length ? updateLog.map((e) => `<div class="${e.error ? 'err' : ''}"><small>${esc(new Date(e.t).toLocaleString('pl-PL'))}</small>${esc(e.text)}</div>`).join('') : '<div><small>Pusto</small></div>'}</div></div>`);
     bindAccount();
@@ -890,7 +897,7 @@ $('setBtn').dataset.glass = 'gearshape';
 // ═══════ LIQUID GLASS (iOS 26, aplikacja 0.2.0+) ═══════
 // Natywna wtyczka PitayasGlass stawia prawdziwe szklane przyciski (UIButton .glass()) nad przyciskami z data-glass.
 // Przycisk HTML zostaje pod spodem (niewidoczny) i to on obsługuje kliknięcie.
-let glassOn = false, glassFrame = 0;
+let glassOn = false, glassFrame = 0, glassState = 'brak wtyczki (aplikacja < 0.2.0)';
 function syncGlass() {
     if (!glassOn || glassFrame) return;
     glassFrame = requestAnimationFrame(() => {
@@ -910,16 +917,19 @@ function syncGlass() {
         }).catch(disableGlass);
     });
 }
-function disableGlass() {
+function disableGlass(err) {
+    glassState = `wyłączone: ${err && err.message ? err.message : 'nie postawiło przycisków'}`;
     if (!glassOn) return;
     glassOn = false;
     document.documentElement.classList.remove('native-glass');
     Plugins.PitayasGlass.setButtons({ buttons: [] }).catch(() => {});
 }
 if (hasPlugin('PitayasGlass')) {
+    glassState = 'sprawdzam…';
     Plugins.PitayasGlass.isSupported().then((r) => {
-        if (!r.supported) return;
+        if (!r.supported) { glassState = 'niedostępne (iOS < 26)'; return; }
         glassOn = true;
+        glassState = 'aktywne';
         document.documentElement.classList.add('native-glass');
         Plugins.PitayasGlass.addListener('tap', (e) => { const el = document.getElementById(e.id); if (el) el.click(); });
         new MutationObserver(syncGlass).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'class'] });   // bez „style” — paski postępu i animacje nie przeliczają szkła co klatkę
