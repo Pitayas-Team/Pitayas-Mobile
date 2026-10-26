@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.2.6';
+const CORE_VERSION = '0.2.7';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -373,6 +373,11 @@ async function fetchManifest() {
         const r = await fetch(`${source()}manifest.json?t=${Date.now()}`, { cache: 'no-store' });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         manifest = await r.json();
+        const off = Boolean(manifest.flags && manifest.flags.glass === false);
+        if (off !== ls.get('pitayas-glass-off', false)) {
+            ls.set('pitayas-glass-off', off);
+            if (off && typeof disableGlass === 'function') disableGlass(new Error('wyłączone zdalnie'));
+        }
         return manifest;
     } catch (err) {
         logUpdate(`Lista aktualizacji: ${errText(err)}`, true);
@@ -932,8 +937,9 @@ function disableGlass(err) {
     document.documentElement.classList.remove('native-glass');
     Plugins.PitayasGlass.setButtons({ buttons: [] }).catch(() => {});
 }
-// Natywne szkło chwilowo wyłączone: na iOS 27 warstwa blokowała dotyk całej aplikacji. Włączymy po poprawce.
-const GLASS_ENABLED = false;
+// Wyłącznik awaryjny: "flags": { "glass": false } w updates/manifest.json wyłącza natywne szkło na wszystkich telefonach
+// (rdzeń czyta kanał przy starcie, bez dotykania ekranu — działa nawet, gdyby szkło blokowało dotyk).
+const GLASS_ENABLED = !ls.get('pitayas-glass-off', false);
 if (!GLASS_ENABLED && hasPlugin('PitayasGlass')) {
     glassState = 'wyłączone (naprawiam)';
     safely(() => Plugins.PitayasGlass.setButtons({ buttons: [] }));
