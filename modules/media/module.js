@@ -32,7 +32,7 @@
     const save = () => { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch {} };
     const streamsServer = () => (store.streams.server || DEFAULT_STREAMS).replace(/\/+$/, '');
 
-    let el = null, api = null, tab = 'search';
+    let el = null, api = null, tab = 'link';
     let pcOnline = false, pcInfo = null, jobs = [], pollTimer = null, probeTimer = null;
     // Wyszukiwarka: lista → tytuł (sezony/odcinki) → linki
     const search = { q: '', results: null, loading: false, meta: null, season: null, target: null, streams: null, error: '' };
@@ -367,16 +367,17 @@
 
     function render() {
         if (!el) return;
-        // „Filmy i seriale” (Pitaya Streams) tylko po zalogowaniu na konto Pitayas albo do dodatku
-        const streamsOk = Boolean((api.account && api.account()) || (store.streams.logged && !store.streams.viaAccount));
-        const tabs = [...(streamsOk ? [['search', 'Filmy i seriale']] : []), ['link', 'Link'], ['files', 'Pobrane']];
+        // „Filmy i seriale” (Pitaya Streams): na końcu i tylko po zalogowaniu, gdy w panelu kont masz dostęp do aplikacji „stremio”
+        const acc = api.account && api.account();
+        const st = api.access ? api.access('stremio') : null;
+        const streamsOk = Boolean(acc && st && st.access);
+        const tabs = [['link', 'Link'], ['files', 'Pobrane'], ...(streamsOk ? [['search', 'Filmy i seriale']] : [])];
         if (!tabs.some(([id]) => id === tab)) tab = 'link';
         el.innerHTML = `
-            <div class="md-tabs" style="--n:${tabs.length}">
+            <div class="md-tabs" id="mdTabs" data-glass-seg style="--n:${tabs.length}">
               <i class="md-pill"></i>
               ${tabs.map(([id, label]) => `<button data-tab="${id}" class="${tab === id ? 'on' : ''}">${label}</button>`).join('')}
             </div>
-            ${streamsOk ? '' : '<p class="hint md-c md-locked">Filmy i seriale z Pitaya Streams pojawią się po zalogowaniu: Ustawienia → Zaloguj się.</p>'}
             <div class="md-pcstate"></div>
             <div class="md-page"></div>`;
         qa('[data-tab]').forEach((b) => (b.onclick = () => selectTab(b.dataset.tab)));

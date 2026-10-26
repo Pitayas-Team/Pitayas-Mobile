@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.3.1';
+const CORE_VERSION = '0.3.2';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -114,6 +114,8 @@ function makeApi(id) {
         probe,
         close: () => showHome(),
         account: () => (account.token ? { user: account.user, token: account.token, server: accountServer() } : null),
+        // Dostęp do aplikacji z panelu kont: { name, testersOnly, access } albo null, gdy aplikacji nie ma w panelu
+        access: (appId) => (access[appId] ? { ...access[appId] } : null),
     };
 }
 // Moduł, który działa też bez komputera (port w module.json z "optional": true)
@@ -1002,7 +1004,7 @@ $('setBtn').dataset.glass = 'gearshape';
 // Przycisk HTML zostaje pod spodem (niewidoczny) i to on obsługuje kliknięcie.
 let glassOn = false, glassFrame = 0, glassState = 'brak wtyczki (aplikacja < 0.2.0)';
 // Przyciski z tekstem (Pobierz, Zaloguj…) — gdy aplikacja 0.2.3+ umie tekst w natywnym szkle, wszystkie stają się Liquid Glass
-let glassTitles = false, glassAutoId = 0;
+let glassTitles = false, glassSegments = false, glassAutoId = 0;
 const GLASS_AUTO = '.btn, .chip, .mod-get, .account-btn';
 const GLASS_TINT = (el) => el.classList.contains('discord') ? '#5865f2' : el.classList.contains('upd') ? '#3fa8ff'
     : el.classList.contains('danger') || el.classList.contains('danger-btn') || el.classList.contains('stop') ? '#e5484d' : '#ff4fa6';
@@ -1025,12 +1027,19 @@ function syncGlass() {
         const blocked = document.querySelector('.critical, .egg-lock, .md-player, .notif-pop.show');
         const sheetOpen = !$('sheet').hidden;
         const scope = sheetOpen ? $('sheet') : document;
-        const sel = glassTitles ? `[data-glass], ${GLASS_AUTO}` : '[data-glass]';
+        const sel = [glassTitles ? `[data-glass], ${GLASS_AUTO}` : '[data-glass]', glassSegments ? '[data-glass-seg]' : ''].filter(Boolean).join(', ');
         const buttons = blocked ? [] : [...scope.querySelectorAll(sel)].filter((el) => sheetOpen || !$('sheet').contains(el)).map((el) => {
             if (el.offsetParent === null || el.disabled) return null;
             const r = el.getBoundingClientRect();
             const clip = glassClip(el);
             if (r.width < 4 || r.top < clip.top - 1 || r.bottom > clip.bottom + 1) return null;   // tylko w całości widoczne
+            // Pasek zakładek → natywny przełącznik (UISegmentedControl z Liquid Glass)
+            if (el.hasAttribute('data-glass-seg')) {
+                const tabs = [...el.querySelectorAll('button')];
+                if (!el.id) el.id = `glass${++glassAutoId}`;
+                return { id: el.id, kind: 'segments', items: tabs.map((b) => b.textContent.trim()), selected: tabs.findIndex((b) => b.classList.contains('on')),
+                    x: r.left, y: r.top, w: r.width, h: r.height };
+            }
             const symbol = el.dataset.glass || '';
             const title = symbol ? (el.dataset.glassTitle || '') : (el.innerText || '').trim().replace(/\s+/g, ' ');
             if (!symbol && (!title || title.length > 28)) return null;
@@ -1042,7 +1051,7 @@ function syncGlass() {
         }).filter(Boolean);
         // Widoczne nad szkłem są tylko postawione przyciski; reszta HTML zostaje normalna
         const ids = new Set(buttons.map((x) => x.id));
-        document.querySelectorAll('[data-glass-auto]').forEach((el) => el.classList.toggle('glass-on', ids.has(el.id)));
+        document.querySelectorAll('[data-glass-auto], [data-glass-seg]').forEach((el) => el.classList.toggle('glass-on', ids.has(el.id)));
         Plugins.PitayasGlass.setButtons({ buttons }).then((r) => {
             if (buttons.length && (!r || typeof r.placed !== 'number' || r.placed < buttons.length)) disableGlass();
         }).catch(disableGlass);
@@ -1069,12 +1078,18 @@ if (GLASS_ENABLED && hasPlugin('PitayasGlass')) {
     Plugins.PitayasGlass.isSupported().then((r) => {
         if (!r.supported) { glassState = 'niedostępne (iOS < 26)'; return; }
         glassTitles = Boolean(r.titles);
+        glassSegments = Boolean(r.segments);
         glassOn = true;
         glassState = 'aktywne';
         document.documentElement.classList.add('lg');
         document.documentElement.classList.remove('matte');
         document.documentElement.classList.add('native-glass');
-        Plugins.PitayasGlass.addListener('tap', (e) => { const el = document.getElementById(e.id); if (el) el.click(); });
+        Plugins.PitayasGlass.addListener('tap', (e) => {
+            const el = document.getElementById(e.id);
+            if (!el) return;
+            if (typeof e.index === 'number') { const b = el.querySelectorAll('button')[e.index]; if (b) b.click(); return; }
+            el.click();
+        });
         new MutationObserver(syncGlass).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'class'] });   // bez „style” — paski postępu i animacje nie przeliczają szkła co klatkę
         addEventListener('scroll', syncGlass, true);
         // Okienka i ekrany wjeżdżają animacją — pozycje mierzymy jeszcze raz, gdy się zatrzymają

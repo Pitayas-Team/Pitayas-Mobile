@@ -335,3 +335,6 @@ input:focus, select:focus { outline: none; border-color: var(--m-accent); }
 .matte .acc-main { background: #211e27; }
 /* Przyciski z tekstem pod natywnym szkłem: niewidoczne tylko wtedy, gdy szkło faktycznie stoi nad nimi */
 .native-glass [data-glass-auto].glass-on { visibility: hidden !important; }
+
+/* Pasek zakładek pod natywnym przełącznikiem — niewidoczny, gdy przełącznik stoi */
+.native-glass [data-glass-seg].glass-on { visibility: hidden !important; }

@@ -37,6 +37,7 @@ public class PitayasGlassPlugin: CAPPlugin, CAPBridgedPlugin {
     private var overlay: GlassPassthroughView?
     private var buttons: [String: UIButton] = [:]
     private var badges: [String: UILabel] = [:]
+    private var segs: [String: UISegmentedControl] = [:]
 
     private static var available: Bool {
         #if compiler(>=6.2)
@@ -47,7 +48,7 @@ public class PitayasGlassPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func isSupported(_ call: CAPPluginCall) {
         // titles: ta wersja umie przyciski z tekstem i kolorem (rdzeń sprawdza to przed użyciem)
-        call.resolve(["supported": PitayasGlassPlugin.available, "titles": true])
+        call.resolve(["supported": PitayasGlassPlugin.available, "titles": true, "segments": true])
     }
 
     @objc func setButtons(_ call: CAPPluginCall) {
@@ -67,6 +68,8 @@ public class PitayasGlassPlugin: CAPPlugin, CAPBridgedPlugin {
         }
         // Nowa warstwa — stare przyciski zostały w poprzedniej
         buttons.values.forEach { $0.removeFromSuperview() }
+        segs.values.forEach { $0.removeFromSuperview() }
+        segs = [:]
         buttons = [:]
         badges = [:]
         let o = GlassPassthroughView(frame: host.bounds)
@@ -92,6 +95,21 @@ public class PitayasGlassPlugin: CAPPlugin, CAPBridgedPlugin {
         for item in list {
             guard let id = item["id"] as? String, !id.isEmpty else { continue }
             keep.insert(id)
+            // Przełącznik zakładek: natywny UISegmentedControl — w iOS 26 sam ma Liquid Glass i przesuwane zaznaczenie
+            if (item["kind"] as? String) == "segments" {
+                let labels = ((item["items"] as? JSArray) ?? []).compactMap { $0 as? String }
+                let seg = segs[id] ?? makeSegments(id: id, in: box)
+                let current = (0..<seg.numberOfSegments).map { seg.titleForSegment(at: $0) ?? "" }
+                if current != labels {
+                    seg.removeAllSegments()
+                    for (i, t) in labels.enumerated() { seg.insertSegment(withTitle: t, at: i, animated: false) }
+                }
+                let sel = Int(number(item["selected"]))
+                if sel >= 0, sel < seg.numberOfSegments, seg.selectedSegmentIndex != sel { seg.selectedSegmentIndex = sel }
+                seg.frame = CGRect(x: number(item["x"]), y: number(item["y"]), width: number(item["w"]), height: number(item["h"]))
+                if seg.superview === box, seg.numberOfSegments > 0 { placed += 1 }
+                continue
+            }
             let symbol = (item["symbol"] as? String) ?? ""
             let title = (item["title"] as? String) ?? ""
             let prominent = (item["style"] as? String) == "prominent"
@@ -107,12 +125,32 @@ public class PitayasGlassPlugin: CAPPlugin, CAPBridgedPlugin {
             setBadge(id: id, on: button, text: (item["badge"] as? String) ?? "")
             if button.superview === box, button.configuration?.image != nil || button.configuration?.title != nil { placed += 1 }
         }
+        for (id, s) in segs where !keep.contains(id) {
+            s.removeFromSuperview()
+            segs[id] = nil
+        }
         for (id, b) in buttons where !keep.contains(id) {
             b.removeFromSuperview()
             buttons[id] = nil
             badges[id] = nil
         }
         return placed
+    }
+
+    private func makeSegments(id: String, in box: UIView) -> UISegmentedControl {
+        let seg = UISegmentedControl()
+        seg.overrideUserInterfaceStyle = .dark
+        seg.setTitleTextAttributes([.font: UIFont.systemFont(ofSize: 14, weight: .semibold), .foregroundColor: UIColor.white.withAlphaComponent(0.75)], for: .normal)
+        seg.setTitleTextAttributes([.font: UIFont.systemFont(ofSize: 14, weight: .bold), .foregroundColor: UIColor.white], for: .selected)
+        seg.accessibilityIdentifier = id
+        seg.addAction(UIAction { [weak self, weak seg] _ in
+            guard let seg = seg else { return }
+            UISelectionFeedbackGenerator().selectionChanged()
+            self?.notifyListeners("tap", data: ["id": id, "index": seg.selectedSegmentIndex])
+        }, for: .valueChanged)
+        box.addSubview(seg)
+        segs[id] = seg
+        return seg
     }
 
     private func makeButton(id: String, in box: UIView, prominent: Bool = false) -> UIButton {
