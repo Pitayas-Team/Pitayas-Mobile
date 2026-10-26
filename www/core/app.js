@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.3.4';
+const CORE_VERSION = '0.3.5';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -982,6 +982,7 @@ function openDeveloper() {
         <div class="set-group">
           ${[['LocalNotifications', 'Powiadomienia'], ['BackgroundRunner', 'Praca w tle'], ['PitayasGlass', 'Liquid Glass']].map(([p, n]) => setRow('', n, plug(p) ? '<span class="ok">✓</span>' : '<span class="no">✗</span>')).join('')}
           ${setRow('', 'Stan szkła', esc(glassState))}
+          ${setRow('', 'Odświeżenia szkła', `${Math.round(glassCalls * 60000 / Math.max(1, Date.now() - glassCallsFrom))}/min`)}
           ${setRow('', 'Serwer kont', esc(accountServer().replace(/^https?:\/\//, '').replace(/\/$/, '')))}
         </div>
 
@@ -1048,6 +1049,9 @@ $('setBtn').dataset.glass = 'gearshape';
 let glassOn = false, glassFrame = 0, glassState = 'brak wtyczki (aplikacja < 0.2.0)';
 // Przyciski z tekstem (Pobierz, Zaloguj…) — gdy aplikacja 0.2.3+ umie tekst w natywnym szkle, wszystkie stają się Liquid Glass
 let glassTitles = false, glassSegments = false, glassAutoId = 0;
+// Wysyłamy do natywnej warstwy tylko zmiany: identyczny zestaw = brak wywołania, kolor tylko przy pierwszym pokazaniu przycisku
+// (ponowne ustawianie koloru przemalowuje szkło iOS — stąd miganie)
+let glassLast = '', glassTints = new Map(), glassCalls = 0, glassCallsFrom = Date.now();
 const GLASS_AUTO = '.btn, .chip, .mod-get, .account-btn';
 const GLASS_TINT = (el) => el.classList.contains('discord') ? '#5865f2' : el.classList.contains('upd') ? '#3fa8ff'
     : el.classList.contains('danger') || el.classList.contains('danger-btn') || el.classList.contains('stop') ? '#e5484d' : '#ff4fa6';
@@ -1095,7 +1099,19 @@ function syncGlass() {
         // Widoczne nad szkłem są tylko postawione przyciski; reszta HTML zostaje normalna
         const ids = new Set(buttons.map((x) => x.id));
         document.querySelectorAll('[data-glass-auto], [data-glass-seg]').forEach((el) => el.classList.toggle('glass-on', ids.has(el.id)));
-        Plugins.PitayasGlass.setButtons({ buttons }).then((r) => {
+        const payload = JSON.stringify(buttons);
+        if (payload === glassLast) return;
+        glassLast = payload;
+        const visible = new Set(buttons.map((x) => x.id));
+        for (const id of [...glassTints.keys()]) if (!visible.has(id)) glassTints.delete(id);   // zniknął → przy powrocie kolor jeszcze raz
+        const send = buttons.map((x) => {
+            if (!x.tint) return x;
+            if (glassTints.get(x.id) === x.tint) return { ...x, tint: '' };
+            glassTints.set(x.id, x.tint);
+            return x;
+        });
+        glassCalls++;
+        Plugins.PitayasGlass.setButtons({ buttons: send }).then((r) => {
             if (buttons.length && (!r || typeof r.placed !== 'number' || r.placed < buttons.length)) disableGlass();
         }).catch(disableGlass);
     });
