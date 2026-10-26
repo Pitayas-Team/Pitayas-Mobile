@@ -4,7 +4,7 @@
       "id": "cam",
       "name": "Pitaya Cam",
       "description": "Aparat telefonu jako kamera w komputerze",
-      "version": "0.1.0",
+      "version": "0.1.1",
       "minCore": "0.1.0",
       "port": {
         "default": 2139,
@@ -55,7 +55,7 @@
       "id": "media",
       "name": "Pitayas Media",
       "description": "Filmy i seriale z Pitaya Streams, YouTube i linki — pobieranie na telefon",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "minCore": "0.1.1",
       "port": {
         "default": 8193,

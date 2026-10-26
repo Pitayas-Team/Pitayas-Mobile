@@ -1,13 +1,13 @@
 /* ═══════ PITAYAS MEDIA (moduł) ═══════ */
 .md-mod { display: flex; flex-direction: column; gap: 14px; }
-.md-mod .md-tabs { position: relative; display: grid; grid-template-columns: repeat(var(--n, 3), 1fr); gap: 0; padding: 4px; background: var(--m-panel); border: 1px solid var(--m-line); border-radius: 999px; isolation: isolate; }
+.md-mod .md-tabs { position: relative; display: grid; grid-template-columns: repeat(var(--n, 3), 1fr); gap: 0; padding: 4px; background: var(--m-panel); border: 1px solid var(--m-line); border-radius: 999px; isolation: isolate; overflow: hidden; }
 .md-mod .md-tabs button { position: relative; z-index: 1; border: none; background: none; color: var(--m-text-2); border-radius: 999px; padding: 10px 4px; font-size: 14px; font-weight: 700; transition: color .3s; }
 .md-mod .md-tabs button.on { color: #1d1206; }
 /* Kapsuła wyboru: sprężyste przesunięcie + chwilowe rozciągnięcie */
 .md-mod .md-pill { position: absolute; z-index: 0; top: 4px; bottom: 4px; left: 0; width: var(--w, 0); transform: translateX(var(--x, 0)); border-radius: 999px; background: var(--m-grad); box-shadow: 0 6px 18px rgba(255,60,160,.35);
-  transition: transform .5s cubic-bezier(.34,1.45,.5,1), width .5s cubic-bezier(.34,1.45,.5,1); }
+  transition: transform .45s cubic-bezier(.3,1.18,.5,1), width .45s cubic-bezier(.3,1.18,.5,1); }
 .md-mod .md-pill.stretch { animation: md-stretch .5s cubic-bezier(.3,.9,.4,1); }
-@keyframes md-stretch { 0% { scale: 1 1; } 35% { scale: 1.12 .86; } 70% { scale: .97 1.04; } 100% { scale: 1 1; } }
+@keyframes md-stretch { 0% { scale: 1 1; } 35% { scale: 1.05 .9; } 70% { scale: .99 1.02; } 100% { scale: 1 1; } }
 .md-mod .md-locked { margin-top: -6px; font-size: 12.5px; }
 /* iOS 26+: pasek i kapsuła jak Liquid Glass */
 .lg .md-mod .md-tabs { background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.04)); -webkit-backdrop-filter: blur(24px) saturate(180%); backdrop-filter: blur(24px) saturate(180%); border-color: rgba(255,255,255,.18); box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 10px 28px rgba(0,0,0,.35); }

@@ -108,7 +108,7 @@
                   <div class="stats"></div>
                 </div>
                 <canvas hidden></canvas>`;
-            barSlot.innerHTML = '<button class="bar-btn" title="Zmień aparat"><svg viewBox="0 0 24 24"><path d="M4 9a8 8 0 0 1 14-3l2 2M20 15a8 8 0 0 1-14 3l-2-2"/><path d="M20 4v4h-4M4 20v-4h4"/></svg></button>';
+            barSlot.innerHTML = '<button class="bar-btn" id="camFlip" data-glass="arrow.triangle.2.circlepath.camera" title="Zmień aparat"><svg viewBox="0 0 24 24"><path d="M4 9a8 8 0 0 1 14-3l2 2M20 15a8 8 0 0 1-14 3l-2-2"/><path d="M20 4v4h-4M4 20v-4h4"/></svg></button>';
             barSlot.firstElementChild.onclick = () => {
                 const f = q('[name=facing]');
                 f.value = f.value === 'user' ? 'environment' : 'user';

@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.3.0';
+const CORE_VERSION = '0.3.1';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -254,6 +254,7 @@ function openSheet(title, html, onBack) {
     $('sheet').hidden = false;
     sheetBack = onBack || null;
     $('sheetBackBtn').hidden = !sheetBack;   // „Cofnij” tylko tam, gdzie jest poprzedni ekran
+    if (typeof syncGlass === 'function') { setTimeout(syncGlass, 260); setTimeout(syncGlass, 600); }
     $('sheet').querySelector('.sheet-card').scrollTop = 0;
 }
 function closeSheet() { $('sheet').hidden = true; sheetBack = null; }
@@ -1076,6 +1077,9 @@ if (GLASS_ENABLED && hasPlugin('PitayasGlass')) {
         Plugins.PitayasGlass.addListener('tap', (e) => { const el = document.getElementById(e.id); if (el) el.click(); });
         new MutationObserver(syncGlass).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'class'] });   // bez „style” — paski postępu i animacje nie przeliczają szkła co klatkę
         addEventListener('scroll', syncGlass, true);
+        // Okienka i ekrany wjeżdżają animacją — pozycje mierzymy jeszcze raz, gdy się zatrzymają
+        addEventListener('animationend', syncGlass, true);
+        addEventListener('transitionend', syncGlass, true);
         addEventListener('resize', syncGlass);
         syncGlass();
     }).catch(() => {});
