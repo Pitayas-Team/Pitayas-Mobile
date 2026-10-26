@@ -229,9 +229,48 @@ input:focus, select:focus { outline: none; border-color: var(--m-accent); }
 /* Kolorowe szkło: Discord i główne przyciski zachowują kolor, ale dostają połysk */
 .ios .btn.discord.glass-btn { background: linear-gradient(180deg, rgba(120,132,255,.95), rgba(88,101,242,.85)) !important; color: #fff; }
 .ios .btn.glass-btn:not(.discord) { color: var(--m-text); }
-.ios .sheet-card { background: linear-gradient(180deg, rgba(40,36,48,.72), rgba(24,22,30,.82)) !important; }
-.ios .critical-card { background: linear-gradient(180deg, rgba(50,30,40,.7), rgba(26,20,28,.85)) !important; border-color: rgba(255,107,127,.45) !important; }
+.ios .sheet-card { background: linear-gradient(180deg, rgba(36,33,43,.96), rgba(22,20,27,.98)) !important; }
+.ios .critical-card { background: linear-gradient(180deg, rgba(48,30,40,.97), rgba(26,20,28,.98)) !important; border-color: rgba(255,107,127,.45) !important; }
 .ios .notif-pop { background: linear-gradient(180deg, rgba(60,55,70,.55), rgba(30,27,36,.7)) !important; }
 .ios .bar-btn.bell { overflow: visible; }
 /* Natywny Liquid Glass (iOS 26): przyciski HTML pod szkłem są niewidoczne, ale dalej obsługują kliknięcie */
 .native-glass [data-glass] { visibility: hidden !important; }
+
+/* ═══════ USTAWIENIA (styl iOS: grupy wierszy) ═══════ */
+.sheet-card { gap: 10px; }
+.sheet-head b { font-size: 20px; font-weight: 800; }
+.set-profile { display: flex; align-items: center; gap: 14px; padding: 4px 2px 6px; }
+.set-profile .account-btn { width: 100%; }
+.set-av { width: 54px; height: 54px; border-radius: 50%; background: var(--m-grad); color: #1d1206; display: grid; place-items: center; font-size: 22px; font-weight: 800; flex-shrink: 0; box-shadow: 0 8px 22px rgba(255,60,160,.35); }
+.set-pt { flex: 1; min-width: 0; } .set-pt b { display: block; font-size: 18px; color: var(--m-text); } .set-pt small { font-size: 13px; color: var(--m-text-3); }
+.set-label { display: flex; align-items: center; justify-content: space-between; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--m-text-3); padding: 8px 6px 0; }
+.set-label .link { border: none; background: none; color: var(--m-accent); font-size: 13px; font-weight: 700; text-transform: none; letter-spacing: 0; padding: 0; }
+.set-group { background: var(--m-panel); border: 1px solid var(--m-line); border-radius: 18px; overflow: hidden; }
+.set-group.pad { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.set-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 50px; padding: 8px 14px; background: none; border: none; color: var(--m-text); text-align: left; font-size: 16px; position: relative; }
+.set-row + .set-row::before { content: ''; position: absolute; top: 0; right: 0; left: 56px; height: 1px; background: var(--m-line); }
+.set-row.tap:active { background: var(--m-item); }
+.set-t { flex: 1; min-width: 0; } .set-t small { display: block; font-size: 12.5px; color: var(--m-text-3); margin-top: 1px; }
+.set-v { color: var(--m-text-3); font-size: 15px; text-align: right; max-width: 55%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.set-v .ok { color: var(--m-leaf); font-weight: 800; } .set-v .no { color: var(--m-danger); font-weight: 800; }
+.set-chev { width: 18px; height: 18px; fill: none; stroke: var(--m-text-3); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
+.set-ic { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; flex-shrink: 0; }
+.set-ic svg { width: 18px; height: 18px; fill: none; stroke: #fff; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.set-ic.img { object-fit: cover; }
+.set-badge { display: inline-flex; min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px; background: var(--m-danger); color: #fff; font-size: 12.5px; font-weight: 800; align-items: center; justify-content: center; }
+.ios-sw { position: relative; width: 51px; height: 31px; flex-shrink: 0; }
+.ios-sw input { position: absolute; inset: 0; opacity: 0; margin: 0; z-index: 1; width: 100%; height: 100%; }
+.ios-sw i { position: absolute; inset: 0; border-radius: 999px; background: rgba(120,120,128,.32); transition: background .25s; }
+.ios-sw i::after { content: ''; position: absolute; top: 2px; left: 2px; width: 27px; height: 27px; border-radius: 50%; background: #fff; box-shadow: 0 3px 8px rgba(0,0,0,.3); transition: transform .25s cubic-bezier(.3,1.3,.5,1); }
+.ios-sw input:checked + i { background: #34c759; }
+.ios-sw input:checked + i::after { transform: translateX(20px); }
+.dev-link { align-self: center; display: inline-flex; align-items: center; gap: 8px; margin: 10px 0 4px; padding: 6px 12px 6px 6px; border: 1px solid var(--m-line); border-radius: 999px; background: var(--m-panel); color: var(--m-text-3); font-size: 13px; font-weight: 700; }
+.dev-link .set-ic { width: 24px; height: 24px; border-radius: 50%; } .dev-link .set-ic svg { width: 14px; height: 14px; }
+.mini-spin { display: inline-block; width: 16px; height: 16px; border: 2px solid var(--m-item); border-top-color: var(--m-accent); border-radius: 50%; animation: spin .8s linear infinite; vertical-align: middle; }
+
+/* Listy modułów i komputerów w tym samym stylu */
+.mod-list, .pc-list { background: var(--m-panel); border: 1px solid var(--m-line); border-radius: 18px; overflow: hidden; gap: 0 !important; }
+.mod-list .mod-item, .pc-list .pc-item { background: none !important; border: none !important; border-radius: 0 !important; position: relative; }
+.mod-list .mod-item + .mod-item::before, .pc-list .pc-item + .pc-item::before { content: ''; position: absolute; top: 0; right: 0; left: 70px; height: 1px; background: var(--m-line); }
+.ios .set-group, .ios .mod-list, .ios .pc-list { background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.03)); -webkit-backdrop-filter: blur(20px) saturate(170%); backdrop-filter: blur(20px) saturate(170%); border-color: rgba(255,255,255,.12); }
+.ios .notif-pop, .ios .toast { position: fixed !important; }

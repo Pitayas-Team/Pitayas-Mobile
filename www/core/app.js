@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.2.7';
+const CORE_VERSION = '0.2.8';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -869,36 +869,87 @@ function renderModules() {
 }
 
 // ─── Ustawienia ───
+function setRow(icon, title, value, opts = {}) {
+    const tag = opts.id ? 'button' : 'div';
+    return `<${tag} class="set-row${opts.id ? ' tap' : ''}"${opts.id ? ` id="${opts.id}"` : ''}>${icon}<span class="set-t">${title}${opts.sub ? `<small>${opts.sub}</small>` : ''}</span>${value != null ? `<span class="set-v">${value}</span>` : ''}${opts.toggle != null ? `<span class="ios-sw"><input type="checkbox" id="${opts.toggleId}" ${opts.toggle ? 'checked' : ''}><i></i></span>` : ''}${opts.id ? '<svg viewBox="0 0 24 24" class="set-chev"><path d="M9 6l6 6-6 6"/></svg>' : ''}</${tag}>`;
+}
+function setIcon(k, color) { return `<span class="set-ic" style="background:${color}"><svg viewBox="0 0 24 24">${SET_ICON_PATHS[k]}</svg></span>`; }
+const SET_ICON_PATHS = {"user":"<circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6\"/>","refresh":"<path d=\"M21 12a9 9 0 1 1-3-6.7L21 8\"/><path d=\"M21 3v5h-5\"/>","auto":"<path d=\"M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8\"/>","phone":"<rect x=\"7\" y=\"2\" width=\"10\" height=\"20\" rx=\"2\"/><path d=\"M11 18h2\"/>","core":"<rect x=\"5\" y=\"5\" width=\"14\" height=\"14\" rx=\"3\"/><path d=\"M9 9h6v6H9z\"/>","box":"<path d=\"M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8\"/>","bell":"<path d=\"M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0\"/>","code":"<path d=\"M8 6l-6 6 6 6M16 6l6 6-6 6\"/>","dl":"<path d=\"M12 4v11M7 10l5 5 5-5M5 20h14\"/>"};
+
 function openSettings() {
     const shell = shellUpdate();
     const core = ls.get('pitayas-core', null);
+    const u = account.token && account.user;
+    const unread = notifs.filter((n) => !seen.has(n.id)).length;
     openSheet('Ustawienia', `
-        ${accountHtml()}
-        <div class="info-grid">
-          <span>Aplikacja</span><b>${esc(shellVersion)}</b>
-          <span>Wtyczki</span><b>${['LocalNotifications', 'BackgroundRunner', 'PitayasGlass'].map((p) => `${p.replace('LocalNotifications', 'Powiad.').replace('BackgroundRunner', 'Tło').replace('PitayasGlass', 'Szkło')} ${window.Capacitor && window.Capacitor.isPluginAvailable && window.Capacitor.isPluginAvailable(p) ? '✓' : '✗'}`).join(' · ')}</b>
-          <span>Liquid Glass</span><b>${esc(glassState)}</b>
-          <span>Rdzeń</span><b>${esc(CORE_VERSION)}${core ? '' : ' (wbudowany)'}${coreReady ? ` → ${esc(coreReady)} po restarcie` : ''}</b>
-          ${Object.values(installed).map((m) => `<span>${esc(m.name)}</span><b>${esc(m.version)}</b>`).join('')}
+        <div class="set-profile">
+          ${u ? `<div class="set-av">${esc((u.name || u.login).trim().slice(0, 1).toUpperCase())}</div>
+                 <div class="set-pt"><b>${esc(u.name || u.login)}</b><small>${esc(u.login)}${u.discord ? ' · Discord' : ''}${u.admin ? ' · Administrator' : ''}</small></div>
+                 <button class="chip ghost" id="aOut">Wyloguj</button>`
+              : `<button class="account-btn" id="aLogin">${setIcon('user', 'var(--m-grad)')}<div class="pc-text"><b>Zaloguj się</b><small>Login i hasło albo Discord</small></div><svg viewBox="0 0 24 24" class="pc-chev"><path d="M9 6l6 6-6 6"/></svg></button>`}
+        </div>
+
+        ${shell ? `<div class="set-group">${setRow(setIcon('dl', '#3fa8ff'), `Nowa aplikacja ${esc(shell.version)}`, null, { id: 'sShell', sub: 'Wymaga ponownej instalacji' })}</div>` : ''}
+
+        <div class="set-label">Aktualizacje</div>
+        <div class="set-group">
+          ${setRow(setIcon('refresh', '#ff4fa6'), 'Sprawdź aktualizacje', coreReady ? 'restart' : '', { id: 'sCheck' })}
+          ${setRow(setIcon('auto', '#7ddc5a'), 'Automatycznie', null, { toggle: settings.autoUpdate, toggleId: 'sAuto', sub: 'Rdzeń i moduły w tle' })}
         </div>
         ${ls.get('pitayas-core-failed', false) ? '<p class="hint warn">Pobrany rdzeń nie uruchomił się — działa wbudowany. Spróbuj zaktualizować ponownie.</p>' : ''}
-        <label class="switch"><input type="checkbox" id="sAuto" ${settings.autoUpdate ? 'checked' : ''}><span>Aktualizuj rdzeń i moduły automatycznie</span></label>
-        <button class="btn" id="sCheck">Sprawdź aktualizacje</button>
-        ${shell ? `<button class="btn ghost" id="sShell">Pobierz aplikację ${esc(shell.version)}</button>` : ''}
-        <div><label for="sSource">Źródło aktualizacji</label><input id="sSource" autocapitalize="off" inputmode="url" placeholder="${esc(DEFAULT_SOURCE)}" value="${esc(settings.source)}"></div>
-        <p class="hint">Puste = oficjalny kanał Pitayas na GitHubie.</p>
-        ${jsErrors.length ? `<div><label>Błędy</label><div class="log">${jsErrors.map((e) => `<div class="err">${esc(e)}</div>`).join('')}</div></div>` : ''}
-        <div><label>Dziennik aktualizacji</label>
-          <div class="log">${updateLog.length ? updateLog.map((e) => `<div class="${e.error ? 'err' : ''}"><small>${esc(new Date(e.t).toLocaleString('pl-PL'))}</small>${esc(e.text)}</div>`).join('') : '<div><small>Pusto</small></div>'}</div></div>`);
+
+        <div class="set-label">Aplikacja</div>
+        <div class="set-group">
+          ${setRow(setIcon('bell', '#ff9f45'), 'Powiadomienia', unread ? `<span class="set-badge">${unread}</span>` : '', { id: 'sNotifs' })}
+          ${setRow(setIcon('box', '#a77bff'), 'Moduły', esc(String(Object.keys(installed).length)), { id: 'sMods' })}
+        </div>
+
+        <div class="set-label">Informacje</div>
+        <div class="set-group">
+          ${setRow(setIcon('phone', '#5b6170'), 'Aplikacja', esc(shellVersion))}
+          ${setRow(setIcon('core', '#5b6170'), 'Rdzeń', `${esc(CORE_VERSION)}${coreReady ? ` → ${esc(coreReady)}` : ''}`)}
+          ${Object.values(installed).map((m) => setRow(`<img class="set-ic img" src="${esc((m.base || '') + 'icon.png')}" alt="">`, esc(m.name), esc(m.version))).join('')}
+        </div>
+
+        <button class="dev-link" id="sDev">${setIcon('code', '#3a3646')}Developer</button>`);
     bindAccount();
     $('sAuto').onchange = () => { settings.autoUpdate = $('sAuto').checked; ls.set('pitayas-settings', settings); };
-    $('sSource').onchange = () => { settings.source = $('sSource').value.trim(); manifest = null; ls.set('pitayas-settings', settings); };
     $('sCheck').onclick = async () => {
-        $('sCheck').disabled = true; $('sCheck').textContent = 'Sprawdzam…';
+        if (coreReady) return location.reload();
+        const v = $('sCheck').querySelector('.set-v');
+        if (v) v.innerHTML = '<span class="mini-spin"></span>';
         await checkUpdates(true);
         if (!$('sheet').hidden && $('sCheck')) openSettings();
     };
     if (shell) $('sShell').onclick = () => openShellDownload(shell);
+    $('sNotifs').onclick = openNotifs;
+    $('sMods').onclick = openModules;
+    $('sDev').onclick = openDeveloper;
+}
+
+// Developer: źródło aktualizacji, diagnostyka i dziennik — schowane, żeby nie straszyły w zwykłych ustawieniach
+function openDeveloper() {
+    const plug = (p) => (window.Capacitor && window.Capacitor.isPluginAvailable && window.Capacitor.isPluginAvailable(p));
+    openSheet('Developer', `
+        <div class="set-label">Źródło aktualizacji</div>
+        <div class="set-group pad">
+          <input id="sSource" autocapitalize="off" inputmode="url" placeholder="${esc(DEFAULT_SOURCE)}" value="${esc(settings.source)}">
+          <p class="hint">Puste = oficjalny kanał Pitayas na GitHubie. Do testów: adres lokalnego serwera z folderem updates/.</p>
+        </div>
+
+        <div class="set-label">Diagnostyka</div>
+        <div class="set-group">
+          ${[['LocalNotifications', 'Powiadomienia'], ['BackgroundRunner', 'Praca w tle'], ['PitayasGlass', 'Liquid Glass']].map(([p, n]) => setRow('', n, plug(p) ? '<span class="ok">✓</span>' : '<span class="no">✗</span>')).join('')}
+          ${setRow('', 'Stan szkła', esc(glassState))}
+          ${setRow('', 'Serwer kont', esc(accountServer().replace(/^https?:\/\//, '').replace(/\/$/, '')))}
+        </div>
+
+        ${jsErrors.length ? `<div class="set-label">Błędy</div><div class="log">${jsErrors.map((e) => `<div class="err">${esc(e)}</div>`).join('')}</div>` : ''}
+
+        <div class="set-label">Dziennik aktualizacji <button class="link" id="sClearLog">Wyczyść</button></div>
+        <div class="log">${updateLog.length ? updateLog.map((e) => `<div class="${e.error ? 'err' : ''}"><small>${esc(new Date(e.t).toLocaleString('pl-PL'))}</small>${esc(e.text)}</div>`).join('') : '<div><small>Pusto</small></div>'}</div>`, openSettings);
+    $('sSource').onchange = () => { settings.source = $('sSource').value.trim(); manifest = null; ls.set('pitayas-settings', settings); toast('Źródło zapisane'); };
+    $('sClearLog').onclick = () => { updateLog.length = 0; ls.set('pitayas-update-log', updateLog); openDeveloper(); };
 }
 $('setBtn').onclick = openSettings;
 $('setBtn').insertAdjacentHTML('beforebegin', '<button class="bar-btn bell glass" id="bellBtn" title="Powiadomienia"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><span class="badge"></span></button>');
