@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.1.9';
+const CORE_VERSION = '0.2.0';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -557,6 +557,7 @@ function setLogin(d) {
     saveAccount();
     toast(`Zalogowano: ${d.user.name || d.user.login}`);
     refreshAccess();
+    refreshNotifs();
 }
 
 function logoutLocal() {
@@ -572,15 +573,23 @@ async function logout() {
     openSettings();
 }
 
+const DISCORD_ICON = `<svg viewBox="0 0 24 24"><path d="M19.6 5.3A17 17 0 0 0 15.4 4l-.5 1.1a15.6 15.6 0 0 0-5.8 0L8.6 4a17 17 0 0 0-4.2 1.3C1.7 9.3 1 13.2 1.3 17a17 17 0 0 0 5.2 2.6l1.1-1.8-1.8-.9.4-.3a12 12 0 0 0 11.6 0l.4.3-1.8.9 1.1 1.8a17 17 0 0 0 5.2-2.6c.4-4.4-.7-8.3-3.1-11.7zM8.5 14.7c-1 0-1.9-1-1.9-2.1s.8-2.1 1.9-2.1 1.9 1 1.9 2.1-.8 2.1-1.9 2.1zm7 0c-1 0-1.9-1-1.9-2.1s.8-2.1 1.9-2.1 1.9 1 1.9 2.1-.8 2.1-1.9 2.1z"/></svg>`;
+const BROWSER_NAME = (window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'ios') ? 'Safari' : 'przeglądarce';
 function openLogin() {
-    openSheet('Zaloguj się', `
-        <form class="pc-form" id="lgForm">
-          <div><label for="lgLogin">Login</label><input id="lgLogin" autocapitalize="off" autocomplete="username" required></div>
-          <div><label for="lgPass">Hasło</label><input id="lgPass" type="password" autocomplete="current-password" required></div>
+    openSheet('', `
+        <div class="login-hero">
+          <img src="icons/pitayas.png" alt="">
+          <h2>Konto <span>Pitayas</span></h2>
+          <p>Zaloguj się, żeby odblokować moduły dla testerów i powiadomienia.</p>
+        </div>
+        <button class="btn discord glass-btn" id="lgDiscord">${DISCORD_ICON}Zaloguj przez Discord</button>
+        <div class="or">albo loginem</div>
+        <form class="pc-form login-form" id="lgForm">
+          <div class="field"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg><input id="lgLogin" placeholder="Login" autocapitalize="off" autocomplete="username" required></div>
+          <div class="field"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><input id="lgPass" type="password" placeholder="Hasło" autocomplete="current-password" required></div>
           <button type="submit" class="btn">Zaloguj</button>
         </form>
-        <div class="or">albo</div>
-        <button class="btn discord" id="lgDiscord"><svg viewBox="0 0 24 24"><path d="M19.6 5.3A17 17 0 0 0 15.4 4l-.5 1.1a15.6 15.6 0 0 0-5.8 0L8.6 4a17 17 0 0 0-4.2 1.3C1.7 9.3 1 13.2 1.3 17a17 17 0 0 0 5.2 2.6l1.1-1.8-1.8-.9.4-.3a12 12 0 0 0 11.6 0l.4.3-1.8.9 1.1 1.8a17 17 0 0 0 5.2-2.6c.4-4.4-.7-8.3-3.1-11.7zM8.5 14.7c-1 0-1.9-1-1.9-2.1s.8-2.1 1.9-2.1 1.9 1 1.9 2.1-.8 2.1-1.9 2.1zm7 0c-1 0-1.9-1-1.9-2.1s.8-2.1 1.9-2.1 1.9 1 1.9 2.1-.8 2.1-1.9 2.1z"/></svg>Zaloguj przez Discord</button>`, openSettings);
+        <p class="hint login-foot">Nie masz konta? Poproś administratora Pitayas.</p>`, openSettings);
     $('lgDiscord').onclick = loginDiscord;
     setTimeout(() => $('lgLogin') && $('lgLogin').focus(), 250);
     $('lgForm').onsubmit = async (e) => {
@@ -618,8 +627,22 @@ async function loginDiscord() {
     let start;
     try { start = await accountFetch('api/discord/start', {}); } catch (err) { return toast(`Discord: ${errText(err)}`, 'err'); }
     openDiscordWindow(start.url);
-    openSheet('Discord', `<div class="spinner"></div><p class="hint">Zaloguj się w okienku Discorda — aplikacja zaloguje się sama.</p>
+    openSheet('', `
+        <div class="login-hero">
+          <div class="dc-badge">${DISCORD_ICON}</div>
+          <h2>Logowanie przez <span>Discord</span></h2>
+          <p>Zaloguj się w okienku Discorda — aplikacja zaloguje się sama.</p>
+        </div>
+        <div class="spinner"></div>
+        <button class="btn glass-btn" id="dcSafari">Nie działa? Otwórz w ${BROWSER_NAME}</button>
+        <p class="hint login-foot">Po zalogowaniu w ${BROWSER_NAME} wróć do aplikacji Pitayas.</p>
         <button class="btn ghost" id="dcCancel">Anuluj</button>`, openSettings);
+    $('dcSafari').onclick = () => {
+        closeDiscordWindow();
+        const iab = Plugins.InAppBrowser;
+        if (iab) iab.openInExternalBrowser({ url: start.url }).catch(() => window.open(start.url, '_blank'));
+        else window.open(start.url, '_blank');
+    };
     $('dcCancel').onclick = () => { clearInterval(discordPoll); closeDiscordWindow(); openSettings(); };
     const until = Date.now() + 5 * 60 * 1000;
     clearInterval(discordPoll);
@@ -653,6 +676,80 @@ function accountHtml() {
 function bindAccount() {
     if ($('aOut')) $('aOut').onclick = logout;
     if ($('aLogin')) $('aLogin').onclick = openLogin;
+}
+
+// ═══════ POWIADOMIENIA ═══════
+// Wysyłane z panelu (admin.pitayas.eu → Powiadomienia) i automatycznie przy nowej aktualizacji.
+// Bez nowej aplikacji nie ma powiadomień systemowych — pokazujemy je w aplikacji: przy starcie, po powrocie i co 5 minut.
+let notifs = ls.get('pitayas-notifs', []);
+const seen = new Set(ls.get('pitayas-notifs-seen', []));
+const saveSeen = () => ls.set('pitayas-notifs-seen', [...seen].slice(-300));
+const NOTIF_ICON = (n) => (n.level === 'critical' ? '⚠️' : n.kind === 'update' ? '⬇️' : '🔔');
+
+async function refreshNotifs() {
+    try {
+        notifs = (await accountFetch('api/notifications')).notifications || [];
+        ls.set('pitayas-notifs', notifs);
+    } catch { return; }
+    renderBell();
+    const fresh = notifs.filter((n) => !seen.has(n.id));
+    const critical = fresh.find((n) => n.level === 'critical');
+    if (critical) return showCritical(critical);
+    const normal = fresh.filter((n) => n.level !== 'critical');
+    if (normal.length) showNotifBanner(normal[0], normal.length);
+}
+
+function renderBell() {
+    const b = $('bellBtn');
+    if (!b) return;
+    const unread = notifs.filter((n) => !seen.has(n.id)).length;
+    b.querySelector('.badge').textContent = unread > 9 ? '9+' : unread;
+    b.classList.toggle('has', unread > 0);
+}
+
+function showNotifBanner(n, count) {
+    document.querySelectorAll('.notif-pop').forEach((x) => x.remove());
+    const pop = document.createElement('button');
+    pop.className = 'notif-pop glass';
+    pop.dataset.coreUi = '';
+    pop.innerHTML = `<span class="ni">${NOTIF_ICON(n)}</span><span class="nt"><b>${esc(n.title)}</b><small>${esc(count > 1 ? `+${count - 1} więcej · dotknij, by zobaczyć` : n.body.split('\n')[0])}</small></span>`;
+    pop.onclick = () => { pop.remove(); openNotifs(); };
+    document.body.appendChild(pop);
+    requestAnimationFrame(() => pop.classList.add('show'));
+    setTimeout(() => { pop.classList.remove('show'); setTimeout(() => pop.remove(), 400); }, 6000);
+}
+
+function showCritical(n) {
+    if (document.querySelector('.critical')) return;
+    const box = document.createElement('div');
+    box.className = 'critical';
+    box.dataset.coreUi = '';
+    box.innerHTML = `<div class="critical-card glass">
+        <div class="critical-icon">⚠️</div>
+        <small>Ważne powiadomienie</small>
+        <h2>${esc(n.title)}</h2>
+        <p>${esc(n.body)}</p>
+        <button class="btn">Rozumiem</button>
+      </div>`;
+    box.querySelector('.btn').onclick = () => {
+        seen.add(n.id); saveSeen();
+        box.remove();
+        renderBell();
+        refreshNotifs();   // kolejne krytyczne albo zwykłe
+    };
+    if (navigator.vibrate) navigator.vibrate([60, 60, 60]);
+    document.body.appendChild(box);
+}
+
+function openNotifs() {
+    openSheet('Powiadomienia', notifs.length ? `<div class="notif-list">${notifs.map((n) => `
+        <div class="notif ${n.level === 'critical' ? 'crit' : ''} ${seen.has(n.id) ? '' : 'new'}">
+          <span class="ni">${NOTIF_ICON(n)}</span>
+          <div class="nt"><b>${esc(n.title)}</b>${n.body ? `<p>${esc(n.body)}</p>` : ''}<small>${esc(new Date(n.createdAt).toLocaleString('pl-PL'))}</small></div>
+        </div>`).join('')}</div>` : '<p class="hint" style="text-align:center">Brak powiadomień.</p>');
+    notifs.forEach((n) => { if (n.level !== 'critical') seen.add(n.id); });
+    saveSeen();
+    renderBell();
 }
 
 // ─── Moduły do pobrania ───
@@ -738,6 +835,11 @@ function openSettings() {
     if (shell) $('sShell').onclick = () => openShellDownload(shell);
 }
 $('setBtn').onclick = openSettings;
+$('setBtn').insertAdjacentHTML('beforebegin', '<button class="bar-btn bell glass" id="bellBtn" title="Powiadomienia"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><span class="badge"></span></button>');
+$('setBtn').classList.add('glass');
+$('bellBtn').onclick = openNotifs;
+// iPhone: wygląd „szkła” (Liquid Glass) na części przycisków
+if (window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'ios') document.documentElement.classList.add('ios');
 
 // ═══════ EASTER EGG: 5× logo ═══════
 // Kod (egg.js) wczytujemy dopiero teraz — leży obok app.js, w tym samym folderze rdzenia
@@ -808,6 +910,7 @@ if (Plugins.App) {
         if (!isActive && activeView && defs[activeView.id] && defs[activeView.id].pause) defs[activeView.id].pause();
         if (isActive && activeView && defs[activeView.id] && defs[activeView.id].resume) defs[activeView.id].resume();
         if (isActive && !activeView) { refreshStatus(); checkUpdates(false); refreshAccess(); }
+        if (isActive) refreshNotifs();
     });
 }
 
@@ -818,7 +921,7 @@ Promise.all(Object.values(installed).map(injectModule)).then(renderTiles);
 setInterval(() => { if (!activeView && document.visibilityState === 'visible') refreshStatus(); }, 5000);
 (Plugins.App && NATIVE ? Plugins.App.getInfo().then((i) => { shellVersion = i.version; }).catch(() => {}) : Promise.resolve())
     .then(loadBundled)
-    .then(() => { refreshAccess(); return checkUpdates(false); })
+    .then(() => { refreshAccess(); refreshNotifs(); setInterval(refreshNotifs, 5 * 60 * 1000); return checkUpdates(false); })
     .then(() => {
         if (!Object.keys(installed).length) openModules();
         else if (!pcs.list.length) editPc(null);
