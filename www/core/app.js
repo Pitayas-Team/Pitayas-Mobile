@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.2.8';
+const CORE_VERSION = '0.2.9';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -71,8 +71,8 @@ document.body.insertAdjacentHTML('beforeend', `
 
   <div class="sheet" id="sheet" hidden data-core-ui>
     <div class="sheet-card">
-      <div class="sheet-head"><b id="sheetTitle"></b>
-        <button class="bar-btn" data-close title="Zamknij"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      <div class="sheet-head"><button class="bar-btn" id="sheetBackBtn" data-glass="chevron.left" title="Cofnij" hidden><svg viewBox="0 0 24 24"><path d="M14 6l-6 6 6 6"/></svg></button><b id="sheetTitle"></b>
+        <button class="bar-btn" data-close id="sheetClose" data-glass="xmark" title="Zamknij"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>
       <div id="sheetBody" class="sheet-body"></div>
     </div>
@@ -253,8 +253,11 @@ function openSheet(title, html, onBack) {
     $('sheetBody').innerHTML = html;
     $('sheet').hidden = false;
     sheetBack = onBack || null;
+    $('sheetBackBtn').hidden = !sheetBack;   // „Cofnij” tylko tam, gdzie jest poprzedni ekran
+    $('sheet').querySelector('.sheet-card').scrollTop = 0;
 }
 function closeSheet() { $('sheet').hidden = true; sheetBack = null; }
+document.addEventListener('click', (e) => { if (e.target.closest('#sheetBackBtn') && sheetBack) sheetBack(); });
 $('sheet').addEventListener('click', (e) => {
     if (e.target === $('sheet') || e.target.closest('[data-close]')) closeSheet();
 });
@@ -804,20 +807,22 @@ function showCritical(n) {
     document.body.appendChild(box);
 }
 
-function openNotifs() {
-    openSheet('Powiadomienia', notifs.length ? `<div class="notif-list">${notifs.map((n) => `
+function openNotifs(fromSettings) {
+    openSheet('Powiadomienia', notifs.length ? `<div class="set-label">Ostatnie 30 dni</div><div class="notif-list">${notifs.map((n) => `
         <div class="notif ${n.level === 'critical' ? 'crit' : ''} ${seen.has(n.id) ? '' : 'new'}">
           <span class="ni">${NOTIF_ICON(n)}</span>
           <div class="nt"><b>${esc(n.title)}</b>${n.body ? `<p>${esc(n.body)}</p>` : ''}<small>${esc(new Date(n.createdAt).toLocaleString('pl-PL'))}</small></div>
-        </div>`).join('')}</div>` : '<p class="hint" style="text-align:center">Brak powiadomień.</p>');
+        </div>`).join('')}</div>` : '<p class="hint" style="text-align:center">Brak powiadomień.</p>', fromSettings === true ? openSettings : null);
     notifs.forEach((n) => { if (n.level !== 'critical') seen.add(n.id); });
     saveSeen();
     renderBell();
 }
 
 // ─── Moduły do pobrania ───
-async function openModules() {
-    openSheet('Moduły', '<div class="spinner"></div>');
+let modulesBack = null;
+async function openModules(fromSettings) {
+    modulesBack = fromSettings === true ? openSettings : null;
+    openSheet('Moduły', '<div class="spinner"></div>', modulesBack);
     try { await fetchManifest(); } catch (err) {   // zawsze świeża lista, nie ta sprzed godziny
         if (!available().length) {
             if ($('sheet').hidden) return;
@@ -835,23 +840,32 @@ function renderModules() {
     const avail = available().filter((m) => !isHidden(m.id));
     const ids = new Set(avail.map((m) => m.id));
     const local = Object.values(installed).filter((m) => !ids.has(m.id) && !isHidden(m.id));   // wycofane z kanału, ale zainstalowane
-    $('sheetBody').innerHTML = `<div class="mod-list">${[...avail, ...local].map((m) => {
+    const row = (m) => {
         const have = installed[m.id];
         const newer = have && vcmp(m.version, have.version) > 0;
         const ok = compatible(m);
-        const action = !hasAccess(m.id) ? `<span class="mod-note">🔒 Dla testerów</span>`
-            : !ok ? `<span class="mod-note">Wymaga rdzenia ${esc(m.minCore)}</span>`
-            : !have ? `<button class="chip" data-install="${esc(m.id)}">Pobierz</button>`
-            : newer ? `<button class="chip" data-install="${esc(m.id)}">Aktualizuj</button>`
-            : '<span class="mod-note">Aktualny</span>';
+        const action = !hasAccess(m.id) ? '<span class="mod-pill lock">🔒 Testerzy</span>'
+            : !ok ? `<span class="mod-pill">Rdzeń ${esc(m.minCore)}+</span>`
+            : !have ? `<button class="mod-get" data-install="${esc(m.id)}">Pobierz</button>`
+            : newer ? `<button class="mod-get upd" data-install="${esc(m.id)}">Aktualizuj</button>`
+            : '<span class="mod-pill ok">✓ Aktualny</span>';
         const icon = have && have.base ? `${have.base}icon.png` : `${m.src}icon.png`;
+        const ver = have ? `${esc(have.version)}${newer ? ` → ${esc(m.version)}` : ''}` : esc(m.version);
         return `
-          <div class="mod-item">
-            <img src="${esc(icon)}" alt="">
-            <div class="pc-text"><b>${esc(m.name)}</b><small>${esc(m.description)} · ${esc(have ? have.version : m.version)}${newer ? ` → ${esc(m.version)}` : ''}</small></div>
-            <div class="mod-actions">${action}${have ? `<button class="bar-btn small" data-remove="${esc(m.id)}" title="Usuń"><svg viewBox="0 0 24 24"><path d="M5 7h14M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>` : ''}</div>
+          <div class="mod-card">
+            <img class="mod-ic" src="${esc(icon)}" alt="" onerror="this.style.visibility='hidden'">
+            <div class="mod-t"><b>${esc(m.name)}</b><p>${esc(m.description)}</p>
+              <small>Wersja ${ver}${m.port && !m.port.optional ? ' · potrzebuje komputera' : ''}</small></div>
+            <div class="mod-a">${action}${have ? `<button class="mod-del" data-remove="${esc(m.id)}" title="Usuń"><svg viewBox="0 0 24 24"><path d="M5 7h14M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>` : ''}</div>
           </div>`;
-    }).join('') || '<p class="hint">Brak modułów w kanale aktualizacji.</p>'}</div>`;
+    };
+    const all = [...avail, ...local];
+    const mine = all.filter((m) => installed[m.id]);
+    const rest = all.filter((m) => !installed[m.id]);
+    $('sheetBody').innerHTML = (mine.length ? `<div class="set-label">Zainstalowane</div><div class="mod-group">${mine.map(row).join('')}</div>` : '')
+        + (rest.length ? `<div class="set-label">Do pobrania</div><div class="mod-group">${rest.map(row).join('')}</div>` : '')
+        + (!all.length ? '<p class="hint">Brak modułów w kanale aktualizacji.</p>' : '')
+        + '<p class="hint mod-foot">Moduły pobierają się i aktualizują bez instalowania nowej aplikacji.</p>';
     $('sheetBody').querySelectorAll('[data-install]').forEach((b) => (b.onclick = async () => {
         const entry = avail.find((m) => m.id === b.dataset.install);
         b.disabled = true; b.textContent = 'Pobieranie…';
@@ -885,7 +899,7 @@ function openSettings() {
         <div class="set-profile">
           ${u ? `<div class="set-av">${esc((u.name || u.login).trim().slice(0, 1).toUpperCase())}</div>
                  <div class="set-pt"><b>${esc(u.name || u.login)}</b><small>${esc(u.login)}${u.discord ? ' · Discord' : ''}${u.admin ? ' · Administrator' : ''}</small></div>
-                 <button class="chip ghost" id="aOut">Wyloguj</button>`
+                 <button class="chip ghost out-btn" id="aOut" data-glass="rectangle.portrait.and.arrow.right" title="Wyloguj">Wyloguj</button>`
               : `<button class="account-btn" id="aLogin">${setIcon('user', 'var(--m-grad)')}<div class="pc-text"><b>Zaloguj się</b><small>Login i hasło albo Discord</small></div><svg viewBox="0 0 24 24" class="pc-chev"><path d="M9 6l6 6-6 6"/></svg></button>`}
         </div>
 
@@ -922,8 +936,8 @@ function openSettings() {
         if (!$('sheet').hidden && $('sCheck')) openSettings();
     };
     if (shell) $('sShell').onclick = () => openShellDownload(shell);
-    $('sNotifs').onclick = openNotifs;
-    $('sMods').onclick = openModules;
+    $('sNotifs').onclick = () => openNotifs(true);
+    $('sMods').onclick = () => openModules(true);
     $('sDev').onclick = openDeveloper;
 }
 
@@ -966,9 +980,11 @@ function syncGlass() {
     if (!glassOn || glassFrame) return;
     glassFrame = requestAnimationFrame(() => {
         glassFrame = 0;
-        const blocked = !$('sheet').hidden || document.querySelector('.critical, .egg-lock, .md-player, .notif-pop.show');
+        // Otwarte okienko zasłania ekran — wtedy szklane są tylko przyciski w okienku (zamknij, cofnij, wyloguj)
+        const blocked = document.querySelector('.critical, .egg-lock, .md-player, .notif-pop.show');
+        const scope = $('sheet').hidden ? document : $('sheet');
         const vh = window.innerHeight;
-        const buttons = blocked ? [] : [...document.querySelectorAll('[data-glass]')].map((el) => {
+        const buttons = blocked ? [] : [...scope.querySelectorAll('[data-glass]')].filter((el) => $('sheet').hidden ? !$('sheet').contains(el) : true).map((el) => {
             if (!el.id || el.offsetParent === null) return null;
             const r = el.getBoundingClientRect();
             if (r.width < 4 || r.bottom < 0 || r.top > vh) return null;
@@ -982,6 +998,8 @@ function syncGlass() {
     });
 }
 function disableGlass(err) {
+    document.documentElement.classList.remove('lg');
+    document.documentElement.classList.add('matte');
     glassState = `wyłączone: ${err && err.message ? err.message : 'nie postawiło przycisków'}`;
     if (!glassOn) return;
     glassOn = false;
@@ -1001,6 +1019,8 @@ if (GLASS_ENABLED && hasPlugin('PitayasGlass')) {
         if (!r.supported) { glassState = 'niedostępne (iOS < 26)'; return; }
         glassOn = true;
         glassState = 'aktywne';
+        document.documentElement.classList.add('lg');
+        document.documentElement.classList.remove('matte');
         document.documentElement.classList.add('native-glass');
         Plugins.PitayasGlass.addListener('tap', (e) => { const el = document.getElementById(e.id); if (el) el.click(); });
         new MutationObserver(syncGlass).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'class'] });   // bez „style” — paski postępu i animacje nie przeliczają szkła co klatkę
@@ -1011,6 +1031,8 @@ if (GLASS_ENABLED && hasPlugin('PitayasGlass')) {
 }
 // iPhone: wygląd „szkła” (Liquid Glass) na części przycisków
 if (window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'ios') document.documentElement.classList.add('ios');
+// Wygląd: matowy wszędzie, „lg” (Liquid Glass) dopiero gdy działa natywne szkło iOS 26+
+document.documentElement.classList.add('matte');
 
 // ═══════ EASTER EGG: 5× logo ═══════
 // Kod (egg.js) wczytujemy dopiero teraz — leży obok app.js, w tym samym folderze rdzenia
