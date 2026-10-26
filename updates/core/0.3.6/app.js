@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.3.5';
+const CORE_VERSION = '0.3.6';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -1217,6 +1217,68 @@ document.querySelector('.head-logo').addEventListener('click', () => {
     };
     home.addEventListener('touchend', end);
     home.addEventListener('touchcancel', () => { y0 = null; ptr.classList.add('back'); show(0); });
+})();
+
+// ═══════ GESTY JAK NA iPHONIE ═══════
+// Przesunięcie od lewej krawędzi w prawo = wstecz (arkusz → poprzedni ekran / zamknij, moduł → start).
+// Przeciągnięcie arkusza w dół (gdy jest przewinięty na górę) = zamknij.
+(() => {
+    const EDGE = 28;   // tyle px od lewej krawędzi musi zacząć się gest „wstecz”
+    let g = null;      // { kind: 'back' | 'down', el, x0, y0, t0, d, locked }
+    const ease = 'transform .25s cubic-bezier(.2,.8,.3,1), opacity .25s';
+    const target = () => (!$('sheet').hidden ? $('sheet').querySelector('.sheet-card') : activeView ? activeView.view : null);
+    const reset = (el) => { el.style.transition = ease; el.style.transform = ''; el.style.opacity = ''; setTimeout(() => { el.style.transition = ''; }, 260); };
+    const finish = (el, transform, action) => {
+        el.style.transition = ease; el.style.transform = transform; el.style.opacity = '0';
+        setTimeout(() => {
+            el.style.transition = ''; el.style.transform = ''; el.style.opacity = '';
+            action();
+            if (typeof syncGlass === 'function') syncGlass();
+        }, 220);
+    };
+    const back = () => {
+        if (!$('sheet').hidden) return sheetBack ? sheetBack() : closeSheet();
+        if (activeView) showHome();
+    };
+    document.addEventListener('touchstart', (e) => {
+        g = null;
+        if (e.touches.length > 1 || document.querySelector('.egg-lock') || (window.PitayasEgg && window.PitayasEgg.onClose)) return;
+        const t = e.touches[0], el = target();
+        if (!el) return;
+        if (t.clientX <= EDGE) g = { kind: 'back', el };
+        else if (!$('sheet').hidden && el.contains(e.target) && el.scrollTop <= 0) g = { kind: 'down', el };
+        if (g) Object.assign(g, { x0: t.clientX, y0: t.clientY, t0: Date.now(), d: 0, locked: false });
+    }, { passive: true });
+    document.addEventListener('touchmove', (e) => {
+        if (!g) return;
+        const t = e.touches[0], dx = t.clientX - g.x0, dy = t.clientY - g.y0;
+        if (!g.locked) {
+            if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+            // gest musi iść w swoim kierunku, inaczej oddajemy go przewijaniu / suwakom
+            const ok = g.kind === 'back' ? dx > 0 && Math.abs(dx) > Math.abs(dy) : dy > 0 && Math.abs(dy) > Math.abs(dx) && g.el.scrollTop <= 0;
+            if (!ok) { g = null; return; }
+            g.locked = true;
+        }
+        if (e.cancelable) e.preventDefault();
+        g.d = Math.max(0, g.kind === 'back' ? dx : dy);
+        g.el.style.transition = 'none';
+        g.el.style.transform = g.kind === 'back' ? `translateX(${g.d}px)` : `translateY(${g.d}px)`;
+        if (g.kind === 'back' && activeView && $('sheet').hidden) g.el.style.opacity = String(1 - Math.min(0.5, g.d / innerWidth));
+    }, { passive: false });
+    const end = () => {
+        if (!g) return;
+        const { kind, el, d, t0, locked } = g;
+        g = null;
+        if (!locked) return;
+        const size = kind === 'back' ? innerWidth : el.offsetHeight;
+        const fast = d / Math.max(1, Date.now() - t0) > 0.6;   // szybki ruch wystarczy nawet na krótkim odcinku
+        if (d > size * 0.33 || (fast && d > 40)) {
+            if (navigator.vibrate) navigator.vibrate(8);
+            finish(el, kind === 'back' ? `translateX(${innerWidth}px)` : `translateY(${size}px)`, kind === 'back' ? back : closeSheet);
+        } else reset(el);
+    };
+    document.addEventListener('touchend', end);
+    document.addEventListener('touchcancel', () => { if (g && g.locked) reset(g.el); g = null; });
 })();
 
 // ═══════ PRZYCISK „WSTECZ” (Android) I PRACA W TLE ═══════
