@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.3.6';
+const CORE_VERSION = '0.3.7';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -113,6 +113,7 @@ function makeApi(id) {
         url: (path = '/', proto = 'http') => `${proto}://${hostOf(current())}:${portOf(current(), id)}${path}`,
         probe,
         close: () => showHome(),
+        switcher: () => openSwitcher(),   // lista aplikacji — przejście do innego modułu
         account: () => (account.token ? { user: account.user, token: account.token, server: accountServer() } : null),
         // Dostęp do aplikacji z panelu kont: { name, testersOnly, access } albo null, gdy aplikacji nie ma w panelu
         access: (appId) => (access[appId] ? { ...access[appId] } : null),
@@ -206,15 +207,34 @@ function renderHome() {
 $('tiles').addEventListener('click', (e) => {
     if (e.target.closest('[data-modules]')) return openModules();
     const tile = e.target.closest('[data-open]');
-    if (!tile) return;
-    const id = tile.dataset.open;
+    if (tile) openModule(tile.dataset.open);
+});
+
+// Przełączanie: z jednego modułu prosto do innego (bez wracania na ekran startowy)
+function openSwitcher() {
+    const list = Object.values(installed).filter((m) => !isHidden(m.id) && defs[m.id]).sort((a, b) => a.name.localeCompare(b.name));
+    openSheet('Aplikacje', `<div class="switch-grid">${list.map((m) => `
+        <button class="switch-app${activeView && activeView.id === m.id ? ' on' : ''}" data-switch="${esc(m.id)}">
+          <img src="${esc((m.base || '') + 'icon.png')}" alt=""><span>${esc(m.name.replace(/^Pitayas? /, ''))}</span>
+        </button>`).join('')}
+        <button class="switch-app" data-switch=""><span class="switch-home"><svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/></svg></span><span>Start</span></button></div>`);
+    $('sheetBody').querySelectorAll('[data-switch]').forEach((b) => (b.onclick = () => {
+        const id = b.dataset.switch;
+        closeSheet();
+        if (activeView && activeView.id === id) return;
+        showHome();
+        if (id) openModule(id);
+    }));
+}
+
+function openModule(id) {
     if (!hasAccess(id)) return toast(account.token ? 'Ten moduł jest tylko dla testerów' : 'Moduł dla testerów — zaloguj się w Ustawieniach', 'err');
     if (!current() && needsPc(installed[id])) return openPcs();   // Deck, Cam potrzebują komputera; Convert nie
     const def = defs[id];
     if (!def) return toast('Moduł się nie wczytał — zaktualizuj go w „Moduły”.', 'err');
     if (def.open) return def.open(makeApi(id));
     if (def.mount) openView(id);
-});
+}
 
 // Moduł z własnym ekranem: rdzeń daje pasek z „wstecz”, moduł wypełnia resztę
 let activeView = null;
@@ -228,9 +248,11 @@ function openView(id) {
           <button class="bar-btn" data-back id="viewBack" data-glass="chevron.left" title="Wstecz"><svg viewBox="0 0 24 24"><path d="M14 6l-6 6 6 6"/></svg></button>
           <div class="bar-title">${esc(installed[id].name).replace(/^Pitaya /, 'Pitaya <span>') + (installed[id].name.startsWith('Pitaya ') ? '</span>' : '')}</div>
           <div class="bar-slot"></div>
+          <button class="bar-btn" data-switcher data-glass="square.grid.2x2" title="Aplikacje"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg></button>
         </header>
         <div class="view-body"></div>`;
     view.querySelector('[data-back]').onclick = showHome;
+    view.querySelector('[data-switcher]').onclick = openSwitcher;
     document.body.appendChild(view);
     $('home').hidden = true;
     activeView = { id, view };

@@ -246,6 +246,29 @@
             if (it.b && it.b.type === 'media' && it.w < 2) c.classList.add('narrow');
             grid.appendChild(c);
         }
+        localImages(grid);
+    }
+    // Obrazy z komputera (http://…) w aplikacji: WebKit na iPhonie potrafi je blokować albo podbijać do https
+    // (strona aplikacji to capacitor://), więc pobieramy je sami i podstawiamy jako blob: — działa wszędzie.
+    const blobs = new Map();   // adres → Promise<blob: | null>
+    function blobOf(url) {
+        if (!blobs.has(url)) {
+            if (blobs.size > 300) { for (const p of blobs.values()) p.then((u) => u && URL.revokeObjectURL(u)); blobs.clear(); }
+            blobs.set(url, fetch(url, { cache: 'force-cache' }).then((r) => (r.ok ? r.blob() : null)).then((b) => (b ? URL.createObjectURL(b) : null)).catch(() => null));
+        }
+        return blobs.get(url);
+    }
+    function localImages(root) {
+        if (!server.startsWith('http:') || location.protocol === 'http:') return;
+        root.querySelectorAll('img').forEach((img) => {
+            const src = img.getAttribute('src') || '';
+            if (!src.startsWith(server)) return;
+            blobOf(src).then((u) => { if (u && img.isConnected) img.src = u; });
+        });
+        root.querySelectorAll('.pd-media-bg').forEach((bg) => {
+            const m = /url\(['"]?([^'")]+)/.exec(bg.style.backgroundImage || '');
+            if (m && m[1].startsWith(server)) blobOf(m[1]).then((u) => { if (u && bg.isConnected) bg.style.backgroundImage = `url('${u}')`; });
+        });
     }
 
     // Krótkie dotknięcie = „press”, przytrzymanie = „long”, puszczenie = „release” — jak na stronie decka
@@ -433,6 +456,7 @@
                   <button class="deck-btn btn-back" title="Wstecz" hidden><svg viewBox="0 0 24 24"><path d="M14 6l-6 6 6 6"/></svg></button>
                   <div class="deck-title"><span class="folder-name">Pitaya Deck</span><small class="profile-name"></small></div>
                   <span class="bar-clock"></span>
+                  <button class="deck-btn btn-apps" title="Aplikacje" hidden><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg></button>
                   <button class="deck-btn btn-screen" title="Ekran"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button>
                 </header>
                 <main class="grid-wrap">
@@ -456,6 +480,9 @@
             $('.btn-close').onclick = () => api.close();
             $('.btn-back').onclick = () => send({ t: 'nav', to: 'back' });
             $('.btn-screen').onclick = openPanel;
+            // Przejście do innej aplikacji (rdzeń 0.3.7+)
+            $('.btn-apps').hidden = !api.switcher;
+            if (api.switcher) $('.btn-apps').onclick = () => api.switcher();
             $('.screen').addEventListener('click', (e) => { if (e.target.closest('[data-ext]')) openExternal(); });
             httpCheck = null;
             el.addEventListener('pointerdown', onActivity, true);

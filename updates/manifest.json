@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated": "2026-10-26T23:59:35.694Z",
+  "generated": "2026-10-27T11:46:02.483Z",
   "shell": {
     "version": "0.2.6",
     "android": "https://github.com/Pitayas-Team/Pitayas-Mobile/releases/download/v0.2.6-beta/Pitayas-0.2.6-beta.apk",
@@ -8,9 +8,9 @@
     "page": "https://github.com/Pitayas-Team/Pitayas-Mobile/releases/latest"
   },
   "core": {
-    "version": "0.3.6",
+    "version": "0.3.7",
     "minShell": "0.1.0",
-    "base": "core/0.3.6/",
+    "base": "core/0.3.7/",
     "files": [
       "app.js",
       "app.css",
@@ -57,7 +57,7 @@
       "id": "deck",
       "name": "Pitaya Deck",
       "description": "Panel przycisków do komputera",
-      "version": "0.2.2",
+      "version": "0.2.3",
       "minCore": "0.1.0",
       "port": {
         "default": 8191,
@@ -70,7 +70,24 @@
         "render.css",
         "icon.png"
       ],
-      "base": "modules/deck/0.2.2/"
+      "base": "modules/deck/0.2.3/"
+    },
+    {
+      "id": "gear",
+      "name": "Pitaya Gear",
+      "description": "Słuchawki, mysz, klawiatura i wentylatory komputera",
+      "version": "0.1.0",
+      "minCore": "0.1.0",
+      "port": {
+        "default": 8191,
+        "label": "Port Deck"
+      },
+      "files": [
+        "module.js",
+        "module.css",
+        "icon.png"
+      ],
+      "base": "modules/gear/0.1.0/"
     },
     {
       "id": "media",

@@ -230,6 +230,9 @@ input:focus, select:focus { outline: none; border-color: var(--m-accent); }
 .lg .btn.discord.glass-btn { background: linear-gradient(180deg, rgba(120,132,255,.95), rgba(88,101,242,.85)) !important; color: #fff; }
 .lg .btn.glass-btn:not(.discord) { color: var(--m-text); }
 .lg .sheet-card { background: linear-gradient(180deg, rgba(36,33,43,.96), rgba(22,20,27,.98)) !important; }
+/* Arkusz musi się przewijać — wspólna reguła szkła wyżej daje overflow: hidden */
+.lg .sheet-card { overflow-y: auto; }
+.sheet-card { -webkit-overflow-scrolling: touch; overscroll-behavior: contain; }
 .lg .critical-card { background: linear-gradient(180deg, rgba(48,30,40,.97), rgba(26,20,28,.98)) !important; border-color: rgba(255,107,127,.45) !important; }
 .lg .notif-pop { background: linear-gradient(180deg, rgba(60,55,70,.55), rgba(30,27,36,.7)) !important; }
 .lg .bar-btn.bell { overflow: visible; }
@@ -343,3 +346,12 @@ input:focus, select:focus { outline: none; border-color: var(--m-accent); }
 .seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 4px; background: var(--m-panel); border: 1px solid var(--m-line); border-radius: 999px; }
 .seg button { border: none; background: none; color: var(--m-text-2); border-radius: 999px; padding: 9px 4px; font-size: 13.5px; font-weight: 700; }
 .seg button.on { background: var(--m-grad); color: #1d1206; }
+
+/* Przełącznik aplikacji */
+.switch-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px 8px; padding: 4px 0 8px; }
+.switch-app { display: flex; flex-direction: column; align-items: center; gap: 6px; border: none; background: none; color: var(--m-text-2); font-size: 12.5px; font-weight: 600; padding: 0; }
+.switch-app img, .switch-home { width: 58px; height: 58px; border-radius: 16px; }
+.switch-home { display: grid; place-items: center; background: var(--m-item); }
+.switch-home svg { width: 26px; height: 26px; fill: none; stroke: var(--m-text); stroke-width: 2; stroke-linejoin: round; }
+.switch-app.on img { box-shadow: 0 0 0 2px var(--m-bg), 0 0 0 4px var(--m-accent); }
+.switch-app:active { transform: scale(.94); }

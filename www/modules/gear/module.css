@@ -1,0 +1,25 @@
+/* ═══════ PITAYA GEAR (moduł) ═══════ */
+.gear-mod { display: flex; flex-direction: column; gap: 12px; }
+.gear-mod .gr-empty { padding: 28px 16px; text-align: center; color: var(--m-text-3); font-size: 14.5px; line-height: 1.5; background: var(--m-panel); border: 1px solid var(--m-line); border-radius: 22px; }
+.gear-mod .gr-empty.small { padding: 12px 14px; font-size: 13.5px; color: var(--m-warn); }
+.gear-mod .gr-card { display: flex; flex-direction: column; gap: 12px; padding: 14px; background: var(--m-panel); border: 1px solid var(--m-line); border-radius: 22px; }
+.gear-mod .gr-card header { display: flex; align-items: center; gap: 12px; }
+.gear-mod .gr-card header b { display: block; font-size: 16.5px; color: var(--m-text); }
+.gear-mod .gr-card header small { display: block; font-size: 13px; color: var(--m-text-3); margin-top: 2px; }
+.gear-mod .gr-ic { width: 38px; height: 38px; flex: none; border-radius: 12px; display: grid; place-items: center; background: var(--m-grad); color: #1d1206; }
+.gear-mod .gr-ic svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.gear-mod .gr-seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 4px; background: var(--m-item); border-radius: 999px; }
+.gear-mod .gr-seg button { border: none; background: none; color: var(--m-text-2); border-radius: 999px; padding: 9px 4px; font-size: 14px; font-weight: 700; }
+.gear-mod .gr-seg button.on { background: var(--m-grad); color: #1d1206; }
+.gear-mod .gr-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14.5px; color: var(--m-text-2); }
+.gear-mod .gr-row .gr-seg { flex: 1; max-width: 220px; }
+.gear-mod .gr-row input[type=range] { flex: 1; max-width: 220px; accent-color: var(--m-accent); }
+.gear-mod .gr-pair { display: flex; align-items: center; gap: 10px; }
+.gear-mod .gr-pair b { min-width: 52px; text-align: center; color: var(--m-text); }
+.gear-mod .gr-btn { border: 1px solid var(--m-line-strong); background: var(--m-item); color: var(--m-text); border-radius: 999px; padding: 8px 14px; font-size: 14px; font-weight: 700; min-width: 40px; }
+.gear-mod .gr-btn.on { background: var(--m-grad); color: #1d1206; border-color: transparent; }
+.gear-mod .gr-btn:active, .gear-mod .gr-seg button:active { transform: scale(.96); }
+.gear-mod .gr-colors { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; }
+.gear-mod .gr-colors button { aspect-ratio: 1; border-radius: 50%; border: 2px solid rgba(255,255,255,.12); padding: 0; }
+.gear-mod .gr-colors button.on { border-color: #fff; box-shadow: 0 0 0 2px var(--m-accent); }
+.gear-mod .gr-hint { margin: 0; font-size: 12.5px; color: var(--m-warn); }
