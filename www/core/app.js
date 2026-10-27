@@ -975,6 +975,9 @@ function openSettings() {
 
         ${shell ? `<div class="set-group">${setRow(setIcon('dl', '#3fa8ff'), `Nowa aplikacja ${esc(shell.version)}`, null, { id: 'sShell', sub: 'Wymaga ponownej instalacji' })}</div>` : ''}
 
+        ${u && u.admin ? `<div class="set-label">Administracja</div>
+        <div class="set-group">${setRow(setIcon('user', '#3a8ef0'), 'Panel admina', null, { id: 'sAdmin', sub: 'Konta, aplikacje, strona, powiadomienia' })}</div>` : ''}
+
         <div class="set-label">Aktualizacje</div>
         <div class="set-group">
           ${setRow(setIcon('refresh', '#ff4fa6'), 'Sprawdź aktualizacje', coreReady ? 'restart' : '', { id: 'sCheck' })}
@@ -1009,6 +1012,19 @@ function openSettings() {
     $('sNotifs').onclick = () => openNotifs(true);
     $('sMods').onclick = () => openModules(true);
     $('sDev').onclick = openDeveloper;
+    if ($('sAdmin')) $('sAdmin').onclick = openAdmin;
+}
+
+// ═══════ PANEL ADMINA (admin.js, wczytywany dopiero przy pierwszym otwarciu) ═══════
+window.PitayasCore = { $, esc, toast, openSheet, closeSheet, setRow, setIcon: (k, c) => setIcon(k, c), accountFetch: (p, b) => accountFetch(p, b), openSettings: () => openSettings() };
+function openAdmin() {
+    if (window.PitayasAdmin) return window.PitayasAdmin.open();
+    const base = (window.PITAYAS_CORE && window.PITAYAS_CORE.base) || 'core/';
+    const js = document.createElement('script');
+    js.src = `${base}admin.js?v=${CORE_VERSION}`;
+    js.onload = () => window.PitayasAdmin && window.PitayasAdmin.open();
+    js.onerror = () => toast('Nie udało się wczytać panelu admina — zaktualizuj aplikację', 'err');
+    document.body.appendChild(js);
 }
 
 // Konto: dane, dostęp do aplikacji dla testerów, wylogowanie
@@ -1026,9 +1042,39 @@ function openAccount() {
         </div>
         <div class="set-label">Dostęp do aplikacji dla testerów</div>
         <div class="set-group">${apps.length ? apps.map(([id, a]) => setRow(setIcon('box', a.access ? '#7ddc5a' : '#5b6170'), esc(a.name || id), a.access ? '<span class="ok">✓ masz dostęp</span>' : '<span class="no">brak</span>')).join('') : setRow('', 'Wszystkie moduły są dla wszystkich', '')}</div>
-        <p class="hint">Dostęp nadaje administrator w panelu Pitayas. Hasło zmienia też administrator.</p>
+        <p class="hint">Dostęp nadaje administrator w panelu Pitayas.</p>
+        <div class="set-group">${setRow(setIcon('user', '#3a8ef0'), u.hasPassword === false ? 'Ustaw hasło' : 'Zmień hasło', null, { id: 'accPass' })}</div>
         <button class="btn danger-btn" id="accOut">Wyloguj</button>`, openSettings);
     $('accOut').onclick = () => { if (confirm('Wylogować z konta Pitayas?')) logout(); };
+    $('accPass').onclick = openPassword;
+}
+
+// Własne hasło: obecne + nowe (2×). Pozostałe urządzenia zostają wylogowane, to zostaje zalogowane.
+function openPassword() {
+    const u = account.user || {};
+    const noPass = u.hasPassword === false;
+    openSheet(noPass ? 'Ustaw hasło' : 'Zmień hasło', `
+        <div class="pc-form">
+          ${noPass ? '<p class="hint">Logujesz się przez Discord — możesz dodać hasło, żeby logować się też loginem.</p>'
+            : '<div><label for="pwOld">Obecne hasło</label><input id="pwOld" type="password" autocomplete="current-password"></div>'}
+          <div><label for="pwNew">Nowe hasło (min. 8 znaków)</label><input id="pwNew" type="password" autocomplete="new-password"></div>
+          <div><label for="pwNew2">Powtórz nowe hasło</label><input id="pwNew2" type="password" autocomplete="new-password"></div>
+          <button class="btn" id="pwSave">Zapisz hasło</button>
+          <p class="hint">Inne urządzenia zostaną wylogowane.</p>
+        </div>`, openAccount);
+    $('pwSave').onclick = async () => {
+        const nw = $('pwNew').value;
+        if (nw.length < 8) return toast('Nowe hasło: co najmniej 8 znaków', 'err');
+        if (nw !== $('pwNew2').value) return toast('Hasła się różnią', 'err');
+        $('pwSave').disabled = true;
+        try {
+            await accountFetch('api/password', { oldPassword: noPass ? '' : $('pwOld').value, newPassword: nw });
+            account.user = { ...u, hasPassword: true };
+            ls.set('pitayas-account', account);
+            toast('Hasło zmienione');
+            openAccount();
+        } catch (err) { toast(err.message || String(err), 'err'); $('pwSave').disabled = false; }
+    };
 }
 
 // Developer: źródło aktualizacji, diagnostyka i dziennik — schowane, żeby nie straszyły w zwykłych ustawieniach
