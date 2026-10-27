@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated": "2026-10-27T16:49:09.643Z",
+  "generated": "2026-10-27T17:01:28.276Z",
   "shell": {
     "version": "0.2.7",
     "android": "https://github.com/Pitayas-Team/Pitayas-Mobile/releases/download/v0.2.7-beta/Pitayas-0.2.7-beta.apk",
@@ -111,14 +111,14 @@
       "id": "screen",
       "name": "Pitayas Screen",
       "description": "Telefon jako dodatkowy monitor komputera — przez kabel USB",
-      "version": "0.1.1",
+      "version": "0.1.2",
       "minCore": "0.3.2",
       "files": [
         "module.js",
         "module.css",
         "icon.png"
       ],
-      "base": "modules/screen/0.1.1/"
+      "base": "modules/screen/0.1.2/"
     }
   ]
 }

@@ -87,30 +87,57 @@
         };
     }
 
-    function configure(m) {
+    // Klatki „delta” odwołują się do poprzednich — po pominięciu choćby jednej obraz się sypie (smugi, bloki),
+    // więc po każdej stracie czekamy na następną klatkę kluczową (komputer wysyła ją co sekundę).
+    let lastConfig = null, needKey = true, pendingFrame = null, drawing = false;
+    function makeDecoder() {
         if (decoder) { try { decoder.close(); } catch {} }
-        size = [m.w, m.h];
-        canvas.width = m.w; canvas.height = m.h;
+        const m = lastConfig;
         const desc = Uint8Array.from(atob(m.description), (c) => c.charCodeAt(0));
         decoder = new VideoDecoder({
-            output: (f) => { ctx.drawImage(f, 0, 0, canvas.width, canvas.height); f.close(); if (!live) { live = true; setStatus(''); } },
-            error: (err) => { setStatus(`Dekoder: ${err.message}`, 'err'); },
+            // Rysujemy tylko najnowszą klatkę, raz na odświeżenie ekranu (bez kolejki starych klatek = mniejsze opóźnienie)
+            output: (f) => {
+                if (pendingFrame) pendingFrame.close();
+                pendingFrame = f;
+                if (!drawing) { drawing = true; requestAnimationFrame(paint); }
+            },
+            // Błąd dekodera (np. uszkodzona klatka) — nowy dekoder i czekamy na klatkę kluczową
+            error: (err) => { console.warn('Dekoder:', err && err.message); needKey = true; setTimeout(() => { if (lastConfig && full) makeDecoder(); }, 0); },
         });
         decoder.configure({ codec: m.codec, description: desc, optimizeForLatency: true, hardwareAcceleration: 'prefer-hardware' });
+        needKey = true;
         ts = 0;
+    }
+    function paint() {
+        drawing = false;
+        const f = pendingFrame;
+        pendingFrame = null;
+        if (!f) return;
+        if (ctx) ctx.drawImage(f, 0, 0, canvas.width, canvas.height);
+        f.close();
+        if (!live) { live = true; setStatus(''); }
+    }
+    function configure(m) {
+        size = [m.w, m.h];
+        canvas.width = m.w; canvas.height = m.h;
+        lastConfig = m;
+        makeDecoder();
     }
 
     function frame(buf) {
-        if (!decoder || decoder.state !== 'configured') return;
+        if (!decoder || decoder.state !== 'configured') { needKey = true; return; }
         const key = buf[0] === 1;
-        // Za dużo w kolejce = telefon nie nadąża: pomijamy do klatki kluczowej
-        if (decoder.decodeQueueSize > 4 && !key) return;
+        // Telefon nie nadąża — gubimy klatki aż do najbliższej kluczowej
+        if (!key && (needKey || decoder.decodeQueueSize > 3)) { needKey = true; return; }
+        needKey = false;
         ts += 16666;
-        try { decoder.decode(new EncodedVideoChunk({ type: key ? 'key' : 'delta', timestamp: ts, data: buf.subarray(1) })); } catch {}
+        try { decoder.decode(new EncodedVideoChunk({ type: key ? 'key' : 'delta', timestamp: ts, data: buf.subarray(1) })); } catch { needKey = true; }
     }
 
     function closeFull() {
         if (decoder) { try { decoder.close(); } catch {} decoder = null; }
+        if (pendingFrame) { pendingFrame.close(); pendingFrame = null; }
+        lastConfig = null;
         live = false;
         if (full) { full.remove(); full = null; }
     }
