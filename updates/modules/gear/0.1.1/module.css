@@ -6,20 +6,35 @@
 .gear-mod .gr-card header { display: flex; align-items: center; gap: 12px; }
 .gear-mod .gr-card header b { display: block; font-size: 16.5px; color: var(--m-text); }
 .gear-mod .gr-card header small { display: block; font-size: 13px; color: var(--m-text-3); margin-top: 2px; }
-.gear-mod .gr-ic { width: 38px; height: 38px; flex: none; border-radius: 12px; display: grid; place-items: center; background: var(--m-grad); color: #1d1206; }
+.gear-mod .gr-ic { width: 36px; height: 36px; flex: none; border-radius: 10px; display: grid; place-items: center; background: var(--m-item); color: var(--m-text); }
 .gear-mod .gr-ic svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .gear-mod .gr-seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 4px; background: var(--m-item); border-radius: 999px; }
 .gear-mod .gr-seg button { border: none; background: none; color: var(--m-text-2); border-radius: 999px; padding: 9px 4px; font-size: 14px; font-weight: 700; }
-.gear-mod .gr-seg button.on { background: var(--m-grad); color: #1d1206; }
+.gear-mod .gr-seg button.on { background: #3a3942; color: var(--m-text); }
 .gear-mod .gr-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14.5px; color: var(--m-text-2); }
 .gear-mod .gr-row .gr-seg { flex: 1; max-width: 220px; }
-.gear-mod .gr-row input[type=range] { flex: 1; max-width: 220px; accent-color: var(--m-accent); }
+
 .gear-mod .gr-pair { display: flex; align-items: center; gap: 10px; }
 .gear-mod .gr-pair b { min-width: 52px; text-align: center; color: var(--m-text); }
 .gear-mod .gr-btn { border: 1px solid var(--m-line-strong); background: var(--m-item); color: var(--m-text); border-radius: 999px; padding: 8px 14px; font-size: 14px; font-weight: 700; min-width: 40px; }
-.gear-mod .gr-btn.on { background: var(--m-grad); color: #1d1206; border-color: transparent; }
+.gear-mod .gr-btn.on { background: var(--m-accent); color: #fff; border-color: transparent; }
 .gear-mod .gr-btn:active, .gear-mod .gr-seg button:active { transform: scale(.96); }
 .gear-mod .gr-colors { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; }
 .gear-mod .gr-colors button { aspect-ratio: 1; border-radius: 50%; border: 2px solid rgba(255,255,255,.12); padding: 0; }
 .gear-mod .gr-colors button.on { border-color: #fff; box-shadow: 0 0 0 2px var(--m-accent); }
 .gear-mod .gr-hint { margin: 0; font-size: 12.5px; color: var(--m-warn); }
+
+.gear-mod { touch-action: pan-y; }
+.gear-mod .gr-grid { display: flex; flex-direction: column; gap: 12px; }
+.gear-mod .gr-grid > div:empty { display: none; }
+.gear-mod .gr-vol { display: flex; align-items: center; gap: 10px; }
+.gear-mod .gr-vol input { flex: 1; }
+/* Suwaki: własny wygląd (domyślny w WebView bywa nieczytelny) */
+.gear-mod input[type=range] { -webkit-appearance: none; appearance: none; height: 28px; background: none; border: none; padding: 0; flex: 1; max-width: 260px; touch-action: none; }
+.gear-mod input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: var(--m-item); }
+.gear-mod input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 24px; height: 24px; margin-top: -9px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); }
+/* Tablet: karty w dwóch–trzech kolumnach */
+@media (min-width: 700px) {
+  .gear-mod .gr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); align-items: start; }
+  .gear-mod .gr-grid > [data-card="msg"] { grid-column: 1 / -1; }
+}

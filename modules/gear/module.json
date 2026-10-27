@@ -2,7 +2,7 @@
   "id": "gear",
   "name": "Pitaya Gear",
   "description": "Słuchawki, mysz, klawiatura i wentylatory komputera",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "minCore": "0.1.0",
   "port": {
     "default": 8191,

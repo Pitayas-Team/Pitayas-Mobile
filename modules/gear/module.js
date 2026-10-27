@@ -84,8 +84,8 @@
     // Zmiana: wysyłamy, odświeżamy tylko tę część
     async function act(part, args) {
         try {
-            const r = await call(part, args);
-            if (data) data[part] = part === 'mouse' || part === 'keyboard' || part === 'fans' || part === 'headset' ? { ...data[part], ...r } : r;
+            const r = await call(part === 'audio' ? 'volume' : part, args);
+            if (data) data[part] = { ...data[part], ...r };
             render();
         } catch (err) { api.toast(err.message, 'err'); }
     }
@@ -98,9 +98,19 @@
         headset: svg('<path d="M4 14v-2a8 8 0 0 1 16 0v2"/><rect x="3" y="14" width="4" height="6" rx="1.5"/><rect x="17" y="14" width="4" height="6" rx="1.5"/>'),
         mouse: svg('<rect x="6" y="3" width="12" height="18" rx="6"/><path d="M12 7v4"/>'),
         keyboard: svg('<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>'),
+        audio: svg('<path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12"/>'),
         fans: svg('<circle cx="12" cy="12" r="2"/><path d="M12 10c0-4 1-7 4-7s2 5-2 7M14 12c4 0 7 1 7 4s-5 2-7-2M12 14c0 4-1 7-4 7s-2-5 2-7M10 12c-4 0-7-1-7-4s5-2 7 2"/>'),
     };
 
+    function audioCard(a) {
+        if (!a) return '';
+        if (a.error) return card(ICONS.audio, 'Głośność', esc(a.error), '');
+        return card(ICONS.audio, 'Głośność', a.muted ? 'Wyciszone' : `${a.volume}%${a.device ? ` · ${esc(a.device)}` : ''}`,
+            `<div class="gr-vol"><button class="gr-btn" data-vol="-5">−</button>
+               <input type="range" min="0" max="100" step="1" value="${a.volume}" data-vol-range>
+               <button class="gr-btn" data-vol="+5">+</button></div>
+             <div class="gr-row"><span>Wycisz</span><button class="gr-btn${a.muted ? ' on' : ''}" data-mute>${a.muted ? 'Wyciszone' : 'Wycisz'}</button></div>`);
+    }
     function headsetCard(h) {
         if (!h || h.error) return card(ICONS.headset, 'Słuchawki Arctis', esc(h ? h.error : 'brak'), '');
         if (!h.connected) return card(ICONS.headset, 'Słuchawki Arctis', 'Stacja podłączona, słuchawki wyłączone', '');
@@ -136,16 +146,32 @@
              ${f.writable === false ? '<p class="gr-hint">Brak uprawnień do zmiany — uruchom raz <code>system/install.sh</code> w Pitaya Gear.</p>' : ''}`);
     }
 
+    // Przebudowujemy tylko karty, które się zmieniły, i nigdy pod palcem — iOS przerywa przewijanie,
+    // gdy zniknie element, którego dotyka palec (stąd „nie da się przesuwać” przy odświeżaniu co 5 s).
+    let touching = false, pending = false;
     function render() {
         if (!el) return;
+        if (touching) { pending = true; return; }
+        pending = false;
         if (!data) {
             el.innerHTML = `<div class="gr-empty">${error ? esc(error) : 'Łączę z komputerem…'}</div>`;
             return;
         }
-        const scroll = el.scrollTop;
-        el.innerHTML = (error ? `<div class="gr-empty small">${esc(error)}</div>` : '') +
-            headsetCard(data.headset) + mouseCard(data.mouse) + keyboardCard(data.keyboard) + fansCard(data.fans);
-        el.scrollTop = scroll;
+        const cards = [
+            ['msg', error ? `<div class="gr-empty small">${esc(error)}</div>` : ''],
+            ['audio', audioCard(data.audio)],
+            ['headset', headsetCard(data.headset)],
+            ['mouse', mouseCard(data.mouse)],
+            ['keyboard', keyboardCard(data.keyboard)],
+            ['fans', fansCard(data.fans)],
+        ];
+        let grid = el.querySelector('.gr-grid');
+        if (!grid) { el.innerHTML = '<div class="gr-grid"></div>'; grid = el.querySelector('.gr-grid'); }
+        for (const [key, html] of cards) {
+            let box = grid.querySelector(`[data-card="${key}"]`);
+            if (!box) { box = document.createElement('div'); box.dataset.card = key; grid.appendChild(box); }
+            if (box._html !== html) { box._html = html; box.innerHTML = html; box.hidden = !html; }
+        }
     }
 
     function onClick(e) {
@@ -165,10 +191,13 @@
         if ('profile' in b.dataset) return act('mouse', { profile: 'next' });
         if ('eq' in b.dataset) return act('headset', { eqPreset: 'cycle' });
         if ('turbo' in b.dataset) return act('fans', { turbo: 'toggle' });
+        if (b.dataset.vol) return act('audio', { volume: b.dataset.vol });
+        if ('mute' in b.dataset) return act('audio', { mute: 'toggle' });
         if ('kbAuto' in b.dataset) return act('keyboard', { autonomous: !(data.keyboard && data.keyboard.autonomous) });
     }
     function onChange(e) {
         if (e.target.matches('[data-kb-bright]')) act('keyboard', { brightness: Number(e.target.value), autonomous: false });
+        if (e.target.matches('[data-vol-range]')) act('audio', { volume: Number(e.target.value) });
     }
 
     function stop() {
@@ -189,6 +218,10 @@
             el.classList.add('gear-mod');
             el.addEventListener('click', onClick);
             el.addEventListener('change', onChange);
+            el.addEventListener('touchstart', () => { touching = true; }, { passive: true });
+            const lift = () => { touching = false; if (pending) setTimeout(render, 400); };   // po puszczeniu, gdy przewijanie wyhamuje
+            el.addEventListener('touchend', lift, { passive: true });
+            el.addEventListener('touchcancel', lift, { passive: true });
             render();
             start();
         },
