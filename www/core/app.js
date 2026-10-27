@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '4.0.0';
+const CORE_VERSION = '4.1.0';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -71,9 +71,7 @@ document.body.insertAdjacentHTML('beforeend', `
 
   <div class="sheet" id="sheet" hidden data-core-ui>
     <div class="sheet-card">
-      <div class="sheet-head"><button class="bar-btn" id="sheetBackBtn" data-glass="chevron.left" title="Cofnij" hidden><svg viewBox="0 0 24 24"><path d="M14 6l-6 6 6 6"/></svg></button><b id="sheetTitle"></b>
-        <button class="bar-btn" data-close id="sheetClose" data-glass="xmark" title="Zamknij"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
-      </div>
+      <div class="sheet-head"><button class="bar-btn" id="sheetBackBtn" data-glass="chevron.left" title="Wstecz"><svg viewBox="0 0 24 24"><path d="M14 6l-6 6 6 6"/></svg></button><b id="sheetTitle"></b></div>
       <div id="sheetBody" class="sheet-body"></div>
     </div>
   </div>
@@ -270,25 +268,24 @@ function showHome() {
     renderHome();
 }
 
-// ═══════ ARKUSZ (komputery, moduły, ustawienia) ═══════
+// ═══════ STRONY (Ustawienia, Moduły, Komputery, Konto, Panel admina) ═══════
+// Pełny ekran: nagłówek z przyciskiem „wstecz” stoi, przewija się tylko treść. Wstecz = poprzednia strona
+// (onBack) albo ekran startowy. To samo robi przesunięcie od lewej krawędzi i przycisk „wstecz” w Androidzie.
 let sheetBack = null;
 function openSheet(title, html, onBack) {
     $('sheetTitle').textContent = title;
     $('sheetBody').innerHTML = html;
     $('sheet').hidden = false;
-    sheetBack = onBack || null;
-    $('sheetBackBtn').hidden = !sheetBack;   // „Cofnij” tylko tam, gdzie jest poprzedni ekran
-    if (typeof syncGlass === 'function') { setTimeout(syncGlass, 260); setTimeout(syncGlass, 600); }
+    sheetBack = typeof onBack === 'function' ? onBack : null;
     $('sheetBody').scrollTop = 0;
 }
 function closeSheet() { $('sheet').hidden = true; sheetBack = null; }
-document.addEventListener('click', (e) => { if (e.target.closest('#sheetBackBtn') && sheetBack) sheetBack(); });
-$('sheet').addEventListener('click', (e) => {
-    if (e.target === $('sheet') || e.target.closest('[data-close]')) closeSheet();
-});
+const goBack = () => (sheetBack ? sheetBack() : closeSheet());
+document.addEventListener('click', (e) => { if (e.target.closest('#sheetBackBtn')) goBack(); });
 
 // ─── Komputery ───
-function openPcs() {
+function openPcs(back) {
+    if (typeof back !== 'function') back = null;
     if (!pcs.list.length) return editPc(null);
     const cur = current();
     openSheet('Komputery', `
@@ -298,7 +295,7 @@ function openPcs() {
             <div class="pc-text"><b>${esc(p.name || p.host)}</b><small>${esc(p.host)}</small></div>
             <button class="bar-btn" data-edit title="Edytuj"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg></button>
           </div>`).join('')}</div>
-        <button class="btn ghost" id="pcAdd">+ Dodaj komputer</button>`);
+        <button class="btn ghost" id="pcAdd">+ Dodaj komputer</button>`, back);
     $('pcAdd').onclick = () => editPc(null);
     $('sheetBody').querySelectorAll('.pc-item').forEach((el) => {
         const pc = pcs.list.find((p) => p.id === el.dataset.id);
@@ -306,8 +303,8 @@ function openPcs() {
             if (e.target.closest('[data-edit]')) return editPc(pc);
             pcs.current = pc.id;
             savePcs();
-            closeSheet();
             renderHome();
+            back ? back() : closeSheet();
         };
     });
 }
@@ -963,50 +960,50 @@ const SET_ICON_PATHS = {"user":"<circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4
 
 function openSettings() {
     const shell = shellUpdate();
-    const core = ls.get('pitayas-core', null);
     const u = account.token && account.user;
     const unread = notifs.filter((n) => !seen.has(n.id)).length;
+    const pc = current();
+    const cu = coreUpdate();
+    const pending = [coreReady ? `Rdzeń ${coreReady} czeka na restart` : cu ? `Rdzeń ${cu.version}` : '', ...moduleUpdates().map((m) => `${m.name} ${m.version}`)].filter(Boolean);
+    const upToDate = !pending.length && !shell;
     openSheet('Ustawienia', `
-        <div class="set-profile">
-          ${u ? `<div class="acc-row">
-                   <button class="acc-main" id="aOpen"><span class="set-av">${esc((u.name || u.login).trim().slice(0, 1).toUpperCase())}</span>
-                     <span class="set-pt"><b>${esc(u.name || u.login)}</b><small>Konto Pitayas${u.admin ? ' · Administrator' : ''}</small></span>
-                     <svg viewBox="0 0 24 24" class="set-chev"><path d="M9 6l6 6-6 6"/></svg></button>
-                   <button class="bar-btn out-btn" id="aOut" data-glass="rectangle.portrait.and.arrow.right" title="Wyloguj"><svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4"/></svg></button>
-                 </div>`
-              : `<button class="account-btn" id="aLogin">${setIcon('user', 'var(--m-grad)')}<div class="pc-text"><b>Zaloguj się</b><small>Login i hasło albo Discord</small></div><svg viewBox="0 0 24 24" class="pc-chev"><path d="M9 6l6 6-6 6"/></svg></button>`}
-        </div>
+        ${u ? `<div class="acc-row">
+                 <button class="acc-main" id="aOpen"><span class="set-av">${esc((u.name || u.login).trim().slice(0, 1).toUpperCase())}</span>
+                   <span class="set-pt"><b>${esc(u.name || u.login)}</b><small>Konto Pitayas${u.admin ? ' · Administrator' : ''}</small></span>
+                   <svg viewBox="0 0 24 24" class="set-chev"><path d="M9 6l6 6-6 6"/></svg></button>
+                 <button class="bar-btn out-btn" id="aOut" title="Wyloguj"><svg viewBox="0 0 24 24"><path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 17l5-5-5-5M15 12H4"/></svg></button>
+               </div>`
+            : `<button class="account-btn" id="aLogin">${setIcon('user', 'var(--m-accent)')}<div class="pc-text"><b>Zaloguj się</b><small>Konto Pitayas: moduły dla testerów, powiadomienia</small></div><svg viewBox="0 0 24 24" class="pc-chev"><path d="M9 6l6 6-6 6"/></svg></button>`}
 
-        ${u ? `<div class="set-group">
+        ${u ? `<div class="set-label">Konto</div><div class="set-group">
           ${setRow(setIcon('user', '#3a8ef0'), u.hasPassword === false ? 'Ustaw hasło' : 'Zmień hasło', null, { id: 'sPass' })}
           ${u.admin ? setRow(setIcon('code', '#4cc38a'), 'Panel admina', null, { id: 'sAdmin', sub: 'Konta, aplikacje, strona, powiadomienia' }) : ''}
         </div>` : ''}
 
-        ${shell ? `<div class="set-group">${setRow(setIcon('dl', '#3fa8ff'), `Nowa aplikacja ${esc(shell.version)}`, null, { id: 'sShell', sub: 'Wymaga ponownej instalacji' })}</div>` : ''}
-
-
+        <div class="set-label">Aplikacje</div>
+        <div class="set-group">
+          ${setRow(setIcon('phone', '#5b6170'), 'Komputer', esc(pc ? pc.name || pc.host : 'nie wybrano'), { id: 'sPc', sub: 'Z którym komputerem łączy się telefon' })}
+          ${setRow(setIcon('box', '#a77bff'), 'Moduły', esc(String(Object.keys(installed).length)), { id: 'sMods', sub: 'Pobierz, aktualizuj i usuwaj' })}
+          ${setRow(setIcon('bell', '#ff9f45'), 'Powiadomienia', unread ? `<span class="set-badge">${unread}</span>` : '', { id: 'sNotifs' })}
+        </div>
 
         <div class="set-label">Aktualizacje</div>
         <div class="set-group">
-          ${setRow(setIcon('refresh', '#ff4fa6'), 'Sprawdź aktualizacje', coreReady ? 'restart' : '', { id: 'sCheck' })}
-          ${setRow(setIcon('auto', '#7ddc5a'), 'Automatycznie', null, { toggle: settings.autoUpdate, toggleId: 'sAuto', sub: IS_ANDROID ? 'Rdzeń, moduły i aplikacja' : 'Rdzeń i moduły w tle' })}
+          ${setRow(setIcon('refresh', upToDate ? '#4cc38a' : '#3a8ef0'), upToDate ? 'Wszystko aktualne' : 'Dostępne aktualizacje', coreReady ? 'Uruchom ponownie' : '',
+              { id: 'sCheck', sub: upToDate ? 'Dotknij, żeby sprawdzić teraz' : esc(pending.join(', ') || 'Dotknij, żeby zainstalować') })}
+          ${shell ? setRow(setIcon('dl', '#3fa8ff'), `Nowa aplikacja ${esc(shell.version)}`, null, { id: 'sShell', sub: IS_ANDROID ? 'Pobierz i zainstaluj' : 'Wymaga ponownej instalacji' }) : ''}
+          ${setRow(setIcon('auto', '#7ddc5a'), 'Aktualizuj automatycznie', null, { toggle: settings.autoUpdate, toggleId: 'sAuto', sub: IS_ANDROID ? 'Rdzeń, moduły i aplikacja' : 'Rdzeń i moduły w tle' })}
         </div>
         ${ls.get('pitayas-core-failed', false) ? '<p class="hint warn">Pobrany rdzeń nie uruchomił się — działa wbudowany. Spróbuj zaktualizować ponownie.</p>' : ''}
 
-        <div class="set-label">Aplikacja</div>
-        <div class="set-group">
-          ${setRow(setIcon('bell', '#ff9f45'), 'Powiadomienia', unread ? `<span class="set-badge">${unread}</span>` : '', { id: 'sNotifs' })}
-          ${setRow(setIcon('box', '#a77bff'), 'Moduły', esc(String(Object.keys(installed).length)), { id: 'sMods' })}
-        </div>
-
-        <div class="set-label">Informacje</div>
+        <div class="set-label">O aplikacji</div>
         <div class="set-group">
           ${setRow(setIcon('phone', '#5b6170'), 'Aplikacja', esc(shellVersion))}
           ${setRow(setIcon('core', '#5b6170'), 'Rdzeń', `${esc(CORE_VERSION)}${coreReady ? ` → ${esc(coreReady)}` : ''}`)}
           ${Object.values(installed).map((m) => setRow(`<img class="set-ic img" src="${esc((m.base || '') + 'icon.png')}" alt="">`, esc(m.name), esc(m.version))).join('')}
         </div>
 
-        <button class="dev-link" id="sDev">${setIcon('code', '#3a3646')}Developer</button>`);
+        <div class="set-group">${setRow(setIcon('code', '#3a3646'), 'Zaawansowane', null, { id: 'sDev', sub: 'Źródło aktualizacji, diagnostyka, dziennik' })}</div>`);
     bindAccount();
     $('sAuto').onchange = () => { settings.autoUpdate = $('sAuto').checked; ls.set('pitayas-settings', settings); };
     $('sCheck').onclick = async () => {
@@ -1017,6 +1014,7 @@ function openSettings() {
         if (!$('sheet').hidden && $('sCheck')) openSettings();
     };
     if (shell) $('sShell').onclick = () => openShellDownload(shell);
+    $('sPc').onclick = () => openPcs(openSettings);
     $('sNotifs').onclick = () => openNotifs(true);
     $('sMods').onclick = () => openModules(true);
     $('sDev').onclick = openDeveloper;
@@ -1322,7 +1320,7 @@ document.querySelector('.head-logo').addEventListener('click', () => {
         }, 240);
     };
     const back = () => {
-        if (!$('sheet').hidden) return sheetBack ? sheetBack() : closeSheet();
+        if (!$('sheet').hidden) return goBack();
         if (activeView) showHome();
     };
     // iOS potrafi nie wysłać końca dotyku (system albo natywna warstwa szkła przejmie palec) — wtedy ekran
@@ -1336,7 +1334,6 @@ document.querySelector('.head-logo').addEventListener('click', () => {
         const t = e.touches[0], el = target();
         if (!el) return;
         if (t.clientX <= EDGE) g = { kind: 'back', el };
-        else if (!$('sheet').hidden && el.contains(e.target) && $('sheetBody').scrollTop <= 0) g = { kind: 'down', el };
         if (g) Object.assign(g, { x0: t.clientX, y0: t.clientY, t0: Date.now(), d: 0, locked: false });
     }, { passive: true });
     document.addEventListener('touchmove', (e) => {

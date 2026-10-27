@@ -100,19 +100,16 @@ input:focus, select:focus { outline: none; border-color: var(--m-accent); }
 .switch { display: flex; align-items: center; gap: 12px; text-transform: none; letter-spacing: 0; font-size: 15px; font-weight: 600; color: var(--m-text); margin: 0; }
 .switch input { width: 22px; height: 22px; padding: 0; border-radius: 6px; accent-color: var(--m-accent); -webkit-appearance: checkbox; appearance: auto; flex-shrink: 0; }
 
-/* ═══════ OKNO (arkusz) ═══════
-   Nagłówek stoi, przewija się tylko treść pod nim (#sheetBody). */
-.sheet { position: fixed; inset: 0; z-index: 10; background: rgba(0,0,0,.5); display: flex; align-items: flex-end; justify-content: center; animation: fade .18s ease-out; }
-.sheet-card { width: 100%; max-width: 520px; max-height: 92%; display: flex; flex-direction: column; background: #17161b; border: 1px solid var(--m-line-strong); border-bottom: none; border-radius: 22px 22px 0 0; overflow: hidden; }
+/* ═══════ STRONA (Ustawienia, Moduły, Komputery, Konto, Panel admina) ═══════
+   Pełny ekran z nagłówkiem i przyciskiem „wstecz”. Nagłówek stoi, przewija się tylko treść pod nim. */
+.sheet { position: fixed; inset: 0; z-index: 10; display: flex; justify-content: center; animation: fade .15s ease-out; }
 @keyframes fade { from { opacity: 0; } }
-.sheet-head { display: flex; align-items: center; gap: 10px; padding: 14px 14px 10px; color: var(--m-text); flex-shrink: 0; }
-.sheet-head::before { content: ''; position: absolute; left: 50%; top: 6px; width: 36px; height: 4px; margin-left: -18px; border-radius: 2px; background: rgba(255,255,255,.18); }
-.sheet-card { position: relative; }
-.sheet-head #sheetTitle { flex: 1; min-width: 0; font-size: 19px; font-weight: 700; }
-.sheet-head .bar-btn { width: 36px; height: 36px; background: var(--m-item); border: none; }
-.sheet-head .bar-btn svg { width: 18px; height: 18px; }
-.sheet-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding: 4px 16px var(--bottom); display: flex; flex-direction: column; gap: 10px; }
-/* Elementy w przewijanych kolumnach nie mogą się zgniatać (inaczej grupy z overflow: hidden ucinają treść zamiast przewijać) */
+.sheet-card { position: relative; width: 100%; max-width: 680px; height: 100%; display: flex; flex-direction: column; background: var(--m-bg); }
+.sheet-head { display: flex; align-items: center; gap: 12px; padding: calc(var(--top) + 6px) 16px 10px; flex-shrink: 0; background: var(--m-bg); }
+.sheet-head #sheetTitle { flex: 1; min-width: 0; font-size: 28px; font-weight: 750; letter-spacing: -.01em; color: var(--m-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sheet-head .bar-btn { width: 40px; height: 40px; background: var(--m-item); border: none; }
+.sheet-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; padding: 4px 16px calc(var(--bottom) + 12px); display: flex; flex-direction: column; gap: 10px; }
+/* Elementy w przewijanych kolumnach nie mogą się zgniatać (grupy z overflow: hidden ucinałyby treść zamiast przewijać) */
 .sheet-body > *, .view > *, .view-body > * { flex-shrink: 0; }
 
 .toast { position: fixed; left: 50%; bottom: calc(var(--bottom) + 10px); transform: translate(-50%, 16px); opacity: 0; pointer-events: none; max-width: calc(100% - 32px); background: var(--m-item); border: 1px solid var(--m-line-strong); color: var(--m-text); padding: 10px 16px; border-radius: 12px; font-size: 14px; font-weight: 600; transition: opacity .2s, transform .2s; z-index: 80; }
@@ -295,10 +292,8 @@ input:focus, select:focus { outline: none; border-color: var(--m-accent); }
   .tile.add { border-style: dashed; background: none; }
   .head { padding-left: 4px; padding-right: 4px; }
   h1 { font-size: 28px; }
-  .sheet { align-items: center; padding: 24px; }
-  .sheet-card { max-width: 600px; max-height: 86%; border-radius: 22px; border-bottom: 1px solid var(--m-line-strong); }
-  .sheet-head::before { display: none; }
-  .sheet-body { padding-bottom: 20px; }
+  .sheet { background: rgba(0,0,0,.55); }
+  .sheet-card { border-left: 1px solid var(--m-line); border-right: 1px solid var(--m-line); }
   .switch-grid { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
   .toast { bottom: 24px; }
 }
