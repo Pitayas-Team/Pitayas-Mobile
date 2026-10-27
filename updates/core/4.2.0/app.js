@@ -3,7 +3,8 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '4.1.1';
+const CORE_VERSION = '4.2.0';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze
+const CORE_LABEL = '0.4.2';     // wersja pokazywana użytkownikowi
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -392,7 +393,7 @@ function available() {
     }
     return [...map.values()];
 }
-let coreReady = null;   // pobrana nowsza wersja rdzenia czeka na ponowne uruchomienie
+let coreReady = null, coreReadyLabel = '';   // pobrana nowsza wersja rdzenia czeka na ponowne uruchomienie
 
 async function fetchManifest() {
     try {
@@ -451,7 +452,7 @@ async function installCore(entry) {
     ls.set('pitayas-core', { version: entry.version, path: dir });
     try { localStorage.removeItem('pitayas-core-failed'); } catch {}
     if (prev && prev.path !== dir) removeDir(prev.path);
-    coreReady = entry.version;
+    coreReady = entry.version; coreReadyLabel = entry.label || entry.version;
 }
 
 async function installModule(entry) {
@@ -488,9 +489,9 @@ function renderBanner() {
     const core = coreUpdate();
     const shell = shellUpdate();
     if (coreReady) {
-        b.innerHTML = `<span>Rdzeń ${esc(coreReady)} pobrany</span><button class="chip" id="bReload">Uruchom ponownie</button>`;
+        b.innerHTML = `<span>Rdzeń ${esc(coreReadyLabel)} pobrany</span><button class="chip" id="bReload">Uruchom ponownie</button>`;
     } else if (core || mods.length) {
-        const names = [core && `Rdzeń ${core.version}`, ...mods.map((m) => `${m.name} ${m.version}`)].filter(Boolean);
+        const names = [core && `Rdzeń ${core.label || core.version}`, ...mods.map((m) => `${m.name} ${m.version}`)].filter(Boolean);
         b.innerHTML = `<span>Aktualizacje: ${esc(names.join(', '))}</span><button class="chip" id="bUpdate">Aktualizuj</button>`;
     } else if (shell) {
         b.innerHTML = `<span>Nowa wersja aplikacji ${esc(shell.version)}</span><button class="chip" id="bShell">${IS_ANDROID ? 'Zainstaluj' : 'Pobierz'}</button>`;
@@ -559,8 +560,8 @@ async function updateAll(manual) {
     try {
         const core = coreUpdate();
         if (core && FS) {
-            try { await installCore(core); logUpdate(`Rdzeń ${core.version} — zadziała po ponownym uruchomieniu`); }
-            catch (err) { failed.push('rdzeń'); logUpdate(`Rdzeń ${core.version}: ${errText(err)}`, true); }
+            try { await installCore(core); logUpdate(`Rdzeń ${core.label || core.version} — zadziała po ponownym uruchomieniu`); }
+            catch (err) { failed.push('rdzeń'); logUpdate(`Rdzeń ${core.label || core.version}: ${errText(err)}`, true); }
         }
         for (const m of moduleUpdates()) {
             try { await installModule(m); }
@@ -965,7 +966,7 @@ function openSettings() {
     const unread = notifs.filter((n) => !seen.has(n.id)).length;
     const pc = current();
     const cu = coreUpdate();
-    const pending = [coreReady ? `Rdzeń ${coreReady} czeka na restart` : cu ? `Rdzeń ${cu.version}` : '', ...moduleUpdates().map((m) => `${m.name} ${m.version}`)].filter(Boolean);
+    const pending = [coreReady ? `Rdzeń ${coreReadyLabel} czeka na restart` : cu ? `Rdzeń ${cu.label || cu.version}` : '', ...moduleUpdates().map((m) => `${m.name} ${m.version}`)].filter(Boolean);
     const upToDate = !pending.length && !shell;
     openSheet('Ustawienia', `
         ${u ? `<div class="acc-row">
@@ -976,9 +977,8 @@ function openSettings() {
                </div>`
             : `<button class="account-btn" id="aLogin">${setIcon('user', 'var(--m-accent)')}<div class="pc-text"><b>Zaloguj się</b><small>Konto Pitayas: moduły dla testerów, powiadomienia</small></div><svg viewBox="0 0 24 24" class="pc-chev"><path d="M9 6l6 6-6 6"/></svg></button>`}
 
-        ${u ? `<div class="set-label">Konto</div><div class="set-group">
-          ${setRow(setIcon('user', '#3a8ef0'), u.hasPassword === false ? 'Ustaw hasło' : 'Zmień hasło', null, { id: 'sPass' })}
-          ${u.admin ? setRow(setIcon('code', '#4cc38a'), 'Panel admina', null, { id: 'sAdmin', sub: 'Konta, aplikacje, strona, powiadomienia' }) : ''}
+        ${u && u.admin ? `<div class="set-label">Administracja</div><div class="set-group">
+          ${setRow(setIcon('code', '#4cc38a'), 'Panel admina', null, { id: 'sAdmin', sub: 'Konta, aplikacje, strona, powiadomienia' })}
         </div>` : ''}
 
         <div class="set-label">Aplikacje</div>
@@ -1000,7 +1000,7 @@ function openSettings() {
         <div class="set-label">O aplikacji</div>
         <div class="set-group">
           ${setRow(setIcon('phone', '#5b6170'), 'Aplikacja', esc(shellVersion))}
-          ${setRow(setIcon('core', '#5b6170'), 'Rdzeń', `${esc(CORE_VERSION)}${coreReady ? ` → ${esc(coreReady)}` : ''}`)}
+          ${setRow(setIcon('core', '#5b6170'), 'Rdzeń', `${esc(CORE_LABEL)}${coreReady ? ` → ${esc(coreReadyLabel)}` : ''}`)}
           ${Object.values(installed).map((m) => setRow(`<img class="set-ic img" src="${esc((m.base || '') + 'icon.png')}" alt="">`, esc(m.name), esc(m.version))).join('')}
         </div>
 
@@ -1020,7 +1020,6 @@ function openSettings() {
     $('sMods').onclick = () => openModules(true);
     $('sDev').onclick = openDeveloper;
     if ($('sAdmin')) $('sAdmin').onclick = openAdmin;
-    if ($('sPass')) $('sPass').onclick = () => openPassword(openSettings);
     refreshAccess();   // rola konta (admin) bierze się z serwera — odświeżamy przy każdym otwarciu
 }
 

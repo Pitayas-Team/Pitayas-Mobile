@@ -78,7 +78,7 @@ const manifest = {
         ios: `https://github.com/${REPO}/releases/download/v${pkg.version}/Pitayas-${pkg.version}.ipa`,
         page: `https://github.com/${REPO}/releases/latest`,
     },
-    core: { version: core.version, minShell: core.minShell, base: `core/${core.version}/`, files: core.files },
+    core: { version: core.version, label: core.label || core.version, minShell: core.minShell, base: `core/${core.version}/`, files: core.files },
     // Przełączniki zdalne (scripts/flags.json), np. { "glass": false } wyłącza natywne szkło na telefonach
     flags: fs.existsSync(path.join(ROOT, 'scripts/flags.json')) ? read('scripts/flags.json') : {},
     modules,

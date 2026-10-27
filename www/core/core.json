@@ -1,10 +1,11 @@
 {
-  "version": "4.1.1",
+  "version": "4.2.0",
   "minShell": "0.1.0",
   "files": [
     "app.js",
     "app.css",
     "egg.js",
     "admin.js"
-  ]
+  ],
+  "label": "0.4.2"
 }
