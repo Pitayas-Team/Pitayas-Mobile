@@ -163,7 +163,7 @@
             if (!repos) {
                 const r = await fetch(`https://api.github.com/orgs/${ORG}/repos?per_page=100&sort=pushed`, { cache: 'no-store' });
                 if (!r.ok) throw new Error(`GitHub: HTTP ${r.status}`);
-                repos = (await r.json()).filter((x) => !x.archived && !x.private);
+                repos = (await r.json()).filter((x) => !x.archived && !x.private && !x.name.startsWith('.') && !/\.github\.io$/.test(x.name));
             }
         } catch (err) { openSheet('Strona', `<p class="hint warn">${esc(err.message)}</p>`, home); return; }
         openSheet('Strona', `

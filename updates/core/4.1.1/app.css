@@ -104,7 +104,9 @@ input:focus, select:focus { outline: none; border-color: var(--m-accent); }
    Pełny ekran z nagłówkiem i przyciskiem „wstecz”. Nagłówek stoi, przewija się tylko treść pod nim. */
 .sheet { position: fixed; inset: 0; z-index: 10; display: flex; justify-content: center; animation: fade .15s ease-out; }
 @keyframes fade { from { opacity: 0; } }
-.sheet-card { position: relative; width: 100%; max-width: 680px; height: 100%; display: flex; flex-direction: column; background: var(--m-bg); }
+.sheet.nested { background: var(--m-bg); }
+.sheet-ghost { animation: none; background: transparent !important; pointer-events: none; z-index: 11; }
+.sheet-card { position: relative; width: 100%; max-width: 680px; height: 100%; display: flex; flex-direction: column; background: var(--m-bg); box-shadow: -12px 0 32px rgba(0,0,0,.35); }
 .sheet-head { display: flex; align-items: center; gap: 12px; padding: calc(var(--top) + 6px) 16px 10px; flex-shrink: 0; background: var(--m-bg); }
 .sheet-head #sheetTitle { flex: 1; min-width: 0; font-size: 28px; font-weight: 750; letter-spacing: -.01em; color: var(--m-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sheet-head .bar-btn { width: 40px; height: 40px; background: var(--m-item); border: none; }
@@ -292,7 +294,7 @@ input:focus, select:focus { outline: none; border-color: var(--m-accent); }
   .tile.add { border-style: dashed; background: none; }
   .head { padding-left: 4px; padding-right: 4px; }
   h1 { font-size: 28px; }
-  .sheet { background: rgba(0,0,0,.55); }
+  .sheet, .sheet.nested { background: rgba(0,0,0,.55); }
   .sheet-card { border-left: 1px solid var(--m-line); border-right: 1px solid var(--m-line); }
   .switch-grid { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
   .toast { bottom: 24px; }

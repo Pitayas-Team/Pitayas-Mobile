@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '4.1.0';
+const CORE_VERSION = '4.1.1';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -277,6 +277,7 @@ function openSheet(title, html, onBack) {
     $('sheetBody').innerHTML = html;
     $('sheet').hidden = false;
     sheetBack = typeof onBack === 'function' ? onBack : null;
+    $('sheet').classList.toggle('nested', Boolean(sheetBack));   // pod stroną zagnieżdżoną nie prześwituje ekran startowy
     $('sheetBody').scrollTop = 0;
 }
 function closeSheet() { $('sheet').hidden = true; sheetBack = null; }
@@ -1311,7 +1312,24 @@ document.querySelector('.head-logo').addEventListener('click', () => {
         el.style.transition = ease; el.style.transform = ''; el.style.opacity = '';
         setTimeout(() => { el.style.transition = ''; peekHome(false); hold(false); }, 260);
     };
+    // Strona (Ustawienia, Panel admina…): poprzednia strona pojawia się od razu pod wyjeżdżającą kopią tej,
+    // którą przesuwałeś — bez mrugnięcia ekranem startowym pod spodem (tak jak w iOS).
+    const finishPage = (el, action) => {
+        const ghost = document.createElement('div');
+        ghost.className = 'sheet sheet-ghost';
+        const card = el.cloneNode(true);
+        card.querySelectorAll('[id]').forEach((n) => n.removeAttribute('id'));
+        card.style.transition = 'none';
+        card.style.transform = el.style.transform || 'translateX(0px)';
+        ghost.appendChild(card);
+        document.body.appendChild(ghost);
+        el.style.transition = 'none'; el.style.transform = ''; el.style.opacity = '';
+        action();   // poprzednia strona (albo ekran startowy) jest już pod spodem
+        requestAnimationFrame(() => requestAnimationFrame(() => { card.style.transition = ease; card.style.transform = `translateX(${innerWidth}px)`; }));
+        setTimeout(() => { ghost.remove(); hold(false); }, 280);
+    };
     const finish = (el, transform, action) => {
+        if (el.classList.contains('sheet-card')) return finishPage(el, action);
         el.style.transition = ease; el.style.transform = transform;
         setTimeout(() => {
             action();
