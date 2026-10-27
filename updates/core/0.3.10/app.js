@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.3.9';
+const CORE_VERSION = '0.3.10';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -1225,7 +1225,12 @@ document.querySelector('.head-logo').addEventListener('click', () => {
         if (!$('sheet').hidden) return sheetBack ? sheetBack() : closeSheet();
         if (activeView) showHome();
     };
+    // iOS potrafi nie wysłać końca dotyku (system albo natywna warstwa szkła przejmie palec) — wtedy ekran
+    // zostałby przesunięty. Strażnik: brak ruchu przez 0,7 s albo nowy dotyk = koniec gestu.
+    let watchdog = 0;
+    const arm = () => { clearTimeout(watchdog); watchdog = setTimeout(end, 700); };
     document.addEventListener('touchstart', (e) => {
+        if (g && g.locked) end();
         g = null;
         if (e.touches.length > 1 || document.querySelector('.egg-lock') || (window.PitayasEgg && window.PitayasEgg.onClose)) return;
         const t = e.touches[0], el = target();
@@ -1247,11 +1252,13 @@ document.querySelector('.head-logo').addEventListener('click', () => {
             if (g.kind === 'back') peekHome(true);
         }
         if (e.cancelable) e.preventDefault();
+        arm();
         g.d = Math.max(0, g.kind === 'back' ? dx : dy);
         g.el.style.transition = 'none';
         g.el.style.transform = g.kind === 'back' ? `translateX(${g.d}px)` : `translateY(${g.d}px)`;
     }, { passive: false });
-    const end = () => {
+    function end() {
+        clearTimeout(watchdog);
         if (!g) return;
         const { kind, el, d, t0, locked } = g;
         g = null;
@@ -1262,9 +1269,9 @@ document.querySelector('.head-logo').addEventListener('click', () => {
             if (navigator.vibrate) navigator.vibrate(8);
             finish(el, kind === 'back' ? `translateX(${innerWidth}px)` : `translateY(${size}px)`, kind === 'back' ? back : closeSheet);
         } else reset(el);
-    };
-    document.addEventListener('touchend', end);
-    document.addEventListener('touchcancel', () => { if (g && g.locked) reset(g.el); g = null; });
+    }
+    document.addEventListener('touchend', (e) => { if (!e.touches.length) end(); });
+    document.addEventListener('touchcancel', () => { clearTimeout(watchdog); if (g && g.locked) reset(g.el); g = null; });
 })();
 
 // ═══════ PRZYCISK „WSTECZ” (Android) I PRACA W TLE ═══════
