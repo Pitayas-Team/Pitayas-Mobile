@@ -31,6 +31,7 @@ addEventListener('checkNotifications', async (resolve, reject) => {
         largeBody: n.body || '',
         threadIdentifier: 'pitayas',
         group: 'pitayas',
+        largeIcon: 'ic_notif_large',   // kolorowa ikona Pitayas (Android)
         extra: { pitayasId: n.id, level: n.level },
       })));
       fresh.forEach((n) => notified.push(n.id));

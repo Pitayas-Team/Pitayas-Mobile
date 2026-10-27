@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.3.12';
+const CORE_VERSION = '0.3.13';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -800,6 +800,8 @@ async function systemNotify(list) {
         await Plugins.LocalNotifications.schedule({ notifications: list.slice(0, 5).map((n) => ({
             id: intId(n.id), title: `${n.level === 'critical' ? '⚠️ ' : ''}${n.title}`, body: n.body || '', largeBody: n.body || '',
             threadIdentifier: 'pitayas', group: 'pitayas', extra: { pitayasId: n.id },
+            // Android 0.2.8+: kolorowa ikona Pitayas obok treści (zasób w APK); iPhone zawsze pokazuje ikonę aplikacji
+            ...(IS_ANDROID && vcmp(shellVersion, '0.2.8') >= 0 ? { largeIcon: 'ic_notif_large' } : {}),
         })) });
         return true;
     } catch { return false; }
