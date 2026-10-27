@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.3.13';
+const CORE_VERSION = '0.3.14';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -627,7 +627,11 @@ async function refreshAccess() {
         const d = await accountFetch('api/access');
         access = d.apps || {};
         ls.set('pitayas-access', access);
-        if (d.user) { account.user = d.user; saveAccount(); }
+        if (d.user) {
+            const roleChanged = Boolean(account.user && account.user.admin) !== Boolean(d.user.admin) || (account.user && account.user.hasPassword) !== d.user.hasPassword;
+            account.user = d.user; saveAccount();
+            if (roleChanged && !$('sheet').hidden && $('sheetTitle').textContent === 'Ustawienia') openSettings();   // pojawia się Panel admina
+        }
     } catch {}   // bez internetu zostaje ostatnia znana lista
     renderTiles();
     if (!$('sheet').hidden && $('sheetTitle').textContent === 'Moduły') renderModules();
@@ -973,10 +977,14 @@ function openSettings() {
               : `<button class="account-btn" id="aLogin">${setIcon('user', 'var(--m-grad)')}<div class="pc-text"><b>Zaloguj się</b><small>Login i hasło albo Discord</small></div><svg viewBox="0 0 24 24" class="pc-chev"><path d="M9 6l6 6-6 6"/></svg></button>`}
         </div>
 
+        ${u ? `<div class="set-group">
+          ${setRow(setIcon('user', '#3a8ef0'), u.hasPassword === false ? 'Ustaw hasło' : 'Zmień hasło', null, { id: 'sPass' })}
+          ${u.admin ? setRow(setIcon('code', '#4cc38a'), 'Panel admina', null, { id: 'sAdmin', sub: 'Konta, aplikacje, strona, powiadomienia' }) : ''}
+        </div>` : ''}
+
         ${shell ? `<div class="set-group">${setRow(setIcon('dl', '#3fa8ff'), `Nowa aplikacja ${esc(shell.version)}`, null, { id: 'sShell', sub: 'Wymaga ponownej instalacji' })}</div>` : ''}
 
-        ${u && u.admin ? `<div class="set-label">Administracja</div>
-        <div class="set-group">${setRow(setIcon('user', '#3a8ef0'), 'Panel admina', null, { id: 'sAdmin', sub: 'Konta, aplikacje, strona, powiadomienia' })}</div>` : ''}
+
 
         <div class="set-label">Aktualizacje</div>
         <div class="set-group">
@@ -1013,6 +1021,8 @@ function openSettings() {
     $('sMods').onclick = () => openModules(true);
     $('sDev').onclick = openDeveloper;
     if ($('sAdmin')) $('sAdmin').onclick = openAdmin;
+    if ($('sPass')) $('sPass').onclick = () => openPassword(openSettings);
+    refreshAccess();   // rola konta (admin) bierze się z serwera — odświeżamy przy każdym otwarciu
 }
 
 // ═══════ PANEL ADMINA (admin.js, wczytywany dopiero przy pierwszym otwarciu) ═══════
@@ -1043,14 +1053,15 @@ function openAccount() {
         <div class="set-label">Dostęp do aplikacji dla testerów</div>
         <div class="set-group">${apps.length ? apps.map(([id, a]) => setRow(setIcon('box', a.access ? '#7ddc5a' : '#5b6170'), esc(a.name || id), a.access ? '<span class="ok">✓ masz dostęp</span>' : '<span class="no">brak</span>')).join('') : setRow('', 'Wszystkie moduły są dla wszystkich', '')}</div>
         <p class="hint">Dostęp nadaje administrator w panelu Pitayas.</p>
-        <div class="set-group">${setRow(setIcon('user', '#3a8ef0'), u.hasPassword === false ? 'Ustaw hasło' : 'Zmień hasło', null, { id: 'accPass' })}</div>
+        <div class="set-group">${setRow(setIcon('user', '#3a8ef0'), u.hasPassword === false ? 'Ustaw hasło' : 'Zmień hasło', null, { id: 'accPass' })}${u.admin ? setRow(setIcon('code', '#4cc38a'), 'Panel admina', null, { id: 'accAdmin' }) : ''}</div>
         <button class="btn danger-btn" id="accOut">Wyloguj</button>`, openSettings);
     $('accOut').onclick = () => { if (confirm('Wylogować z konta Pitayas?')) logout(); };
-    $('accPass').onclick = openPassword;
+    $('accPass').onclick = () => openPassword(openAccount);
+    if ($('accAdmin')) $('accAdmin').onclick = openAdmin;
 }
 
 // Własne hasło: obecne + nowe (2×). Pozostałe urządzenia zostają wylogowane, to zostaje zalogowane.
-function openPassword() {
+function openPassword(backTo = openAccount) {
     const u = account.user || {};
     const noPass = u.hasPassword === false;
     openSheet(noPass ? 'Ustaw hasło' : 'Zmień hasło', `
@@ -1061,7 +1072,7 @@ function openPassword() {
           <div><label for="pwNew2">Powtórz nowe hasło</label><input id="pwNew2" type="password" autocomplete="new-password"></div>
           <button class="btn" id="pwSave">Zapisz hasło</button>
           <p class="hint">Inne urządzenia zostaną wylogowane.</p>
-        </div>`, openAccount);
+        </div>`, backTo);
     $('pwSave').onclick = async () => {
         const nw = $('pwNew').value;
         if (nw.length < 8) return toast('Nowe hasło: co najmniej 8 znaków', 'err');
@@ -1072,7 +1083,7 @@ function openPassword() {
             account.user = { ...u, hasPassword: true };
             ls.set('pitayas-account', account);
             toast('Hasło zmienione');
-            openAccount();
+            backTo();
         } catch (err) { toast(err.message || String(err), 'err'); $('pwSave').disabled = false; }
     };
 }
