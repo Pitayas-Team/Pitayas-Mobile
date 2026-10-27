@@ -3,8 +3,8 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '4.2.0';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze
-const CORE_LABEL = '0.4.2';     // wersja pokazywana użytkownikowi
+const CORE_VERSION = '4.2.0';
+const CORE_LABEL = CORE_VERSION;   // pokazywana wersja = prawdziwy numer rdzenia
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 

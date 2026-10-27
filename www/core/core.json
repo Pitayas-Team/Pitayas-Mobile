@@ -6,6 +6,5 @@
     "app.css",
     "egg.js",
     "admin.js"
-  ],
-  "label": "0.4.2"
+  ]
 }
