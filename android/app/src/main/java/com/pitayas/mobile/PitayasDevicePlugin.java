@@ -112,4 +112,69 @@ public class PitayasDevicePlugin extends Plugin {
             call.resolve();
         });
     }
+
+    // ═══════ AKTUALIZACJA APLIKACJI (APK) ═══════
+    // Pobiera nowe APK do pamięci podręcznej i otwiera systemowy instalator. Android zawsze pyta o potwierdzenie
+    // („Zainstaluj”) — bez uprawnień właściciela urządzenia nie da się zainstalować po cichu.
+    // Za pierwszym razem trzeba zezwolić Pitayas na „instalowanie nieznanych aplikacji” (otwieramy te ustawienia).
+    @PluginMethod
+    public void canInstall(PluginCall call) {
+        JSObject r = new JSObject();
+        r.put("allowed", Build.VERSION.SDK_INT < Build.VERSION_CODES.O || getContext().getPackageManager().canRequestPackageInstalls());
+        call.resolve(r);
+    }
+
+    @PluginMethod
+    public void installApk(PluginCall call) {
+        String url = call.getString("url");
+        if (url == null || !url.startsWith("https://")) { call.reject("Zły adres APK"); return; }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && !getContext().getPackageManager().canRequestPackageInstalls()) {
+            Intent s = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getContext().getPackageName()));
+            s.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(s);
+            call.reject("Zezwól Pitayas na instalowanie aplikacji i spróbuj ponownie", "PERMISSION");
+            return;
+        }
+        new Thread(() -> {
+            java.io.File out = new java.io.File(getContext().getCacheDir(), "pitayas-update.apk");
+            try {
+                java.net.HttpURLConnection c = null;
+                String u = url;
+                for (int hop = 0; hop < 6; hop++) {   // GitHub przekierowuje na serwer z plikami
+                    c = (java.net.HttpURLConnection) new java.net.URL(u).openConnection();
+                    c.setInstanceFollowRedirects(false);
+                    c.setConnectTimeout(15000);
+                    c.setReadTimeout(30000);
+                    int code = c.getResponseCode();
+                    if (code >= 300 && code < 400) { u = c.getHeaderField("Location"); c.disconnect(); continue; }
+                    if (code != 200) throw new java.io.IOException("HTTP " + code);
+                    break;
+                }
+                long total = c.getContentLengthLong(), done = 0, lastPct = -1;
+                try (java.io.InputStream in = c.getInputStream(); java.io.FileOutputStream fo = new java.io.FileOutputStream(out)) {
+                    byte[] buf = new byte[64 * 1024];
+                    int n;
+                    while ((n = in.read(buf)) > 0) {
+                        fo.write(buf, 0, n);
+                        done += n;
+                        long pct = total > 0 ? done * 100 / total : -1;
+                        if (pct != lastPct) {
+                            lastPct = pct;
+                            JSObject ev = new JSObject();
+                            ev.put("percent", pct);
+                            notifyListeners("apkProgress", ev);
+                        }
+                    }
+                }
+                Uri uri = androidx.core.content.FileProvider.getUriForFile(getContext(), getContext().getPackageName() + ".fileprovider", out);
+                Intent i = new Intent(Intent.ACTION_VIEW);
+                i.setDataAndType(uri, "application/vnd.android.package-archive");
+                i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+                getContext().startActivity(i);
+                call.resolve();
+            } catch (Exception e) {
+                call.reject("Nie udało się pobrać aktualizacji: " + e.getMessage());
+            }
+        }).start();
+    }
 }

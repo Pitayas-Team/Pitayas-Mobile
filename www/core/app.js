@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.3.11';
+const CORE_VERSION = '0.3.12';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -495,7 +495,7 @@ function renderBanner() {
         const names = [core && `Rdzeń ${core.version}`, ...mods.map((m) => `${m.name} ${m.version}`)].filter(Boolean);
         b.innerHTML = `<span>Aktualizacje: ${esc(names.join(', '))}</span><button class="chip" id="bUpdate">Aktualizuj</button>`;
     } else if (shell) {
-        b.innerHTML = `<span>Nowa wersja aplikacji ${esc(shell.version)} — wymaga ponownej instalacji</span><button class="chip" id="bShell">Pobierz</button>`;
+        b.innerHTML = `<span>Nowa wersja aplikacji ${esc(shell.version)}</span><button class="chip" id="bShell">${IS_ANDROID ? 'Zainstaluj' : 'Pobierz'}</button>`;
     } else {
         b.hidden = true;
         return;
@@ -506,12 +506,50 @@ function renderBanner() {
     if ($('bShell')) $('bShell').onclick = () => openShellDownload(shell);
 }
 
+const IS_ANDROID = Boolean(window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'android');
 function openShellDownload(shell) {
+    // Android (aplikacja 0.2.7+): pobieramy APK w aplikacji i od razu otwieramy instalator systemu
+    if (IS_ANDROID && shell.android && device()) return installShell(shell, true);
+    openShellPage(shell);
+}
+function openShellPage(shell) {
     const platform = window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform();
     const url = (platform === 'ios' ? shell.ios : shell.android) || shell.page;
     if (!url) return toast('Brak pliku dla tego telefonu', 'err');
     if (Plugins.InAppBrowser) Plugins.InAppBrowser.openInExternalBrowser({ url }).catch(() => window.open(url, '_blank'));
     else window.open(url, '_blank');
+}
+let shellBusy = false;
+async function installShell(shell, manual) {
+    if (shellBusy) return;
+    shellBusy = true;
+    const b = $('banner');
+    const show = (text) => { b.hidden = false; b.innerHTML = `<span>${esc(text)}</span>`; };
+    show(`Pobieram aplikację ${shell.version}…`);
+    let sub = null;
+    try { sub = await device().addListener('apkProgress', (e) => { if (e.percent >= 0) show(`Pobieram aplikację ${shell.version} — ${e.percent}%`); }); } catch {}
+    try {
+        await device().installApk({ url: shell.android });
+        show(`Zainstaluj aplikację ${shell.version} w oknie systemu`);
+    } catch (err) {
+        const msg = (err && err.message) || String(err);
+        if (/not implemented|nie jest zaimplementowan/i.test(msg)) { if (manual) openShellPage(shell); }   // starsza aplikacja — strona wydania
+        else if (manual || (err && err.code !== 'PERMISSION')) toast(msg, 'err');
+        setTimeout(renderBanner, 1500);
+    } finally {
+        shellBusy = false;
+        if (sub && sub.remove) sub.remove();
+    }
+}
+// Automatyczne aktualizacje: nowa aplikacja na Androidzie pobiera się sama i otwiera instalator (raz na wersję;
+// potwierdzenie „Zainstaluj” zawsze należy do użytkownika — tak działa Android)
+async function autoShell() {
+    const shell = shellUpdate();
+    if (!shell || !IS_ANDROID || !shell.android || !device() || !settings.autoUpdate) return;
+    if (ls.get('pitayas-shell-auto', '') === shell.version) return;
+    try { const r = await device().canInstall(); if (!r || !r.allowed) return; } catch { return; }
+    ls.set('pitayas-shell-auto', shell.version);
+    installShell(shell, false);
 }
 
 let updating = false;
@@ -550,6 +588,7 @@ async function checkUpdates(manual) {
     }
     if (settings.autoUpdate || manual) await updateAll(manual);
     renderBanner();
+    autoShell();
     return true;
 }
 
@@ -937,7 +976,7 @@ function openSettings() {
         <div class="set-label">Aktualizacje</div>
         <div class="set-group">
           ${setRow(setIcon('refresh', '#ff4fa6'), 'Sprawdź aktualizacje', coreReady ? 'restart' : '', { id: 'sCheck' })}
-          ${setRow(setIcon('auto', '#7ddc5a'), 'Automatycznie', null, { toggle: settings.autoUpdate, toggleId: 'sAuto', sub: 'Rdzeń i moduły w tle' })}
+          ${setRow(setIcon('auto', '#7ddc5a'), 'Automatycznie', null, { toggle: settings.autoUpdate, toggleId: 'sAuto', sub: IS_ANDROID ? 'Rdzeń, moduły i aplikacja' : 'Rdzeń i moduły w tle' })}
         </div>
         ${ls.get('pitayas-core-failed', false) ? '<p class="hint warn">Pobrany rdzeń nie uruchomił się — działa wbudowany. Spróbuj zaktualizować ponownie.</p>' : ''}
 

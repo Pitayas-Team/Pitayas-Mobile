@@ -1,5 +1,5 @@
 {
-  "version": "0.3.11",
+  "version": "0.3.12",
   "minShell": "0.1.0",
   "files": [
     "app.js",
