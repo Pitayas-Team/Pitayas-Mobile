@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.3.8';
+const CORE_VERSION = '0.3.9';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -279,7 +279,7 @@ function openSheet(title, html, onBack) {
     sheetBack = onBack || null;
     $('sheetBackBtn').hidden = !sheetBack;   // „Cofnij” tylko tam, gdzie jest poprzedni ekran
     if (typeof syncGlass === 'function') { setTimeout(syncGlass, 260); setTimeout(syncGlass, 600); }
-    $('sheet').querySelector('.sheet-card').scrollTop = 0;
+    $('sheetBody').scrollTop = 0;
 }
 function closeSheet() { $('sheet').hidden = true; sheetBack = null; }
 document.addEventListener('click', (e) => { if (e.target.closest('#sheetBackBtn') && sheetBack) sheetBack(); });
@@ -1066,85 +1066,55 @@ $('bellBtn').dataset.glass = 'bell';
 $('setBtn').dataset.glass = 'gearshape';
 
 // ═══════ LIQUID GLASS (iOS 26, aplikacja 0.2.0+) ═══════
-// Natywna wtyczka PitayasGlass stawia prawdziwe szklane przyciski (UIButton .glass()) nad przyciskami z data-glass.
+// Natywna wtyczka PitayasGlass stawia prawdziwe szklane przyciski (UIButton .glass()) nad przyciskami HTML.
 // Przycisk HTML zostaje pod spodem (niewidoczny) i to on obsługuje kliknięcie.
-let glassOn = false, glassFrame = 0, glassState = 'brak wtyczki (aplikacja < 0.2.0)';
-// Przyciski z tekstem (Pobierz, Zaloguj…) — gdy aplikacja 0.2.3+ umie tekst w natywnym szkle, wszystkie stają się Liquid Glass
-let glassTitles = false, glassSegments = false, glassAutoId = 0;
-// Wysyłamy do natywnej warstwy tylko zmiany: identyczny zestaw = brak wywołania, kolor tylko przy pierwszym pokazaniu przycisku
-// (ponowne ustawianie koloru przemalowuje szkło iOS — stąd miganie)
-let glassLast = '', glassTints = new Map(), glassCalls = 0, glassCallsFrom = Date.now();
-const GLASS_AUTO = '.btn, .chip, .mod-get, .account-btn';
-const GLASS_TINT = (el) => el.classList.contains('discord') ? '#5865f2' : el.classList.contains('upd') ? '#3fa8ff'
-    : el.classList.contains('danger') || el.classList.contains('danger-btn') || el.classList.contains('stop') ? '#e5484d' : '#ff4fa6';
-// Widoczny obszar przycisku: w okienku pod nagłówkiem, w module pod paskiem — żeby szkło nie wchodziło na nagłówek przy przewijaniu
-function glassClip(el) {
-    const card = el.closest('.sheet-card');
-    if (card) {
-        const c = card.getBoundingClientRect(), head = card.querySelector('.sheet-head');
-        return { top: head && !head.contains(el) ? head.getBoundingClientRect().bottom : c.top, bottom: c.bottom };
-    }
-    const view = el.closest('.view');
-    const bar = view && view.querySelector(':scope > .bar');
-    return { top: bar && !bar.contains(el) ? bar.getBoundingClientRect().bottom : 0, bottom: window.innerHeight };
+// Szkło leży NAD stroną, więc każdy ruch strony musi być powtórzony natywnie — zawsze o klatkę później (miganie).
+// Dlatego szkło dostają tylko przyciski, które stoją w miejscu: pasek startu, pasek modułu, nagłówek okna.
+// W trakcie gestu przeciągania szkło znika na chwilę (glassHold), a widać zwykłe matowe przyciski.
+let glassOn = false, glassFrame = 0, glassHold = false, glassState = 'brak wtyczki (aplikacja < 0.2.0)';
+let glassLast = '', glassCalls = 0, glassCallsFrom = Date.now();
+const GLASS_PLACES = '#home > .head, .view > .bar, .sheet-head';
+function setGlassHold(on) {
+    if (glassHold === on) return;
+    glassHold = on;
+    syncGlass();
 }
 function syncGlass() {
     if (!glassOn || glassFrame) return;
     glassFrame = requestAnimationFrame(() => {
         glassFrame = 0;
         // Otwarte okienko zasłania ekran — wtedy szklane są tylko przyciski w okienku
-        const blocked = document.querySelector('.critical, .egg-lock, .md-player, .notif-pop.show');
+        const blocked = glassHold || document.querySelector('.critical, .egg-lock, .egg-lab, .md-player, .notif-pop.show');
         const sheetOpen = !$('sheet').hidden;
         const scope = sheetOpen ? $('sheet') : document;
-        const sel = [glassTitles ? `[data-glass], ${GLASS_AUTO}` : '[data-glass]', glassSegments ? '[data-glass-seg]' : ''].filter(Boolean).join(', ');
-        const buttons = blocked ? [] : [...scope.querySelectorAll(sel)].filter((el) => sheetOpen || !$('sheet').contains(el)).map((el) => {
-            if (el.offsetParent === null || el.disabled) return null;
+        const buttons = blocked ? [] : [...scope.querySelectorAll('[data-glass]')].filter((el) => {
+            if (!el.closest(GLASS_PLACES) || (!sheetOpen && $('sheet').contains(el))) return false;
+            if (el.offsetParent === null || el.disabled) return false;
+            const view = el.closest('.view');
+            return !view || !view.hidden;
+        }).map((el, i) => {
             const r = el.getBoundingClientRect();
-            const clip = glassClip(el);
-            if (r.width < 4 || r.top < clip.top - 1 || r.bottom > clip.bottom + 1) return null;   // tylko w całości widoczne
-            // Pasek zakładek → natywny przełącznik (UISegmentedControl z Liquid Glass)
-            if (el.hasAttribute('data-glass-seg')) {
-                const tabs = [...el.querySelectorAll('button')];
-                if (!el.id) el.id = `glass${++glassAutoId}`;
-                return { id: el.id, kind: 'segments', items: tabs.map((b) => b.textContent.trim()), selected: tabs.findIndex((b) => b.classList.contains('on')),
-                    x: r.left, y: r.top, w: r.width, h: r.height };
-            }
-            const symbol = el.dataset.glass || '';
-            const title = symbol ? (el.dataset.glassTitle || '') : (el.innerText || '').trim().replace(/\s+/g, ' ');
-            if (!symbol && (!title || title.length > 28)) return null;
-            if (!symbol) el.dataset.glassAuto = '';
-            if (!el.id) el.id = `glass${++glassAutoId}`;
-            const prominent = !symbol && !el.classList.contains('ghost') && !el.classList.contains('account-btn');
-            return { id: el.id, symbol, title, x: r.left, y: r.top, w: r.width, h: r.height, badge: el.dataset.badge || '',
-                style: prominent ? 'prominent' : 'normal', tint: prominent ? GLASS_TINT(el) : '' };
-        }).filter(Boolean);
-        // Widoczne nad szkłem są tylko postawione przyciski; reszta HTML zostaje normalna
+            if (!el.id) el.id = `glass${i}-${Date.now().toString(36)}`;
+            return { id: el.id, symbol: el.dataset.glass, title: '', x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height), badge: el.dataset.badge || '', style: 'normal', tint: '' };
+        }).filter((x) => x.w >= 4);
         const ids = new Set(buttons.map((x) => x.id));
-        document.querySelectorAll('[data-glass-auto], [data-glass-seg]').forEach((el) => el.classList.toggle('glass-on', ids.has(el.id)));
+        document.querySelectorAll('[data-glass]').forEach((el) => el.classList.toggle('glass-host', ids.has(el.id)));
+        document.documentElement.classList.toggle('native-glass', !glassHold);
         const payload = JSON.stringify(buttons);
         if (payload === glassLast) return;
         glassLast = payload;
-        const visible = new Set(buttons.map((x) => x.id));
-        for (const id of [...glassTints.keys()]) if (!visible.has(id)) glassTints.delete(id);   // zniknął → przy powrocie kolor jeszcze raz
-        const send = buttons.map((x) => {
-            if (!x.tint) return x;
-            if (glassTints.get(x.id) === x.tint) return { ...x, tint: '' };
-            glassTints.set(x.id, x.tint);
-            return x;
-        });
         glassCalls++;
-        Plugins.PitayasGlass.setButtons({ buttons: send }).then((r) => {
+        Plugins.PitayasGlass.setButtons({ buttons }).then((r) => {
             if (buttons.length && (!r || typeof r.placed !== 'number' || r.placed < buttons.length)) disableGlass();
         }).catch(disableGlass);
     });
 }
 function disableGlass(err) {
-    document.documentElement.classList.remove('lg');
-    document.documentElement.classList.add('matte');
     glassState = `wyłączone: ${err && err.message ? err.message : 'nie postawiło przycisków'}`;
     if (!glassOn) return;
     glassOn = false;
     document.documentElement.classList.remove('native-glass');
+    document.querySelectorAll('.glass-host').forEach((el) => el.classList.remove('glass-host'));
     Plugins.PitayasGlass.setButtons({ buttons: [] }).catch(() => {});
 }
 // Wyłącznik awaryjny: "flags": { "glass": false } w updates/manifest.json wyłącza natywne szkło na wszystkich telefonach
@@ -1158,33 +1128,19 @@ if (GLASS_ENABLED && hasPlugin('PitayasGlass')) {
     glassState = 'sprawdzam…';
     Plugins.PitayasGlass.isSupported().then((r) => {
         if (!r.supported) { glassState = 'niedostępne (iOS < 26)'; return; }
-        // Przyciski z tekstem tylko z poprawioną wtyczką (textStable) — wcześniejsza przebudowywała je przy każdym przewinięciu (miganie)
-        glassTitles = Boolean(r.titles && r.textStable);
-        glassSegments = Boolean(r.segments);
         glassOn = true;
         glassState = 'aktywne';
-        document.documentElement.classList.add('lg');
-        document.documentElement.classList.remove('matte');
-        document.documentElement.classList.add('native-glass');
         Plugins.PitayasGlass.addListener('tap', (e) => {
             const el = document.getElementById(e.id);
-            if (!el) return;
-            if (typeof e.index === 'number') { const b = el.querySelectorAll('button')[e.index]; if (b) b.click(); return; }
-            el.click();
+            if (el) el.click();
         });
-        new MutationObserver(syncGlass).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden', 'class'] });   // bez „style” — paski postępu i animacje nie przeliczają szkła co klatkę
-        addEventListener('scroll', syncGlass, true);
-        // Okienka i ekrany wjeżdżają animacją — pozycje mierzymy jeszcze raz, gdy się zatrzymają
-        addEventListener('animationend', syncGlass, true);
-        addEventListener('transitionend', syncGlass, true);
+        // Przyciski szkła stoją w miejscu — przeliczamy tylko, gdy coś się pojawia/znika (bez przewijania i animacji)
+        new MutationObserver(syncGlass).observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['hidden'] });
         addEventListener('resize', syncGlass);
         syncGlass();
     }).catch(() => {});
 }
-// iPhone: wygląd „szkła” (Liquid Glass) na części przycisków
 if (window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'ios') document.documentElement.classList.add('ios');
-// Wygląd: matowy wszędzie, „lg” (Liquid Glass) dopiero gdy działa natywne szkło iOS 26+
-document.documentElement.classList.add('matte');
 
 // ═══════ EASTER EGG: 5× logo ═══════
 // Kod (egg.js) wczytujemy dopiero teraz — leży obok app.js, w tym samym folderze rdzenia
@@ -1248,23 +1204,22 @@ document.querySelector('.head-logo').addEventListener('click', () => {
     const EDGE = 28;   // tyle px od lewej krawędzi musi zacząć się gest „wstecz”
     let g = null;      // { kind: 'back' | 'down', el, x0, y0, t0, d, locked }
     const ease = 'transform .25s cubic-bezier(.2,.8,.3,1), opacity .25s';
-    // Natywne szklane przyciski (Liquid Glass) leżą nad stroną — muszą jechać razem z przeciąganym ekranem
-    const follow = (ms) => {
-        if (typeof syncGlass !== 'function') return;
-        const until = Date.now() + ms;
-        const step = () => { syncGlass(); if (Date.now() < until) requestAnimationFrame(step); };
-        requestAnimationFrame(step);
-    };
+    // Szkło (iOS 26) nie nadąża za przeciąganym ekranem — na czas gestu je chowamy (setGlassHold)
+    const hold = (on) => { if (typeof setGlassHold === 'function') setGlassHold(on); };
     const target = () => (!$('sheet').hidden ? $('sheet').querySelector('.sheet-card') : activeView ? activeView.view : null);
-    const reset = (el) => { el.style.transition = ease; el.style.transform = ''; el.style.opacity = ''; follow(300); setTimeout(() => { el.style.transition = ''; }, 260); };
+    // Przy cofaniu z modułu pod spodem widać ekran startowy
+    const peekHome = (on) => { if (activeView && $('sheet').hidden) $('home').hidden = !on; };
+    const reset = (el) => {
+        el.style.transition = ease; el.style.transform = ''; el.style.opacity = '';
+        setTimeout(() => { el.style.transition = ''; peekHome(false); hold(false); }, 260);
+    };
     const finish = (el, transform, action) => {
-        el.style.transition = ease; el.style.transform = transform; el.style.opacity = '0';
-        follow(230);
+        el.style.transition = ease; el.style.transform = transform;
         setTimeout(() => {
-            el.style.transition = ''; el.style.transform = ''; el.style.opacity = '';
             action();
-            if (typeof syncGlass === 'function') syncGlass();
-        }, 220);
+            el.style.transition = ''; el.style.transform = ''; el.style.opacity = '';
+            hold(false);
+        }, 240);
     };
     const back = () => {
         if (!$('sheet').hidden) return sheetBack ? sheetBack() : closeSheet();
@@ -1276,7 +1231,7 @@ document.querySelector('.head-logo').addEventListener('click', () => {
         const t = e.touches[0], el = target();
         if (!el) return;
         if (t.clientX <= EDGE) g = { kind: 'back', el };
-        else if (!$('sheet').hidden && el.contains(e.target) && el.scrollTop <= 0) g = { kind: 'down', el };
+        else if (!$('sheet').hidden && el.contains(e.target) && $('sheetBody').scrollTop <= 0) g = { kind: 'down', el };
         if (g) Object.assign(g, { x0: t.clientX, y0: t.clientY, t0: Date.now(), d: 0, locked: false });
     }, { passive: true });
     document.addEventListener('touchmove', (e) => {
@@ -1285,16 +1240,16 @@ document.querySelector('.head-logo').addEventListener('click', () => {
         if (!g.locked) {
             if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
             // gest musi iść w swoim kierunku, inaczej oddajemy go przewijaniu / suwakom
-            const ok = g.kind === 'back' ? dx > 0 && Math.abs(dx) > Math.abs(dy) : dy > 0 && Math.abs(dy) > Math.abs(dx) && g.el.scrollTop <= 0;
+            const ok = g.kind === 'back' ? dx > 0 && Math.abs(dx) > Math.abs(dy) : dy > 0 && Math.abs(dy) > Math.abs(dx) && $('sheetBody').scrollTop <= 0;
             if (!ok) { g = null; return; }
             g.locked = true;
+            hold(true);
+            if (g.kind === 'back') peekHome(true);
         }
         if (e.cancelable) e.preventDefault();
         g.d = Math.max(0, g.kind === 'back' ? dx : dy);
         g.el.style.transition = 'none';
         g.el.style.transform = g.kind === 'back' ? `translateX(${g.d}px)` : `translateY(${g.d}px)`;
-        if (g.kind === 'back' && activeView && $('sheet').hidden) g.el.style.opacity = String(1 - Math.min(0.5, g.d / innerWidth));
-        if (typeof syncGlass === 'function') syncGlass();
     }, { passive: false });
     const end = () => {
         if (!g) return;
