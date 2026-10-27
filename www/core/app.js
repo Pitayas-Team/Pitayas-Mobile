@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.3.7';
+const CORE_VERSION = '0.3.8';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -1248,10 +1248,18 @@ document.querySelector('.head-logo').addEventListener('click', () => {
     const EDGE = 28;   // tyle px od lewej krawędzi musi zacząć się gest „wstecz”
     let g = null;      // { kind: 'back' | 'down', el, x0, y0, t0, d, locked }
     const ease = 'transform .25s cubic-bezier(.2,.8,.3,1), opacity .25s';
+    // Natywne szklane przyciski (Liquid Glass) leżą nad stroną — muszą jechać razem z przeciąganym ekranem
+    const follow = (ms) => {
+        if (typeof syncGlass !== 'function') return;
+        const until = Date.now() + ms;
+        const step = () => { syncGlass(); if (Date.now() < until) requestAnimationFrame(step); };
+        requestAnimationFrame(step);
+    };
     const target = () => (!$('sheet').hidden ? $('sheet').querySelector('.sheet-card') : activeView ? activeView.view : null);
-    const reset = (el) => { el.style.transition = ease; el.style.transform = ''; el.style.opacity = ''; setTimeout(() => { el.style.transition = ''; }, 260); };
+    const reset = (el) => { el.style.transition = ease; el.style.transform = ''; el.style.opacity = ''; follow(300); setTimeout(() => { el.style.transition = ''; }, 260); };
     const finish = (el, transform, action) => {
         el.style.transition = ease; el.style.transform = transform; el.style.opacity = '0';
+        follow(230);
         setTimeout(() => {
             el.style.transition = ''; el.style.transform = ''; el.style.opacity = '';
             action();
@@ -1286,6 +1294,7 @@ document.querySelector('.head-logo').addEventListener('click', () => {
         g.el.style.transition = 'none';
         g.el.style.transform = g.kind === 'back' ? `translateX(${g.d}px)` : `translateY(${g.d}px)`;
         if (g.kind === 'back' && activeView && $('sheet').hidden) g.el.style.opacity = String(1 - Math.min(0.5, g.d / innerWidth));
+        if (typeof syncGlass === 'function') syncGlass();
     }, { passive: false });
     const end = () => {
         if (!g) return;
