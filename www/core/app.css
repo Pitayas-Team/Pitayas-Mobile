@@ -283,3 +283,22 @@ input:focus, select:focus { outline: none; border-color: var(--m-accent); }
    Przycisk HTML pod natywnym szklanym przyciskiem jest niewidoczny, ale dalej obsługuje kliknięcie.
    W trakcie gestu przeciągania szkło znika (.native-glass zdjęte) i widać zwykłe, matowe przyciski. */
 .native-glass .glass-host[data-glass] { visibility: hidden !important; }
+
+/* ═══════ TABLET (iPad, tablety z Androidem, telefon poziomo) ═══════
+   Szerszy ekran: aplikacje jako siatka kart, okna wyśrodkowane zamiast wysuwanych od dołu. */
+@media (min-width: 700px) {
+  .view { max-width: 980px; padding-left: 28px; padding-right: 28px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; background: none; border: none; border-radius: 0; overflow: visible; }
+  .tile { background: var(--m-panel); border: 1px solid var(--m-line); border-radius: 16px; padding: 16px; }
+  .tile + .tile::before { display: none; }
+  .tile img, .tile-plus { width: 56px; height: 56px; }
+  .tile.add { border-style: dashed; background: none; }
+  .head { padding-left: 4px; padding-right: 4px; }
+  h1 { font-size: 28px; }
+  .sheet { align-items: center; padding: 24px; }
+  .sheet-card { max-width: 600px; max-height: 86%; border-radius: 22px; border-bottom: 1px solid var(--m-line-strong); }
+  .sheet-head::before { display: none; }
+  .sheet-body { padding-bottom: 20px; }
+  .switch-grid { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
+  .toast { bottom: 24px; }
+}

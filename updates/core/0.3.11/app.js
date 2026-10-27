@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '0.3.10';
+const CORE_VERSION = '0.3.11';
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -1045,12 +1045,14 @@ async function renderDevAndroid() {
         <div class="set-group">
           ${setRow(setIcon('phone', '#ff4fa6'), 'Aplikacja domowa', null, { toggle: st.home, toggleId: 'dHome', sub: st.defaultHome ? 'Pitayas jest ekranem głównym' : 'Startuje z telefonem jako ekran główny' })}
           ${setRow(setIcon('refresh', '#7ddc5a'), 'Uruchamiaj po włączeniu telefonu', null, { toggle: st.boot, toggleId: 'dBoot', sub: st.boot && !st.overlay ? 'Zezwól na „Wyświetlanie nad innymi aplikacjami”' : 'Bez ustawiania jako ekran główny' })}
+          ${typeof st.fullscreen === 'boolean' ? setRow(setIcon('phone', '#3a8ef0'), 'Pełny ekran', null, { toggle: st.fullscreen, toggleId: 'dFull', sub: 'Bez paska stanu i nawigacji — przeciągnij od krawędzi, by je pokazać' }) : ''}
         </div>
         <div class="set-label">Ekran</div>
         <div class="seg">${[['normal', 'Normalnie'], ['on', 'Nie wygaszaj'], ['dim', 'Przyciemniaj']].map(([v, l]) => `<button data-mode="${v}" class="${mode === v ? 'on' : ''}">${l}</button>`).join('')}</div>
         <p class="hint">„Przyciemniaj” — ekran się nie wyłącza, po minucie bez dotyku jasność spada prawie do zera; dotknięcie przywraca jasność.</p>`;
     $('dHome').onchange = async () => { await d.setHome({ enabled: $('dHome').checked }).catch(() => {}); setTimeout(renderDevAndroid, 1500); };
     $('dBoot').onchange = async () => { await d.setBoot({ enabled: $('dBoot').checked }).catch(() => {}); setTimeout(renderDevAndroid, 1500); };
+    if ($('dFull')) $('dFull').onchange = () => d.setFullscreen({ enabled: $('dFull').checked }).catch(() => {});
     box.querySelectorAll('[data-mode]').forEach((b) => (b.onclick = () => {
         settings.screenMode = b.dataset.mode;
         ls.set('pitayas-settings', settings);

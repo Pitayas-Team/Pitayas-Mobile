@@ -49,6 +49,7 @@ public class PitayasDevicePlugin extends Plugin {
         r.put("defaultHome", isDefaultHome());
         r.put("boot", enabled(bootReceiver()));
         r.put("overlay", canOverlay());
+        r.put("fullscreen", getContext().getSharedPreferences(MainActivity.PREFS, android.content.Context.MODE_PRIVATE).getBoolean(MainActivity.FULLSCREEN, true));
         call.resolve(r);
     }
 
@@ -97,6 +98,17 @@ public class PitayasDevicePlugin extends Plugin {
             WindowManager.LayoutParams lp = getActivity().getWindow().getAttributes();
             lp.screenBrightness = v < 0 ? WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE : Math.max(0.01f, Math.min(1f, v));
             getActivity().getWindow().setAttributes(lp);
+            call.resolve();
+        });
+    }
+
+    // Pełny ekran (paski systemu schowane) — zapamiętane, działa od startu aplikacji
+    @PluginMethod
+    public void setFullscreen(PluginCall call) {
+        boolean on = Boolean.TRUE.equals(call.getBoolean("enabled", true));
+        getContext().getSharedPreferences(MainActivity.PREFS, android.content.Context.MODE_PRIVATE).edit().putBoolean(MainActivity.FULLSCREEN, on).apply();
+        getActivity().runOnUiThread(() -> {
+            ((MainActivity) getActivity()).applyFullscreen();
             call.resolve();
         });
     }
