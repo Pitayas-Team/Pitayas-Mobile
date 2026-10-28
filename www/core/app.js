@@ -3,8 +3,8 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '4.2.3';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
-const CORE_LABEL = '0.4.4';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
+const CORE_VERSION = '4.2.4';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
+const CORE_LABEL = '0.4.5';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -986,6 +986,7 @@ function openSettings() {
           ${setRow(setIcon('phone', '#5b6170'), 'Komputer', esc(pc ? pc.name || pc.host : 'nie wybrano'), { id: 'sPc', sub: 'Z którym komputerem łączy się telefon' })}
           ${setRow(setIcon('box', '#a77bff'), 'Moduły', esc(String(Object.keys(installed).length)), { id: 'sMods', sub: 'Pobierz, aktualizuj i usuwaj' })}
           ${setRow(setIcon('bell', '#ff9f45'), 'Powiadomienia', unread ? `<span class="set-badge">${unread}</span>` : '', { id: 'sNotifs' })}
+          ${setRow(setIcon('refresh', '#ff4fa6'), 'Co dalej', null, { id: 'sRoad', sub: 'Plany rozwoju Pitayas' })}
         </div>
 
         <div class="set-label">Aktualizacje</div>
@@ -1017,10 +1018,38 @@ function openSettings() {
     if (shell) $('sShell').onclick = () => openShellDownload(shell);
     $('sPc').onclick = () => openPcs(openSettings);
     $('sNotifs').onclick = () => openNotifs(true);
+    $('sRoad').onclick = () => openRoadmap(openSettings);
     $('sMods').onclick = () => openModules(true);
     $('sDev').onclick = openDeveloper;
     if ($('sAdmin')) $('sAdmin').onclick = openAdmin;
     refreshAccess();   // rola konta (admin) bierze się z serwera — odświeżamy przy każdym otwarciu
+}
+
+// ═══════ CO DALEJ (mapa drogowa) ═══════
+// Plan z panelu admina (admin.pitayas.eu → Plan / Panel admina w aplikacji); ta sama lista co na pitayas.eu.
+const RM_LABEL = { progress: 'W trakcie', planned: 'Planowane', done: 'Wydane' };
+const roadmapCard = (it) => `
+    <div class="rm-item ${esc(it.status)}"><span class="rm-dot"></span>
+      <div class="rm-body"><b>${esc(it.title)}</b>${it.desc ? `<p>${esc(it.desc)}</p>` : ''}
+        ${it.app || it.eta ? `<div class="rm-tags">${it.app ? `<span>${esc(it.app)}</span>` : ''}${it.eta ? `<span>${esc(it.eta)}</span>` : ''}</div>` : ''}</div>
+    </div>`;
+function roadmapHtml(items) {
+    if (!items.length) return '<p class="hint">Plan jeszcze się pojawi — zajrzyj tu wkrótce.</p>';
+    return ['progress', 'planned', 'done'].map((st) => {
+        const list = items.filter((i) => i.status === st);
+        return list.length ? `<div class="set-label">${RM_LABEL[st]} · ${list.length}</div><div class="rm-list">${list.map(roadmapCard).join('')}</div>` : '';
+    }).join('');
+}
+async function openRoadmap(back) {
+    const cached = ls.get('pitayas-roadmap', null);
+    openSheet('Co dalej', cached ? roadmapHtml(cached) : '<div class="spinner"></div>', back);
+    try {
+        const d = await accountFetch('api/roadmap');
+        ls.set('pitayas-roadmap', d.items || []);
+        if (!$('sheet').hidden && $('sheetTitle').textContent === 'Co dalej') $('sheetBody').innerHTML = roadmapHtml(d.items || []);
+    } catch (err) {
+        if (!cached && !$('sheet').hidden && $('sheetTitle').textContent === 'Co dalej') $('sheetBody').innerHTML = `<p class="hint warn">Nie mogę pobrać planu (${esc(err.message || err)}).</p>`;
+    }
 }
 
 // ═══════ PANEL ADMINA (admin.js, wczytywany dopiero przy pierwszym otwarciu) ═══════
@@ -1030,7 +1059,7 @@ const moduleIcon = (id) => {
     const m = available().find((x) => x.id === id);
     return m ? `${m.src || (m.base ? `${source()}${m.base}` : '')}icon.png` : null;
 };
-window.PitayasCore = { moduleIcon, $, esc, toast, openSheet, closeSheet, setRow, setIcon: (k, c) => setIcon(k, c), accountFetch: (p, b) => accountFetch(p, b), openSettings: () => openSettings() };
+window.PitayasCore = { RM_LABEL, roadmapCard, moduleIcon, $, esc, toast, openSheet, closeSheet, setRow, setIcon: (k, c) => setIcon(k, c), accountFetch: (p, b) => accountFetch(p, b), openSettings: () => openSettings() };
 function openAdmin() {
     if (window.PitayasAdmin) return window.PitayasAdmin.open();
     const base = (window.PITAYAS_CORE && window.PITAYAS_CORE.base) || 'core/';
