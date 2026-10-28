@@ -162,7 +162,7 @@ input:focus, select:focus { outline: none; border-color: var(--m-accent); }
 .set-chev { width: 16px; height: 16px; fill: none; stroke: var(--m-text-3); stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; flex-shrink: 0; }
 .set-ic { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; flex-shrink: 0; }
 .set-ic svg { width: 18px; height: 18px; fill: none; stroke: #fff; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
-.set-ic.img { object-fit: cover; }
+.set-ic.img { object-fit: cover; border-radius: 8px; }
 .set-badge { display: inline-flex; min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px; background: var(--m-danger); color: #fff; font-size: 12.5px; font-weight: 700; align-items: center; justify-content: center; }
 .ios-sw { position: relative; width: 51px; height: 31px; flex-shrink: 0; }
 .ios-sw input { position: absolute; inset: 0; opacity: 0; margin: 0; z-index: 1; width: 100%; height: 100%; }
@@ -299,3 +299,19 @@ input:focus, select:focus { outline: none; border-color: var(--m-accent); }
   .switch-grid { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
   .toast { bottom: 24px; }
 }
+
+/* Co dalej (mapa drogowa) */
+.rm-list { display: flex; flex-direction: column; gap: 10px; }
+.rm-item { display: flex; gap: 12px; padding: 14px; background: var(--m-panel); border: 1px solid var(--m-line); border-radius: 16px; }
+.rm-item.progress { border-color: rgba(255,79,166,.35); }
+.rm-item.done { opacity: .8; }
+.rm-dot, .rm-dot-ico { flex: none; width: 12px; height: 12px; border-radius: 50%; box-sizing: border-box; border: 2px solid var(--m-text-3); }
+.rm-dot { margin-top: 5px; }
+.rm-dot-ico { margin: 0 9px; }
+.progress .rm-dot, .rm-dot-ico.progress { background: var(--m-accent); border-color: var(--m-accent); box-shadow: 0 0 0 4px rgba(255,79,166,.16); }
+.done .rm-dot, .rm-dot-ico.done { background: var(--m-leaf); border-color: var(--m-leaf); }
+.rm-body { min-width: 0; }
+.rm-body b { display: block; font-size: 16px; font-weight: 650; color: var(--m-text); }
+.rm-body p { margin-top: 4px; font-size: 14px; line-height: 1.45; color: var(--m-text-2); }
+.rm-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.rm-tags span { font-size: 12px; font-weight: 600; color: var(--m-text-2); background: var(--m-item); border-radius: 999px; padding: 3px 10px; }

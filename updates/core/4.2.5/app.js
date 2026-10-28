@@ -3,8 +3,8 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '4.2.1';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
-const CORE_LABEL = '0.4.2';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
+const CORE_VERSION = '4.2.5';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
+const CORE_LABEL = '0.4.6';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -955,7 +955,7 @@ function renderModules() {
 // ─── Ustawienia ───
 function setRow(icon, title, value, opts = {}) {
     const tag = opts.id ? 'button' : 'div';
-    return `<${tag} class="set-row${opts.id ? ' tap' : ''}"${opts.id ? ` id="${opts.id}"` : ''}>${icon}<span class="set-t">${title}${opts.sub ? `<small>${opts.sub}</small>` : ''}</span>${value != null ? `<span class="set-v">${value}</span>` : ''}${opts.toggle != null ? `<span class="ios-sw"><input type="checkbox" id="${opts.toggleId}" ${opts.toggle ? 'checked' : ''}><i></i></span>` : ''}${opts.id ? '<svg viewBox="0 0 24 24" class="set-chev"><path d="M9 6l6 6-6 6"/></svg>' : ''}</${tag}>`;
+    return `<${tag} class="set-row${opts.id ? ' tap' : ''}"${opts.id ? ` id="${opts.id}"` : ''}>${icon}<span class="set-t">${title}${opts.sub ? `<small>${opts.sub}</small>` : ''}</span>${value != null ? `<span class="set-v">${value}</span>` : ''}${'toggle' in opts ? `<span class="ios-sw"><input type="checkbox" id="${opts.toggleId}" ${opts.toggle ? 'checked' : ''}><i></i></span>` : ''}${opts.id ? '<svg viewBox="0 0 24 24" class="set-chev"><path d="M9 6l6 6-6 6"/></svg>' : ''}</${tag}>`;
 }
 function setIcon(k, color) { return `<span class="set-ic" style="background:${color}"><svg viewBox="0 0 24 24">${SET_ICON_PATHS[k]}</svg></span>`; }
 const SET_ICON_PATHS = {"user":"<circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6\"/>","refresh":"<path d=\"M21 12a9 9 0 1 1-3-6.7L21 8\"/><path d=\"M21 3v5h-5\"/>","auto":"<path d=\"M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8\"/>","phone":"<rect x=\"7\" y=\"2\" width=\"10\" height=\"20\" rx=\"2\"/><path d=\"M11 18h2\"/>","core":"<rect x=\"5\" y=\"5\" width=\"14\" height=\"14\" rx=\"3\"/><path d=\"M9 9h6v6H9z\"/>","box":"<path d=\"M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8\"/>","bell":"<path d=\"M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0\"/>","code":"<path d=\"M8 6l-6 6 6 6M16 6l6 6-6 6\"/>","dl":"<path d=\"M12 4v11M7 10l5 5 5-5M5 20h14\"/>"};
@@ -986,6 +986,7 @@ function openSettings() {
           ${setRow(setIcon('phone', '#5b6170'), 'Komputer', esc(pc ? pc.name || pc.host : 'nie wybrano'), { id: 'sPc', sub: 'Z którym komputerem łączy się telefon' })}
           ${setRow(setIcon('box', '#a77bff'), 'Moduły', esc(String(Object.keys(installed).length)), { id: 'sMods', sub: 'Pobierz, aktualizuj i usuwaj' })}
           ${setRow(setIcon('bell', '#ff9f45'), 'Powiadomienia', unread ? `<span class="set-badge">${unread}</span>` : '', { id: 'sNotifs' })}
+          ${setRow(setIcon('refresh', '#ff4fa6'), 'Co dalej', null, { id: 'sRoad', sub: 'Plany rozwoju Pitayas' })}
         </div>
 
         <div class="set-label">Aktualizacje</div>
@@ -1017,14 +1018,50 @@ function openSettings() {
     if (shell) $('sShell').onclick = () => openShellDownload(shell);
     $('sPc').onclick = () => openPcs(openSettings);
     $('sNotifs').onclick = () => openNotifs(true);
+    $('sRoad').onclick = () => openRoadmap(openSettings);
     $('sMods').onclick = () => openModules(true);
     $('sDev').onclick = openDeveloper;
     if ($('sAdmin')) $('sAdmin').onclick = openAdmin;
     refreshAccess();   // rola konta (admin) bierze się z serwera — odświeżamy przy każdym otwarciu
 }
 
+// ═══════ CO DALEJ (mapa drogowa) ═══════
+// Plan z panelu admina (admin.pitayas.eu → Plan / Panel admina w aplikacji); ta sama lista co na pitayas.eu.
+const RM_LABEL = { progress: 'W trakcie', planned: 'Planowane', done: 'Wydane' };
+// Termin: „soon” → Wkrótce, data RRRR-MM-DD → „15 grudnia 2026”, starszy tekst bez zmian
+const fmtEta = (e) => (!e ? '' : e === 'soon' ? 'Wkrótce' : /^\d{4}-\d{2}-\d{2}$/.test(e) ? new Date(`${e}T12:00:00`).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' }) : e);
+const roadmapCard = (it) => `
+    <div class="rm-item ${esc(it.status)}"><span class="rm-dot"></span>
+      <div class="rm-body"><b>${esc(it.title)}</b>${it.desc ? `<p>${esc(it.desc)}</p>` : ''}
+        ${it.app || it.eta ? `<div class="rm-tags">${it.app ? `<span>${esc(it.app)}</span>` : ''}${it.eta ? `<span>${esc(fmtEta(it.eta))}</span>` : ''}</div>` : ''}</div>
+    </div>`;
+function roadmapHtml(items) {
+    if (!items.length) return '<p class="hint">Plan jeszcze się pojawi — zajrzyj tu wkrótce.</p>';
+    return ['progress', 'planned', 'done'].map((st) => {
+        const list = items.filter((i) => i.status === st);
+        return list.length ? `<div class="set-label">${RM_LABEL[st]} · ${list.length}</div><div class="rm-list">${list.map(roadmapCard).join('')}</div>` : '';
+    }).join('');
+}
+async function openRoadmap(back) {
+    const cached = ls.get('pitayas-roadmap', null);
+    openSheet('Co dalej', cached ? roadmapHtml(cached) : '<div class="spinner"></div>', back);
+    try {
+        const d = await accountFetch('api/roadmap');
+        ls.set('pitayas-roadmap', d.items || []);
+        if (!$('sheet').hidden && $('sheetTitle').textContent === 'Co dalej') $('sheetBody').innerHTML = roadmapHtml(d.items || []);
+    } catch (err) {
+        if (!cached && !$('sheet').hidden && $('sheetTitle').textContent === 'Co dalej') $('sheetBody').innerHTML = `<p class="hint warn">Nie mogę pobrać planu (${esc(err.message || err)}).</p>`;
+    }
+}
+
 // ═══════ PANEL ADMINA (admin.js, wczytywany dopiero przy pierwszym otwarciu) ═══════
-window.PitayasCore = { $, esc, toast, openSheet, closeSheet, setRow, setIcon: (k, c) => setIcon(k, c), accountFetch: (p, b) => accountFetch(p, b), openSettings: () => openSettings() };
+// Ikona modułu: zainstalowany (z telefonu) albo z kanału aktualizacji; brak = null
+const moduleIcon = (id) => {
+    if (installed[id] && installed[id].base) return `${installed[id].base}icon.png`;
+    const m = available().find((x) => x.id === id);
+    return m ? `${m.src || (m.base ? `${source()}${m.base}` : '')}icon.png` : null;
+};
+window.PitayasCore = { RM_LABEL, fmtEta, roadmapCard, moduleIcon, $, esc, toast, openSheet, closeSheet, setRow, setIcon: (k, c) => setIcon(k, c), accountFetch: (p, b) => accountFetch(p, b), openSettings: () => openSettings() };
 function openAdmin() {
     if (window.PitayasAdmin) return window.PitayasAdmin.open();
     const base = (window.PITAYAS_CORE && window.PITAYAS_CORE.base) || 'core/';

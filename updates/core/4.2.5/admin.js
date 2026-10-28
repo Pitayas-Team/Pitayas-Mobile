@@ -24,9 +24,15 @@
     }
     const field = (id, label, value = '', attrs = '') => `<div><label for="${id}">${label}</label><input id="${id}" value="${esc(value)}" ${attrs}></div>`;
     const area = (id, label, value = '') => `<div><label for="${id}">${label}</label><textarea id="${id}" rows="4" style="width:100%;background:var(--m-field);color:var(--m-text);border:1px solid var(--m-line-strong);border-radius:12px;padding:12px;font:inherit;font-size:16px;resize:vertical">${esc(value)}</textarea></div>`;
-    const toggle = (id, title, on, sub) => `<div class="set-group">${setRow('', title, null, { toggle: on, toggleId: id, sub })}</div>`;
+    // Boolean(): pole bez wartości (undefined) nie może znikać — setRow rysuje przełącznik tylko, gdy toggle != null
+const toggle = (id, title, on, sub) => `<div class="set-group">${setRow('', title, null, { toggle: Boolean(on), toggleId: id, sub })}</div>`;
     const ICON = {
-        users: setIcon('user', '#3a8ef0'), apps: setIcon('box', '#a77bff'), site: setIcon('code', '#4cc38a'), bell: setIcon('bell', '#ff9f45'),
+        users: setIcon('user', '#3a8ef0'), apps: setIcon('box', '#a77bff'), site: setIcon('code', '#4cc38a'), bell: setIcon('bell', '#ff9f45'), road: setIcon('refresh', '#ff4fa6'),
+    };
+    // Prawdziwa ikona aplikacji (moduł z kanału Pitayas); gdy jej nie ma — ogólny klocek
+    const appIcon = (id) => {
+        const src = C.moduleIcon && C.moduleIcon(id);
+        return src ? `<img class="set-ic img" src="${esc(src)}" alt="" onerror="this.style.visibility='hidden'">` : ICON.apps;
     };
 
     // ───── Start ─────
@@ -42,12 +48,14 @@
               ${setRow(ICON.apps, 'Aplikacje', String(st.apps.length), { id: 'adApps', sub: 'Dostęp dla testerów, ukrywanie' })}
               ${setRow(ICON.site, 'Strona', '', { id: 'adSite', sub: 'Projekty na pitayas.eu' })}
               ${setRow(ICON.bell, 'Powiadomienia', String(st.notifications.length), { id: 'adNotif', sub: 'Wyślij do wszystkich albo wybranych' })}
+              ${setRow(ICON.road, 'Plan („Co dalej”)', String((st.roadmap || []).length), { id: 'adRoad', sub: 'Pokazywany na pitayas.eu i w aplikacji' })}
             </div>
             <p class="hint">Zalogowano jako ${esc(st.me)}. Te same dane co w panelu admin.pitayas.eu.</p>`, () => window.PitayasCore.openSettings());
         $('adUsers').onclick = users;
         $('adApps').onclick = apps;
         $('adSite').onclick = site;
         $('adNotif').onclick = notifications;
+        $('adRoad').onclick = roadmap;
     }
 
     // ───── Konta ─────
@@ -116,7 +124,7 @@
     function apps() {
         openSheet('Aplikacje', `
             <button class="btn" id="apNew">Dodaj aplikację</button>
-            <div class="set-group">${st.apps.map((a) => setRow(ICON.apps, esc(a.name), a.hidden ? 'ukryta' : a.testersOnly ? 'testerzy' : 'wszyscy',
+            <div class="set-group">${st.apps.map((a) => setRow(appIcon(a.id), esc(a.name), a.hidden ? 'ukryta' : a.testersOnly ? 'testerzy' : 'wszyscy',
                 { id: `ap-${a.id}`, sub: esc(`${a.id} · ${(a.users || []).length} z dostępem`) })).join('') || '<p class="hint" style="padding:12px">Brak aplikacji</p>'}</div>
             <p class="hint">Aplikacja „tylko dla testerów” działa tylko dla kont z listy. Ukryta znika z telefonu tym, którzy nie mają dostępu.</p>`, home);
         $('apNew').onclick = newApp;
@@ -224,6 +232,76 @@
             if (!$('nnAll').checked && !users.length) return toast('Wybierz, do kogo wysłać', 'err');
             act($('nnSend'), () => api('notify', { title: $('nnTitle').value, body: $('nnBody').value, level: $('nnCrit').checked ? 'critical' : 'normal', users }), 'Wysłano', notifications);
         };
+    }
+
+
+    // ───── Plan („Co dalej”) ─────
+    const ST = [['progress', 'W trakcie'], ['planned', 'Planowane'], ['done', 'Wydane']];
+    const NEW_APP = '__new';
+    function roadmap() {
+        const list = st.roadmap || [];
+        openSheet('Plan', `
+            <button class="btn" id="rmNew">Nowy wpis</button>
+            ${list.length ? ST.map(([k, label]) => {
+                const g = list.filter((i) => i.status === k);
+                return g.length ? `<div class="set-label">${label} · ${g.length}</div><div class="set-group">${g.map((i) => setRow(
+                    `<span class="rm-dot-ico ${k}"></span>`, esc(i.title), esc([i.app, C.fmtEta(i.eta)].filter(Boolean).join(' · ')), { id: `rm-${i.id}`, sub: esc((i.desc || '').slice(0, 70)) })).join('')}</div>` : '';
+            }).join('') : '<p class="hint">Nic jeszcze nie zaplanowano. Dodaj pierwszy wpis.</p>'}
+            <p class="hint">Plan widać na pitayas.eu w sekcji „Co dalej” i w aplikacji (Ustawienia → Co dalej).</p>`, home);
+        $('rmNew').onclick = () => roadmapEdit(null);
+        list.forEach((i) => ($(`rm-${i.id}`).onclick = () => roadmapEdit(i.id)));
+    }
+    function roadmapEdit(id) {
+        const list = st.roadmap || [];
+        const it = id ? list.find((x) => x.id === id) : null;
+        let status = it ? it.status : 'planned';
+        // Aplikacja: z listy (aplikacje z panelu + już użyte we wpisach) albo „Dodaj nową…”; termin: Wkrótce albo data
+        const apps = [...new Set([...st.apps.map((x) => x.name), ...list.map((x) => x.app)].filter(Boolean))].sort((x, y) => x.localeCompare(y, 'pl'));
+        const curApp = it ? it.app : '';
+        const when = it && /^\d{4}-\d{2}-\d{2}$/.test(it.eta) ? 'date' : 'soon';
+        openSheet(it ? 'Edytuj wpis' : 'Nowy wpis', `
+            <div class="pc-form">
+              ${field('rmTitle', 'Tytuł', it ? it.title : '', 'np. Pitaya Hub')}
+              ${area('rmDesc', 'Opis', it ? it.desc : '')}
+              <div><label for="rmAppSel">Aplikacja</label>
+                <select id="rmAppSel"><option value="">(bez aplikacji)</option>${apps.map((n) => `<option value="${esc(n)}"${n === curApp ? ' selected' : ''}>${esc(n)}</option>`).join('')}<option value="${NEW_APP}">+ Dodaj nową…</option></select>
+                <input id="rmApp" placeholder="Nazwa nowej aplikacji" maxlength="40" hidden style="margin-top:8px"></div>
+              <div><label>Kiedy</label>
+                <div class="seg" id="rmWhen"><button data-w="soon" class="${when === 'soon' ? 'on' : ''}">Wkrótce</button><button data-w="date" class="${when === 'date' ? 'on' : ''}">Data</button></div>
+                <input id="rmEta" type="date" value="${when === 'date' ? esc(it.eta) : ''}" ${when === 'date' ? '' : 'hidden'} style="margin-top:8px"></div>
+              <div class="seg" id="rmSeg">${ST.map(([k, l]) => `<button data-st="${k}" class="${k === status ? 'on' : ''}">${l}</button>`).join('')}</div>
+              <button class="btn" id="rmSave">${it ? 'Zapisz' : 'Dodaj do planu'}</button>
+            </div>
+            ${it ? `<div class="set-group">
+              ${setRow(setIcon('refresh', '#3a8ef0'), 'Przesuń wyżej', null, { id: 'rmUp' })}
+              ${setRow(setIcon('refresh', '#3a8ef0'), 'Przesuń niżej', null, { id: 'rmDown' })}
+              ${setRow(setIcon('box', '#ef5b6e'), '<span style="color:var(--m-danger)">Usuń wpis</span>', null, { id: 'rmDel' })}
+            </div>` : ''}`, roadmap);
+        $('rmSeg').onclick = (e) => {
+            const b = e.target.closest('[data-st]'); if (!b) return;
+            status = b.dataset.st;
+            $('rmSeg').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+        };
+        $('rmAppSel').onchange = () => { const n = $('rmAppSel').value === NEW_APP; $('rmApp').hidden = !n; if (n) $('rmApp').focus(); };
+        let mode = when;
+        $('rmWhen').onclick = (e) => {
+            const b = e.target.closest('[data-w]'); if (!b) return;
+            mode = b.dataset.w;
+            $('rmWhen').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+            $('rmEta').hidden = mode !== 'date';
+        };
+        $('rmSave').onclick = () => {
+            const app = $('rmAppSel').value === NEW_APP ? $('rmApp').value.trim() : $('rmAppSel').value;
+            if ($('rmAppSel').value === NEW_APP && !app) return toast('Wpisz nazwę nowej aplikacji', 'err');
+            const eta = mode === 'soon' ? 'soon' : $('rmEta').value;
+            if (!eta) return toast('Wybierz datę albo „Wkrótce”', 'err');
+            act($('rmSave'), () => api(it ? `roadmap/${id}/update` : 'roadmap', { title: $('rmTitle').value, desc: $('rmDesc').value, app, eta, status }), it ? 'Zapisano' : 'Dodano do planu', roadmap);
+        };
+        if (it) {
+            $('rmUp').onclick = () => act(null, () => api(`roadmap/${id}/move`, { dir: -1 }), 'Przesunięto', () => roadmapEdit(id));
+            $('rmDown').onclick = () => act(null, () => api(`roadmap/${id}/move`, { dir: 1 }), 'Przesunięto', () => roadmapEdit(id));
+            $('rmDel').onclick = () => { if (confirm(`Usunąć „${it.title}”?`)) act(null, () => api(`roadmap/${id}/delete`, {}), 'Usunięto', roadmap); };
+        }
     }
 
     window.PitayasAdmin = { open };

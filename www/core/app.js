@@ -3,8 +3,8 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '4.2.4';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
-const CORE_LABEL = '0.4.5';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
+const CORE_VERSION = '4.2.5';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
+const CORE_LABEL = '0.4.6';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -1028,10 +1028,12 @@ function openSettings() {
 // ═══════ CO DALEJ (mapa drogowa) ═══════
 // Plan z panelu admina (admin.pitayas.eu → Plan / Panel admina w aplikacji); ta sama lista co na pitayas.eu.
 const RM_LABEL = { progress: 'W trakcie', planned: 'Planowane', done: 'Wydane' };
+// Termin: „soon” → Wkrótce, data RRRR-MM-DD → „15 grudnia 2026”, starszy tekst bez zmian
+const fmtEta = (e) => (!e ? '' : e === 'soon' ? 'Wkrótce' : /^\d{4}-\d{2}-\d{2}$/.test(e) ? new Date(`${e}T12:00:00`).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' }) : e);
 const roadmapCard = (it) => `
     <div class="rm-item ${esc(it.status)}"><span class="rm-dot"></span>
       <div class="rm-body"><b>${esc(it.title)}</b>${it.desc ? `<p>${esc(it.desc)}</p>` : ''}
-        ${it.app || it.eta ? `<div class="rm-tags">${it.app ? `<span>${esc(it.app)}</span>` : ''}${it.eta ? `<span>${esc(it.eta)}</span>` : ''}</div>` : ''}</div>
+        ${it.app || it.eta ? `<div class="rm-tags">${it.app ? `<span>${esc(it.app)}</span>` : ''}${it.eta ? `<span>${esc(fmtEta(it.eta))}</span>` : ''}</div>` : ''}</div>
     </div>`;
 function roadmapHtml(items) {
     if (!items.length) return '<p class="hint">Plan jeszcze się pojawi — zajrzyj tu wkrótce.</p>';
@@ -1059,7 +1061,7 @@ const moduleIcon = (id) => {
     const m = available().find((x) => x.id === id);
     return m ? `${m.src || (m.base ? `${source()}${m.base}` : '')}icon.png` : null;
 };
-window.PitayasCore = { RM_LABEL, roadmapCard, moduleIcon, $, esc, toast, openSheet, closeSheet, setRow, setIcon: (k, c) => setIcon(k, c), accountFetch: (p, b) => accountFetch(p, b), openSettings: () => openSettings() };
+window.PitayasCore = { RM_LABEL, fmtEta, roadmapCard, moduleIcon, $, esc, toast, openSheet, closeSheet, setRow, setIcon: (k, c) => setIcon(k, c), accountFetch: (p, b) => accountFetch(p, b), openSettings: () => openSettings() };
 function openAdmin() {
     if (window.PitayasAdmin) return window.PitayasAdmin.open();
     const base = (window.PITAYAS_CORE && window.PITAYAS_CORE.base) || 'core/';
