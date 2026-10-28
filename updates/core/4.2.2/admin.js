@@ -24,7 +24,8 @@
     }
     const field = (id, label, value = '', attrs = '') => `<div><label for="${id}">${label}</label><input id="${id}" value="${esc(value)}" ${attrs}></div>`;
     const area = (id, label, value = '') => `<div><label for="${id}">${label}</label><textarea id="${id}" rows="4" style="width:100%;background:var(--m-field);color:var(--m-text);border:1px solid var(--m-line-strong);border-radius:12px;padding:12px;font:inherit;font-size:16px;resize:vertical">${esc(value)}</textarea></div>`;
-    const toggle = (id, title, on, sub) => `<div class="set-group">${setRow('', title, null, { toggle: on, toggleId: id, sub })}</div>`;
+    // Boolean(): pole bez wartości (undefined) nie może znikać — setRow rysuje przełącznik tylko, gdy toggle != null
+const toggle = (id, title, on, sub) => `<div class="set-group">${setRow('', title, null, { toggle: Boolean(on), toggleId: id, sub })}</div>`;
     const ICON = {
         users: setIcon('user', '#3a8ef0'), apps: setIcon('box', '#a77bff'), site: setIcon('code', '#4cc38a'), bell: setIcon('bell', '#ff9f45'),
     };

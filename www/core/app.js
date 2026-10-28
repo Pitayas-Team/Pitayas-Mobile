@@ -3,8 +3,8 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '4.2.1';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
-const CORE_LABEL = '0.4.2';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
+const CORE_VERSION = '4.2.2';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
+const CORE_LABEL = '0.4.3';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -955,7 +955,7 @@ function renderModules() {
 // ─── Ustawienia ───
 function setRow(icon, title, value, opts = {}) {
     const tag = opts.id ? 'button' : 'div';
-    return `<${tag} class="set-row${opts.id ? ' tap' : ''}"${opts.id ? ` id="${opts.id}"` : ''}>${icon}<span class="set-t">${title}${opts.sub ? `<small>${opts.sub}</small>` : ''}</span>${value != null ? `<span class="set-v">${value}</span>` : ''}${opts.toggle != null ? `<span class="ios-sw"><input type="checkbox" id="${opts.toggleId}" ${opts.toggle ? 'checked' : ''}><i></i></span>` : ''}${opts.id ? '<svg viewBox="0 0 24 24" class="set-chev"><path d="M9 6l6 6-6 6"/></svg>' : ''}</${tag}>`;
+    return `<${tag} class="set-row${opts.id ? ' tap' : ''}"${opts.id ? ` id="${opts.id}"` : ''}>${icon}<span class="set-t">${title}${opts.sub ? `<small>${opts.sub}</small>` : ''}</span>${value != null ? `<span class="set-v">${value}</span>` : ''}${'toggle' in opts ? `<span class="ios-sw"><input type="checkbox" id="${opts.toggleId}" ${opts.toggle ? 'checked' : ''}><i></i></span>` : ''}${opts.id ? '<svg viewBox="0 0 24 24" class="set-chev"><path d="M9 6l6 6-6 6"/></svg>' : ''}</${tag}>`;
 }
 function setIcon(k, color) { return `<span class="set-ic" style="background:${color}"><svg viewBox="0 0 24 24">${SET_ICON_PATHS[k]}</svg></span>`; }
 const SET_ICON_PATHS = {"user":"<circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6\"/>","refresh":"<path d=\"M21 12a9 9 0 1 1-3-6.7L21 8\"/><path d=\"M21 3v5h-5\"/>","auto":"<path d=\"M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8\"/>","phone":"<rect x=\"7\" y=\"2\" width=\"10\" height=\"20\" rx=\"2\"/><path d=\"M11 18h2\"/>","core":"<rect x=\"5\" y=\"5\" width=\"14\" height=\"14\" rx=\"3\"/><path d=\"M9 9h6v6H9z\"/>","box":"<path d=\"M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8\"/>","bell":"<path d=\"M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0\"/>","code":"<path d=\"M8 6l-6 6 6 6M16 6l6 6-6 6\"/>","dl":"<path d=\"M12 4v11M7 10l5 5 5-5M5 20h14\"/>"};
