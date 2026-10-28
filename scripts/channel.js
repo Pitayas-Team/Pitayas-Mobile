@@ -14,8 +14,18 @@ const OUT = path.join(ROOT, 'updates');
 const REPO = 'Pitayas-Team/Pitayas-Mobile';
 const read = (p) => JSON.parse(fs.readFileSync(path.join(ROOT, p), 'utf8'));
 
+// Telefony trzymają w pamięci stary spis wersji (GitHub cache'uje pliki do kilku minut), więc kilka ostatnich wersji
+// zostaje w kanale — inaczej szybkie kolejne wydania dawałyby 404 przy pobieraniu („Nie udało się zaktualizować”).
+const KEEP_VERSIONS = 4;
+const verKey = (v) => String(v).split('-')[0].split('.').map(Number);
+const verCmp = (a, b) => { const x = verKey(a), y = verKey(b); for (let i = 0; i < 3; i++) { const d = (x[i] || 0) - (y[i] || 0); if (d) return d; } return 0; };
 function copyVersion(srcDir, files, dest) {
-    fs.rmSync(path.dirname(dest), { recursive: true, force: true });   // zostaje tylko bieżąca wersja
+    const parent = path.dirname(dest), current = path.basename(dest);
+    if (fs.existsSync(parent)) {
+        const old = fs.readdirSync(parent).filter((v) => v !== current).sort(verCmp).reverse().slice(KEEP_VERSIONS - 1);
+        for (const v of fs.readdirSync(parent)) if (v !== current && old.includes(v)) fs.rmSync(path.join(parent, v), { recursive: true, force: true });
+    }
+    fs.rmSync(dest, { recursive: true, force: true });
     fs.mkdirSync(dest, { recursive: true });
     for (const f of files) {
         const src = path.join(srcDir, f);
