@@ -29,6 +29,11 @@ const toggle = (id, title, on, sub) => `<div class="set-group">${setRow('', titl
     const ICON = {
         users: setIcon('user', '#3a8ef0'), apps: setIcon('box', '#a77bff'), site: setIcon('code', '#4cc38a'), bell: setIcon('bell', '#ff9f45'),
     };
+    // Prawdziwa ikona aplikacji (moduł z kanału Pitayas); gdy jej nie ma — ogólny klocek
+    const appIcon = (id) => {
+        const src = C.moduleIcon && C.moduleIcon(id);
+        return src ? `<img class="set-ic img" src="${esc(src)}" alt="" onerror="this.style.visibility='hidden'">` : ICON.apps;
+    };
 
     // ───── Start ─────
     async function open() {
@@ -117,7 +122,7 @@ const toggle = (id, title, on, sub) => `<div class="set-group">${setRow('', titl
     function apps() {
         openSheet('Aplikacje', `
             <button class="btn" id="apNew">Dodaj aplikację</button>
-            <div class="set-group">${st.apps.map((a) => setRow(ICON.apps, esc(a.name), a.hidden ? 'ukryta' : a.testersOnly ? 'testerzy' : 'wszyscy',
+            <div class="set-group">${st.apps.map((a) => setRow(appIcon(a.id), esc(a.name), a.hidden ? 'ukryta' : a.testersOnly ? 'testerzy' : 'wszyscy',
                 { id: `ap-${a.id}`, sub: esc(`${a.id} · ${(a.users || []).length} z dostępem`) })).join('') || '<p class="hint" style="padding:12px">Brak aplikacji</p>'}</div>
             <p class="hint">Aplikacja „tylko dla testerów” działa tylko dla kont z listy. Ukryta znika z telefonu tym, którzy nie mają dostępu.</p>`, home);
         $('apNew').onclick = newApp;

@@ -3,8 +3,8 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '4.2.2';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
-const CORE_LABEL = '0.4.3';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
+const CORE_VERSION = '4.2.3';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
+const CORE_LABEL = '0.4.4';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -1024,7 +1024,13 @@ function openSettings() {
 }
 
 // ═══════ PANEL ADMINA (admin.js, wczytywany dopiero przy pierwszym otwarciu) ═══════
-window.PitayasCore = { $, esc, toast, openSheet, closeSheet, setRow, setIcon: (k, c) => setIcon(k, c), accountFetch: (p, b) => accountFetch(p, b), openSettings: () => openSettings() };
+// Ikona modułu: zainstalowany (z telefonu) albo z kanału aktualizacji; brak = null
+const moduleIcon = (id) => {
+    if (installed[id] && installed[id].base) return `${installed[id].base}icon.png`;
+    const m = available().find((x) => x.id === id);
+    return m ? `${m.src || (m.base ? `${source()}${m.base}` : '')}icon.png` : null;
+};
+window.PitayasCore = { moduleIcon, $, esc, toast, openSheet, closeSheet, setRow, setIcon: (k, c) => setIcon(k, c), accountFetch: (p, b) => accountFetch(p, b), openSettings: () => openSettings() };
 function openAdmin() {
     if (window.PitayasAdmin) return window.PitayasAdmin.open();
     const base = (window.PITAYAS_CORE && window.PITAYAS_CORE.base) || 'core/';
