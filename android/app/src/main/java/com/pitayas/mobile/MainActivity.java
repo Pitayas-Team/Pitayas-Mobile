@@ -43,7 +43,7 @@ public class MainActivity extends BridgeActivity {
 
     // Paski wracają po powrocie z tła, po rozwinięciu powiadomień i zmianie orientacji — chowamy je za każdym razem
     @Override
-    protected void onResume() {
+    public void onResume() {
         super.onResume();
         applyFullscreenSoon();
     }
