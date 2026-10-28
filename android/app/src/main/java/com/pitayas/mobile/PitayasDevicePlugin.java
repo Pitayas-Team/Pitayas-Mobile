@@ -108,7 +108,7 @@ public class PitayasDevicePlugin extends Plugin {
         boolean on = Boolean.TRUE.equals(call.getBoolean("enabled", true));
         getContext().getSharedPreferences(MainActivity.PREFS, android.content.Context.MODE_PRIVATE).edit().putBoolean(MainActivity.FULLSCREEN, on).apply();
         getActivity().runOnUiThread(() -> {
-            ((MainActivity) getActivity()).applyFullscreen();
+            ((MainActivity) getActivity()).applyFullscreenSoon();
             call.resolve();
         });
     }
