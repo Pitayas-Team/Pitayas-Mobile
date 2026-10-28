@@ -90,7 +90,7 @@
       "id": "screen",
       "name": "Pitayas Screen",
       "description": "Telefon jako dodatkowy monitor komputera — przez kabel USB",
-      "version": "0.1.2",
+      "version": "0.1.3",
       "minCore": "0.3.2",
       "files": [
         "module.js",

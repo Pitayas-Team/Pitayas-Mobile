@@ -8,7 +8,15 @@
     const Cap = window.Capacitor;
     const PLATFORM = Cap && Cap.getPlatform ? Cap.getPlatform() : 'web';
     const KEY = 'pitayas-screen';
-    const opts = (() => { try { return Object.assign({ quality: 'mid', scale: 1.5 }, JSON.parse(localStorage.getItem(KEY))); } catch { return { quality: 'mid', scale: 1.5 }; } })();
+    // Domyślnie: natywna rozdzielczość ekranu i najlepsza jakość (wcześniej 1.5× i „zbalansowana” — obraz był rozmyty).
+    // ver: stare zapisane ustawienia z poprzednich wersji przechodzą jednorazowo na nowe domyślne.
+    const DEFAULTS = { quality: 'high', scale: 1, ver: 2 };
+    const opts = (() => {
+        try {
+            const saved = JSON.parse(localStorage.getItem(KEY)) || {};
+            return saved.ver === 2 ? Object.assign({}, DEFAULTS, saved) : Object.assign({}, DEFAULTS);
+        } catch { return Object.assign({}, DEFAULTS); }
+    })();
     const saveOpts = () => { try { localStorage.setItem(KEY, JSON.stringify(opts)); } catch {} };
 
     let stepTimer = null;
@@ -301,8 +309,9 @@
             </div>
             <div class="scr-steps"></div>
             <button class="btn scr-go" hidden>Połącz ponownie</button>
-            <div class="set-label">Rozmiar tekstu na monitorze</div>
-            <div class="scr-chips">${chips('scale', [[1, 'Mały'], [1.5, 'Średni'], [2, 'Duży']], opts.scale)}</div>
+            <div class="set-label">Ostrość i rozmiar tekstu</div>
+            <div class="scr-chips">${chips('scale', [[1, 'Najostrzej'], [1.5, 'Większy tekst'], [2, 'Największy']], opts.scale)}</div>
+            <p class="hint">„Najostrzej” pokazuje obraz w pełnej rozdzielczości ekranu (drobne elementy). Większy tekst zmniejsza liczbę pikseli, więc obraz jest mniej ostry.</p>
             <div class="set-label">Jakość obrazu</div>
             <div class="scr-chips">${chips('quality', [['high', 'Najlepsza'], ['mid', 'Zbalansowana'], ['low', 'Oszczędna']], opts.quality)}</div>
             <p class="hint">Stuknięcie — klik · przytrzymanie — prawy klik · przeciągnięcie — przeciąganie · dwa palce — przewijanie. Menu w rogu: klawiatura i rozłączenie.</p>`;
