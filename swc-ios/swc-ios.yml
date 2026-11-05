@@ -1,0 +1,62 @@
+# Aplikacja „Szkoła w Chmurze” na iPhone (niepodpisane IPA do sideloadu: AltStore, SideStore, Sideloadly).
+# Budowana z tego samego projektu co Pitayas (wtyczka natywnego szkła PitayasGlass), ale z ustawieniami z folderu swc-ios/:
+# inny identyfikator (com.pitayas.swc), nazwa, ikona, strona zapasowa i adres strony. Uruchamiasz ręcznie: zakładka Actions → „Aplikacja SwC (iOS)” → Run workflow.
+name: Aplikacja SwC (iOS)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Wersja aplikacji (np. 1.0.6)'
+        default: '1.0.6'
+      build:
+        description: 'Numer kompilacji (liczba, rośnie przy każdym wydaniu)'
+        default: '3'
+
+jobs:
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - name: Ustawienia aplikacji SwC
+        env:
+          VERSION: ${{ inputs.version }}
+          BUILD: ${{ inputs.build }}
+        run: |
+          cp swc-ios/capacitor.config.json capacitor.config.json
+          sed -i '' "s#SwC-iOS/[0-9.]*#SwC-iOS/$VERSION#" capacitor.config.json
+          rm -rf public && mkdir public && cp swc-ios/public/* public/
+          npx cap sync ios
+          # identyfikator, wersja
+          P=ios/App/App.xcodeproj/project.pbxproj
+          sed -i '' "s#PRODUCT_BUNDLE_IDENTIFIER = com.pitayas.mobile;#PRODUCT_BUNDLE_IDENTIFIER = com.pitayas.swc;#g; s#MARKETING_VERSION = [0-9.]*;#MARKETING_VERSION = $VERSION;#g; s#CURRENT_PROJECT_VERSION = [0-9]*;#CURRENT_PROJECT_VERSION = $BUILD;#g" "$P"
+          # nazwa, adres swc://, sieć
+          I=ios/App/App/Info.plist
+          B=/usr/libexec/PlistBuddy
+          $B -c "Set :CFBundleDisplayName SzkolawChmurze" "$I"
+          $B -c "Delete :CFBundleURLTypes" "$I" 2>/dev/null || true
+          $B -c "Add :CFBundleURLTypes array" -c "Add :CFBundleURLTypes:0 dict" -c "Add :CFBundleURLTypes:0:CFBundleURLName string com.pitayas.swc" -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes array" -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string swc" "$I"
+          $B -c "Delete :NSAppTransportSecurity" "$I" 2>/dev/null || true
+          $B -c "Add :NSAppTransportSecurity dict" -c "Add :NSAppTransportSecurity:NSAllowsArbitraryLoadsInWebContent bool true" -c "Add :NSAppTransportSecurity:NSAllowsLocalNetworking bool true" "$I"
+          # ikona i ekran startowy
+          cp swc-ios/AppIcon-512@2x.png ios/App/App/Assets.xcassets/AppIcon.appiconset/AppIcon-512@2x.png
+          for f in ios/App/App/Assets.xcassets/Splash.imageset/*.png; do cp swc-ios/Splash.png "$f"; done
+      - name: Xcode 26 (Liquid Glass)
+        run: |
+          X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
+          if [ -n "$X" ]; then sudo xcode-select -s "$X"; fi
+          xcodebuild -version
+      - name: Budowanie IPA (bez podpisu — podpisuje AltStore / SideStore / Sideloadly)
+        run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+          mkdir Payload
+          cp -R build/Build/Products/Release-iphoneos/App.app Payload/
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" Payload/App.app/Info.plist
+          zip -qry SzkolawChmurze.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with: { name: SzkolawChmurze-ios, path: SzkolawChmurze.ipa }

@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0b234d">
+  <title>Szkoła w Chmurze</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: radial-gradient(circle at 50% 30%, #153e7e 0%, #0b234d 70%, #071733 100%);
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: env(safe-area-inset-top, 24px) 20px env(safe-area-inset-bottom, 24px);
+      text-align: center;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Pływające chmurki w tle */
+    .bg-clouds {
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      overflow: hidden;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .cloud {
+      position: absolute;
+      opacity: 0.12;
+      animation: floatCloud linear infinite;
+    }
+    .cloud-1 { width: 140px; top: 12%; left: -140px; animation-duration: 26s; }
+    .cloud-2 { width: 200px; top: 65%; left: -200px; animation-duration: 38s; animation-delay: 5s; }
+    .cloud-3 { width: 110px; top: 40%; left: -110px; animation-duration: 32s; animation-delay: 14s; }
+
+    @keyframes floatCloud {
+      from { transform: translateX(0); }
+      to { transform: translateX(calc(100vw + 240px)); }
+    }
+
+    .card {
+      position: relative;
+      z-index: 2;
+      background: rgba(13, 37, 77, 0.78);
+      border: 1px solid rgba(140, 167, 227, 0.28);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-radius: 28px;
+      padding: 36px 24px 28px;
+      max-width: 380px;
+      width: 100%;
+    }
+
+    .logo-box {
+      position: relative;
+      width: 90px;
+      height: 90px;
+      margin: 0 auto 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .radar-wave {
+      position: absolute;
+      inset: -15px;
+      border: 2px solid rgba(140, 167, 227, 0.4);
+      border-radius: 50%;
+      animation: radarPulse 2.8s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+      opacity: 0;
+    }
+    .radar-wave:nth-child(2) { animation-delay: 0.9s; }
+    .radar-wave:nth-child(3) { animation-delay: 1.8s; }
+
+    @keyframes radarPulse {
+      0% { transform: scale(0.6); opacity: 0.9; }
+      100% { transform: scale(1.6); opacity: 0; }
+    }
+
+    .logo-img {
+      width: 80px;
+      height: 80px;
+      object-fit: contain;
+      filter: drop-shadow(0 8px 18px rgba(0,0,0,0.35));
+      animation: floatLogo 4s ease-in-out infinite;
+    }
+    @keyframes floatLogo {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(239, 68, 68, 0.16);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #fca5a5;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 5px 14px;
+      border-radius: 999px;
+      margin-bottom: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: #ef4444;
+      border-radius: 50%;
+      animation: blinkDot 1.5s ease-in-out infinite;
+    }
+    @keyframes blinkDot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.75); }
+    }
+
+    h1 {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 10px;
+      letter-spacing: -0.3px;
+    }
+    p {
+      color: #b5c7e8;
+      font-size: 14px;
+      line-height: 1.5;
+      margin-bottom: 24px;
+    }
+
+    .btn-retry {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      background: #f6ae45;
+      color: #113f87;
+      font-weight: 800;
+      font-size: 15px;
+      padding: 14px 24px;
+      border-radius: 999px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 8px 20px rgba(246, 174, 69, 0.35);
+      transition: transform .15s, background .15s;
+    }
+    .btn-retry:active { transform: scale(0.97); }
+
+    .btn-spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(17, 63, 135, 0.25);
+      border-top-color: #113f87;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      display: none;
+    }
+    .btn-retry.is-checking .btn-spinner { display: inline-block; }
+    .btn-retry.is-checking .btn-icon { display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .countdown-note {
+      font-size: 12px;
+      color: #8ca7e3;
+      margin-top: 14px;
+    }
+
+    .footer {
+      margin-top: 24px;
+      font-size: 11px;
+      color: #6a82aa;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-clouds">
+    <svg class="cloud cloud-1" viewBox="0 0 24 24" fill="#8ca7e3"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+    <svg class="cloud cloud-2" viewBox="0 0 24 24" fill="#8ca7e3"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+    <svg class="cloud cloud-3" viewBox="0 0 24 24" fill="#8ca7e3"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+  </div>
+
+  <div class="card">
+    <div class="logo-box">
+      <div class="radar-wave"></div>
+      <div class="radar-wave"></div>
+      <div class="radar-wave"></div>
+      <svg class="logo-img" viewBox="0 0 100 70" fill="none">
+        <path d="M25 60 C12 60 2 50 2 38 C2 27 10 18 21 16 C26 7 36 1 47 1 C60 1 71 9 75 20 C78 19 82 18 85 18 C93 18 100 25 100 33 C100 42 93 49 84 49 C82 49 80 48 78 47 C74 55 65 60 55 60 Z" fill="#ffffff" opacity="0.95"/>
+      </svg>
+    </div>
+
+    <div class="status-badge">
+      <span class="status-dot"></span>
+      <span>Brak połączenia z siecią</span>
+    </div>
+
+    <h1>Oczekiwanie na sieć</h1>
+    <p>Nie udało się połączyć ze Szkołą w Chmurze. Sprawdź połączenie Wi-Fi lub dane komórkowe.</p>
+
+    <button class="btn-retry" id="retryBtn" onclick="testConnection()">
+      <span class="btn-spinner"></span>
+      <span class="btn-icon">🔄</span>
+      <span id="btnText">Spróbuj ponownie</span>
+    </button>
+
+    <div class="countdown-note" id="countdownNote">
+      Automatyczne ponowienie za: <strong id="cdSeconds">10</strong>s
+    </div>
+
+    <div class="footer">
+      Created by Pitayas Team • Szkoła w Chmurze iOS
+    </div>
+  </div>
+
+  <script>
+    let countdown = 10, cdTimer = null, isChecking = false;
+
+    function startCountdown() {
+      countdown = 10;
+      const el = document.getElementById('cdSeconds');
+      if (el) el.textContent = countdown;
+      if (cdTimer) clearInterval(cdTimer);
+      cdTimer = setInterval(() => {
+        if (isChecking) return;
+        countdown--;
+        if (el) el.textContent = countdown;
+        if (countdown <= 0) {
+          clearInterval(cdTimer);
+          testConnection();
+        }
+      }, 1000);
+    }
+
+    async function testConnection() {
+      if (isChecking) return;
+      isChecking = true;
+      const btn = document.getElementById('retryBtn');
+      const text = document.getElementById('btnText');
+      btn.classList.add('is-checking');
+      btn.disabled = true;
+      text.textContent = 'Sprawdzanie...';
+
+      try {
+        const controller = new AbortController();
+        const tid = setTimeout(() => controller.abort(), 4000);
+        const res = await fetch('https://swc.rakunek.com/api/public-config', {
+          method: 'GET',
+          cache: 'no-store',
+          signal: controller.signal
+        });
+        clearTimeout(tid);
+        if (res.ok) {
+          text.textContent = 'Wczytywanie...';
+          window.location.replace('https://swc.rakunek.com');
+          return;
+        }
+      } catch (e) {}
+
+      setTimeout(() => {
+        btn.classList.remove('is-checking');
+        btn.disabled = false;
+        text.textContent = 'Spróbuj ponownie';
+        isChecking = false;
+        startCountdown();
+      }, 700);
+    }
+
+    // Jeśli jesteśmy online, od razu spróbuj przejść do serwera
+    if (navigator.onLine) {
+      testConnection();
+    } else {
+      startCountdown();
+    }
+
+    window.addEventListener('online', () => testConnection());
+  </script>
+</body>
+</html>

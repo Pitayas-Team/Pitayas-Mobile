@@ -1,0 +1,28 @@
+{
+  "appId": "com.pitayas.swc",
+  "appName": "SzkolawChmurze",
+  "webDir": "public",
+  "backgroundColor": "#0b234d",
+  "server": {
+    "url": "https://swc.rakunek.com",
+    "errorPath": "index.html",
+    "cleartext": false,
+    "androidScheme": "https",
+    "allowNavigation": [
+      "swc.rakunek.com",
+      "*.rakunek.com",
+      "discord.com",
+      "*.discord.com",
+      "cdn.discordapp.com",
+      "pitayas.eu",
+      "*.pitayas.eu"
+    ]
+  },
+  "appendUserAgent": " SwC-Mobile SwC-iOS/1.0.6",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#0b234d",
+    "allowsLinkPreview": false,
+    "scrollEnabled": true
+  }
+}
