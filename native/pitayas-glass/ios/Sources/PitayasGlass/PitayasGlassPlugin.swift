@@ -48,7 +48,7 @@ public class PitayasGlassPlugin: CAPPlugin, CAPBridgedPlugin {
 
     @objc func isSupported(_ call: CAPPluginCall) {
         // titles: ta wersja umie przyciski z tekstem i kolorem (rdzeń sprawdza to przed użyciem)
-        call.resolve(["supported": PitayasGlassPlugin.available, "titles": true, "segments": true, "textStable": true])
+        call.resolve(["supported": PitayasGlassPlugin.available, "titles": true, "segments": true, "segmentIcons": true, "textStable": true])
     }
 
     @objc func setButtons(_ call: CAPPluginCall) {
@@ -99,10 +99,19 @@ public class PitayasGlassPlugin: CAPPlugin, CAPBridgedPlugin {
             if (item["kind"] as? String) == "segments" {
                 let labels = ((item["items"] as? JSArray) ?? []).compactMap { $0 as? String }
                 let seg = segs[id] ?? makeSegments(id: id, in: box)
-                let current = (0..<seg.numberOfSegments).map { seg.titleForSegment(at: $0) ?? "" }
-                if current != labels {
+                // „symbols” (opcjonalne): nazwy SF Symbols – segment dostaje ikonę nad napisem (jak tab bar). Bez nich – sam napis.
+                let symbols = ((item["symbols"] as? JSArray) ?? []).compactMap { $0 as? String }
+                let sig = labels.joined(separator: "|") + "#" + symbols.joined(separator: "|")
+                if seg.accessibilityValue != sig {   // przebudowa tylko przy zmianie treści (bez migania)
+                    seg.accessibilityValue = sig
                     seg.removeAllSegments()
-                    for (i, t) in labels.enumerated() { seg.insertSegment(withTitle: t, at: i, animated: false) }
+                    for (i, t) in labels.enumerated() {
+                        if i < symbols.count, !symbols[i].isEmpty, let img = PitayasGlassPlugin.tabImage(symbol: symbols[i], title: t) {
+                            seg.insertSegment(with: img, at: i, animated: false)
+                        } else {
+                            seg.insertSegment(withTitle: t, at: i, animated: false)
+                        }
+                    }
                 }
                 let sel = Int(number(item["selected"]))
                 if sel >= 0, sel < seg.numberOfSegments, seg.selectedSegmentIndex != sel { seg.selectedSegmentIndex = sel }
@@ -135,6 +144,22 @@ public class PitayasGlassPlugin: CAPPlugin, CAPBridgedPlugin {
             badges[id] = nil
         }
         return placed
+    }
+
+    /// Ikona SF Symbol nad małym napisem – jeden obrazek na segment (UISegmentedControl nie łączy tytułu z obrazkiem)
+    static func tabImage(symbol: String, title: String) -> UIImage? {
+        let cfg = UIImage.SymbolConfiguration(pointSize: 18, weight: .semibold)
+        guard let icon = UIImage(systemName: symbol, withConfiguration: cfg)?.withTintColor(.white, renderingMode: .alwaysOriginal) else { return nil }
+        let attrs: [NSAttributedString.Key: Any] = [.font: UIFont.systemFont(ofSize: 10, weight: .semibold), .foregroundColor: UIColor.white]
+        let text = title as NSString
+        let ts = text.size(withAttributes: attrs)
+        let w = ceil(max(icon.size.width, ts.width)) + 2
+        let h = ceil(icon.size.height + 2 + ts.height)
+        let img = UIGraphicsImageRenderer(size: CGSize(width: w, height: h)).image { _ in
+            icon.draw(at: CGPoint(x: (w - icon.size.width) / 2, y: 0))
+            text.draw(at: CGPoint(x: (w - ts.width) / 2, y: icon.size.height + 2), withAttributes: attrs)
+        }
+        return img.withRenderingMode(.alwaysOriginal)
     }
 
     private func makeSegments(id: String, in box: UIView) -> UISegmentedControl {
