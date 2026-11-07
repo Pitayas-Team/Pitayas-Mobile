@@ -1,6 +1,6 @@
 {
   "appId": "com.pitayas.swc",
-  "appName": "SzkolawChmurze",
+  "appName": "SwC Gry",
   "webDir": "public",
   "backgroundColor": "#0b234d",
   "server": {
@@ -18,7 +18,7 @@
       "*.pitayas.eu"
     ]
   },
-  "appendUserAgent": " SwC-Mobile SwC-iOS/1.0.6",
+  "appendUserAgent": " SwC-Mobile SwC-iOS/1.0.9",
   "ios": {
     "contentInset": "never",
     "backgroundColor": "#0b234d",

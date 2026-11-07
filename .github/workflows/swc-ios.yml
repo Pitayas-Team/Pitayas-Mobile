@@ -1,7 +1,7 @@
 # Aplikacja „Szkoła w Chmurze” na iPhone (niepodpisane IPA do sideloadu: AltStore, SideStore, Sideloadly).
 # Budowana z tego samego projektu co Pitayas (wtyczka natywnego szkła PitayasGlass), ale z ustawieniami z folderu swc-ios/:
 # inny identyfikator (com.pitayas.swc), nazwa, ikona, strona zapasowa i adres strony. Uruchamiasz ręcznie: zakładka Actions → „Aplikacja SwC (iOS)” → Run workflow.
-name: Aplikacja SwC (iOS)
+name: Aplikacja SwC Gry (iOS)
 
 on:
   workflow_dispatch:
@@ -36,7 +36,8 @@ jobs:
           # nazwa, adres swc://, sieć
           I=ios/App/App/Info.plist
           B=/usr/libexec/PlistBuddy
-          $B -c "Set :CFBundleDisplayName SzkolawChmurze" "$I"
+          $B -c "Set :CFBundleDisplayName SwC Gry" "$I"
+          $B -c "Set :CFBundleName SwC Gry" "$I" 2>/dev/null || $B -c "Add :CFBundleName string SwC Gry" "$I"
           $B -c "Delete :CFBundleURLTypes" "$I" 2>/dev/null || true
           $B -c "Add :CFBundleURLTypes array" -c "Add :CFBundleURLTypes:0 dict" -c "Add :CFBundleURLTypes:0:CFBundleURLName string com.pitayas.swc" -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes array" -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string swc" "$I"
           $B -c "Delete :NSAppTransportSecurity" "$I" 2>/dev/null || true
