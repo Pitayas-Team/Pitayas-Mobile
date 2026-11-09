@@ -27,17 +27,6 @@ android {
     }
     // Ten sam klucz co stara aplikacja (sekrety w GitHub Actions) — nowa instaluje się w miejsce starej
     signingConfigs {
-        getByName("release") {
-            System.getenv("PITAYAS_KEYSTORE")?.let { ks ->
-                storeFile = file(ks)
-                storePassword = System.getenv("PITAYAS_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("PITAYAS_KEY_ALIAS")
-                keyPassword = System.getenv("PITAYAS_KEY_PASSWORD")
-            }
-        }
-    }
-    // Ten sam klucz co stara aplikacja (sekrety w GitHub Actions) — nowa instaluje się w miejsce starej
-    signingConfigs {
         create("release") {
             System.getenv("PITAYAS_KEYSTORE")?.let { ks ->
                 storeFile = file(ks)
@@ -61,7 +50,6 @@ android {
             }
         }
         getByName("release") {
-            if (System.getenv("PITAYAS_KEYSTORE") != null) signingConfig = signingConfigs.getByName("release")
             if (System.getenv("PITAYAS_KEYSTORE") != null) signingConfig = signingConfigs.getByName("release")
             optimization {
                enable = true

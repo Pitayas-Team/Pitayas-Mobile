@@ -75,6 +75,10 @@ jobs:
           # Bez podpisu: xcodebuild czyta ustawienia z tego pliku (podpisuje dopiero AltStore / SideStore / Sideloadly)
           printf 'CODE_SIGNING_ALLOWED=NO\nCODE_SIGNING_REQUIRED=NO\nCODE_SIGN_IDENTITY=\nDEVELOPMENT_TEAM=\n' > "$RUNNER_TEMP/nosign.xcconfig"
           export XCODE_XCCONFIG_FILE="$RUNNER_TEMP/nosign.xcconfig"
+          # To samo wpisane w projekt (samo xcconfig nie wystarcza — Xcode żąda zespołu deweloperskiego)
+          PBX=$(find src-tauri/gen/apple -name project.pbxproj | head -1)
+          sed -i '' -e '/CODE_SIGN_IDENTITY/d' -e '/CODE_SIGN_STYLE/d' -e '/DEVELOPMENT_TEAM/d' \
+            -e 's/PRODUCT_BUNDLE_IDENTIFIER = /CODE_SIGNING_ALLOWED = NO; CODE_SIGNING_REQUIRED = NO; CODE_SIGN_IDENTITY = ""; PRODUCT_BUNDLE_IDENTIFIER = /' "$PBX"
           # Eksport archiwum bez podpisu się nie uda — to nie szkodzi, bierzemy .app z archiwum
           npx tauri ios build --ci || true
           APP=$(find ~/Library/Developer/Xcode "$PWD/src-tauri/gen/apple" -name '*.app' -path '*Products/Applications*' 2>/dev/null | head -1)
