@@ -67,6 +67,7 @@ h1 span, .bar-title span { color: inherit; }
 .tile-plus { width: 50px; height: 50px; border-radius: 12px; display: grid; place-items: center; background: var(--m-item); color: var(--m-text-2); }
 .tile.locked { opacity: .5; }
 .tile.locked .tile-text b::after { content: ' · tester'; font-size: 13px; font-weight: 500; color: var(--m-text-3); }
+.tile.soon .tile-text b::after { content: ' · wkrótce'; }
 
 .hint { font-size: 13px; line-height: 1.45; color: var(--m-text-3); padding: 0 4px; }
 .hint.warn { color: var(--m-warn); }

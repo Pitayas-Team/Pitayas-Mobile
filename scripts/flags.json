@@ -1,1 +1,10 @@
-{ "glass": true }
+{
+  "glass": true,
+  "soon": [
+    "media",
+    "convert"
+  ],
+  "newApp": {
+    "state": "soon"
+  }
+}
