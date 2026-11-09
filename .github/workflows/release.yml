@@ -72,12 +72,15 @@ jobs:
           brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
           npm install --no-audit --no-fund
           npx tauri ios init --ci
-          PROJ=$(ls -d src-tauri/gen/apple/*.xcodeproj | head -1)
-          SCHEME=$(xcodebuild -list -project "$PROJ" | sed -n '/Schemes:/,$p' | grep -m1 '_iOS' | xargs)
-          xcodebuild -project "$PROJ" -scheme "$SCHEME" -configuration release \
-            -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
-          APP=$(find build/Build/Products -name '*.app' -maxdepth 2 | head -1)
+          # Bez podpisu: xcodebuild czyta ustawienia z tego pliku (podpisuje dopiero AltStore / SideStore / Sideloadly)
+          printf 'CODE_SIGNING_ALLOWED=NO\nCODE_SIGNING_REQUIRED=NO\nCODE_SIGN_IDENTITY=\nDEVELOPMENT_TEAM=\n' > "$RUNNER_TEMP/nosign.xcconfig"
+          export XCODE_XCCONFIG_FILE="$RUNNER_TEMP/nosign.xcconfig"
+          # Eksport archiwum bez podpisu się nie uda — to nie szkodzi, bierzemy .app z archiwum
+          npx tauri ios build --ci || true
+          APP=$(find ~/Library/Developer/Xcode "$PWD/src-tauri/gen/apple" -name '*.app' -path '*Products/Applications*' 2>/dev/null | head -1)
+          if [ -z "$APP" ]; then APP=$(find ~/Library/Developer/Xcode "$PWD/src-tauri/gen/apple" -name '*.app' 2>/dev/null | grep -i -E 'release|archive' | head -1); fi
+          echo "APP=$APP"
+          test -n "$APP"
           mkdir Payload
           cp -R "$APP" Payload/
           zip -qry "$GITHUB_WORKSPACE/Pitayas.ipa" Payload

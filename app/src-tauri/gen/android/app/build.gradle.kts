@@ -27,7 +27,7 @@ android {
     }
     // Ten sam klucz co stara aplikacja (sekrety w GitHub Actions) — nowa instaluje się w miejsce starej
     signingConfigs {
-        create("release") {
+        getByName("release") {
             System.getenv("PITAYAS_KEYSTORE")?.let { ks ->
                 storeFile = file(ks)
                 storePassword = System.getenv("PITAYAS_KEYSTORE_PASSWORD")
