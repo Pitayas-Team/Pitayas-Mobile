@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated": "2026-11-09T18:51:09.783Z",
+  "generated": "2026-11-09T23:36:48.502Z",
   "shell": {
     "version": "0.3.0",
     "android": "https://github.com/Pitayas-Team/Pitayas-Mobile/releases/download/v0.3.0-beta/Pitayas-0.3.0-beta.apk",
@@ -26,7 +26,8 @@
       "convert"
     ],
     "newApp": {
-      "state": "soon"
+      "state": "ready",
+      "url": "https://github.com/Pitayas-Team/Pitayas-Mobile/releases/tag/v1.0.2-beta"
     }
   },
   "modules": [

@@ -1,0 +1,39 @@
+{
+  "name": "Pitayas",
+  "identifier": "eu.pitayas.source",
+  "subtitle": "Darmowe aplikacje open-source",
+  "website": "https://pitayas.eu",
+  "iconURL": "https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/app/src-tauri/icons/ios/AppIcon-512@2x.png",
+  "tintColor": "#ff4fa6",
+  "apps": [
+    {
+      "name": "Pitayas",
+      "bundleIdentifier": "com.pitayas.mobile",
+      "developerName": "Pitayas",
+      "subtitle": "Deck, Gear, Screen i Cam w jednej aplikacji",
+      "localizedDescription": "Aplikacja Pitayas na iPhone'a: panel przycisków do komputera (Deck), sterowanie sprzętem (Gear), telefon jako dodatkowy monitor po kablu (Screen) i jako kamera internetowa (Cam). Moduły aktualizują się same.",
+      "iconURL": "https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/app/src-tauri/icons/ios/AppIcon-512@2x.png",
+      "tintColor": "#ff4fa6",
+      "category": "utilities",
+      "screenshots": [],
+      "versions": [
+        {
+          "version": "1.0.0",
+          "buildVersion": "1.0.0",
+          "date": "2026-11-10",
+          "localizedDescription": "Nowa aplikacja Pitayas (Rust/Tauri).",
+          "downloadURL": "https://github.com/Pitayas-Team/Pitayas-Mobile/releases/download/v1.0.2-beta/Pitayas-1.0.2-beta.ipa",
+          "size": 3756814,
+          "minOSVersion": "15.0"
+        }
+      ],
+      "appPermissions": { "entitlements": [], "privacy": {} },
+      "version": "1.0.0",
+      "versionDate": "2026-11-10",
+      "versionDescription": "Nowa aplikacja Pitayas (Rust/Tauri).",
+      "downloadURL": "https://github.com/Pitayas-Team/Pitayas-Mobile/releases/download/v1.0.2-beta/Pitayas-1.0.2-beta.ipa",
+      "size": 3756814
+    }
+  ],
+  "news": []
+}

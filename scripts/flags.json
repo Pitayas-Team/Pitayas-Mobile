@@ -5,6 +5,7 @@
     "convert"
   ],
   "newApp": {
-    "state": "soon"
+    "state": "ready",
+    "url": "https://github.com/Pitayas-Team/Pitayas-Mobile/releases/tag/v1.0.2-beta"
   }
 }
