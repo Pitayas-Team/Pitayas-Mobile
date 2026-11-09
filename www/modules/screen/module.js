@@ -10,7 +10,8 @@
     const KEY = 'pitayas-screen';
     // Domyślnie: natywna rozdzielczość ekranu i najlepsza jakość (wcześniej 1.5× i „zbalansowana” — obraz był rozmyty).
     // ver: stare zapisane ustawienia z poprzednich wersji przechodzą jednorazowo na nowe domyślne.
-    const DEFAULTS = { quality: 'high', scale: 1, ver: 2 };
+    // fps: płynność — 30 wystarcza do większości rzeczy, 15 do Spotify/Discorda (mniej grzeje telefon i komputer)
+    const DEFAULTS = { quality: 'high', scale: 1, fps: 30, ver: 2 };
     const opts = (() => {
         try {
             const saved = JSON.parse(localStorage.getItem(KEY)) || {};
@@ -46,7 +47,7 @@
         const dpr = window.devicePixelRatio || 2;
         return { w: Math.round(window.innerWidth * dpr / opts.scale), h: Math.round(window.innerHeight * dpr / opts.scale) };
     }
-    const hello = () => { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'hello', ...wanted(), quality: opts.quality })); };
+    const hello = () => { if (ws && ws.readyState === 1) ws.send(JSON.stringify({ t: 'hello', ...wanted(), quality: opts.quality, fps: opts.fps })); };
     const sendMsg = (m) => { if (ws && ws.readyState === 1) ws.send(JSON.stringify(m)); };
 
     // ───── Połączenie ─────
@@ -138,7 +139,7 @@
         // Telefon nie nadąża — gubimy klatki aż do najbliższej kluczowej
         if (!key && (needKey || decoder.decodeQueueSize > 3)) { needKey = true; return; }
         needKey = false;
-        ts += 16666;
+        ts += Math.round(1e6 / (opts.fps || 30));
         try { decoder.decode(new EncodedVideoChunk({ type: key ? 'key' : 'delta', timestamp: ts, data: buf.subarray(1) })); } catch { needKey = true; }
     }
 
@@ -312,10 +313,14 @@
             <div class="set-label">Ostrość i rozmiar tekstu</div>
             <div class="scr-chips">${chips('scale', [[1, 'Najostrzej'], [1.5, 'Większy tekst'], [2, 'Największy']], opts.scale)}</div>
             <p class="hint">„Najostrzej” pokazuje obraz w pełnej rozdzielczości ekranu (drobne elementy). Większy tekst zmniejsza liczbę pikseli, więc obraz jest mniej ostry.</p>
+            <div class="set-label">Płynność</div>
+            <div class="scr-chips">${chips('fps', [[60, '60 kl/s'], [30, '30 kl/s'], [15, 'Oszczędnie']], opts.fps)}</div>
+            <p class="hint">Do Spotify, Discorda czy czatu wystarczy „Oszczędnie” — mniej grzeje telefon i komputer. 60 kl/s tylko z kartą graficzną.</p>
             <div class="set-label">Jakość obrazu</div>
             <div class="scr-chips">${chips('quality', [['high', 'Najlepsza'], ['mid', 'Zbalansowana'], ['low', 'Oszczędna']], opts.quality)}</div>
             <p class="hint">Stuknięcie — klik · przytrzymanie — prawy klik · przeciągnięcie — przeciąganie · dwa palce — przewijanie. Menu w rogu: klawiatura i rozłączenie.</p>`;
         el.querySelectorAll('[data-scale]').forEach((b) => (b.onclick = () => { opts.scale = Number(b.dataset.scale); saveOpts(); render(); hello(); }));
+        el.querySelectorAll('[data-fps]').forEach((b) => (b.onclick = () => { opts.fps = Number(b.dataset.fps); saveOpts(); render(); hello(); }));
         el.querySelectorAll('[data-quality]').forEach((b) => (b.onclick = () => { opts.quality = b.dataset.quality; saveOpts(); render(); hello(); }));
         q('.scr-go').onclick = () => { connect(); render(); };
         renderSteps();
