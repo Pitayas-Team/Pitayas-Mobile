@@ -1,6 +1,7 @@
-# Wydanie powłoki Pitayas: APK (Android) i niepodpisane IPA (iPhone, do sideloadu).
-# Uruchamia się po wypchnięciu taga v* (np. v0.1.0-beta) albo ręcznie z zakładki Actions.
+# Wydanie aplikacji Pitayas (Rust/Tauri, folder app/): APK (Android) i niepodpisane IPA (iPhone, do sideloadu).
+# Uruchamia się po wypchnięciu taga v* (np. v1.0.0-beta) albo ręcznie z zakładki Actions.
 # Rdzeń i moduły NIE potrzebują wydania — wystarczy `npm run channel` i push (folder updates/).
+# Stara aplikacja (Capacitor, foldery android/ i ios/) nie jest już budowana — dostaje tylko aktualizacje OTA.
 name: Wydanie aplikacji
 
 on:
@@ -17,11 +18,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: npm }
+        with: { node-version: 22 }
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 21 }
-      - run: npm ci
-      - run: npx cap sync android
+      - uses: dtolnay/rust-toolchain@stable
+        with: { targets: 'aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android' }
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: app/src-tauri }
       - name: Klucz podpisu
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -31,21 +34,22 @@ jobs:
             echo "PITAYAS_KEYSTORE=$RUNNER_TEMP/pitayas.jks" >> "$GITHUB_ENV"
           fi
       - name: Budowanie APK
-        working-directory: android
+        working-directory: app
         env:
           PITAYAS_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           PITAYAS_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           PITAYAS_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          chmod +x gradlew
+          export NDK_HOME="$ANDROID_NDK_LATEST_HOME"
+          npm install --no-audit --no-fund
           if [ -n "$PITAYAS_KEYSTORE" ]; then
-            ./gradlew assembleRelease
-            cp app/build/outputs/apk/release/app-release.apk "$GITHUB_WORKSPACE/Pitayas.apk"
+            npx tauri android build --apk
           else
-            echo "::warning::Brak sekretu ANDROID_KEYSTORE_BASE64 — APK podpisany kluczem debug (aktualizacja APK wymaga wtedy odinstalowania)"
-            ./gradlew assembleDebug
-            cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/Pitayas.apk"
+            echo "::warning::Brak sekretu ANDROID_KEYSTORE_BASE64 — APK podpisany kluczem debug"
+            npx tauri android build --apk --debug
           fi
+          APK=$(find src-tauri/gen/android/app/build/outputs/apk -name '*.apk' | grep universal | head -1)
+          cp "$APK" "$GITHUB_WORKSPACE/Pitayas.apk"
       - uses: actions/upload-artifact@v4
         with: { name: android, path: Pitayas.apk }
 
@@ -54,22 +58,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: npm }
-      - run: npm ci
-      - run: npx cap sync ios
-      - name: Xcode 26 (Liquid Glass)
+        with: { node-version: 22 }
+      - uses: dtolnay/rust-toolchain@stable
+        with: { targets: 'aarch64-apple-ios' }
+      - name: Xcode 26
         run: |
           X=$(ls -d /Applications/Xcode_26*.app 2>/dev/null | sort -V | tail -1)
           if [ -n "$X" ]; then sudo xcode-select -s "$X"; fi
           xcodebuild -version
       - name: Budowanie IPA (bez podpisu — podpisuje AltStore / SideStore / Sideloadly)
+        working-directory: app
         run: |
-          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          npm install --no-audit --no-fund
+          npx tauri ios init --ci
+          PROJ=$(ls -d src-tauri/gen/apple/*.xcodeproj | head -1)
+          SCHEME=$(xcodebuild -list -project "$PROJ" | sed -n '/Schemes:/,$p' | grep -m1 '_iOS' | xargs)
+          xcodebuild -project "$PROJ" -scheme "$SCHEME" -configuration release \
             -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+          APP=$(find build/Build/Products -name '*.app' -maxdepth 2 | head -1)
           mkdir Payload
-          cp -R build/Build/Products/Release-iphoneos/App.app Payload/
-          zip -qry Pitayas.ipa Payload
+          cp -R "$APP" Payload/
+          zip -qry "$GITHUB_WORKSPACE/Pitayas.ipa" Payload
       - uses: actions/upload-artifact@v4
         with: { name: ios, path: Pitayas.ipa }
 
@@ -88,4 +99,4 @@ jobs:
           mv android/Pitayas.apk "Pitayas-$V.apk"
           mv ios/Pitayas.ipa "Pitayas-$V.ipa"
           gh release create "$TAG" "Pitayas-$V.apk" "Pitayas-$V.ipa" --repo "$GITHUB_REPOSITORY" --title "Pitayas $V" --prerelease \
-            --notes "Android: zainstaluj Pitayas-$V.apk. iPhone (poza UE): zainstaluj Pitayas-$V.ipa przez AltStore, SideStore albo Sideloadly."
+            --notes "Nowa aplikacja Pitayas (Rust/Tauri). Android: zainstaluj Pitayas-$V.apk — zastąpi starą aplikację. iPhone (poza UE): zainstaluj Pitayas-$V.ipa przez AltStore, SideStore albo Sideloadly."

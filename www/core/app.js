@@ -3,7 +3,7 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '4.2.6';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
+const CORE_VERSION = '4.2.7';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
 const CORE_LABEL = '0.4.6';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
@@ -500,7 +500,7 @@ function renderBanner() {
     } else if (core || mods.length) {
         const names = [core && `Rdzeń ${core.label || core.version}`, ...mods.map((m) => `${m.name} ${m.version}`)].filter(Boolean);
         b.innerHTML = `<span>Aktualizacje: ${esc(names.join(', '))}</span><button class="chip" id="bUpdate">Aktualizuj</button>`;
-    } else if (flag('newApp') && flag('newApp').state) {
+    } else if (flag('newApp') && flag('newApp').state && !(window.Capacitor && window.Capacitor.PITAYAS_TAURI)) {   // tylko w starej aplikacji
         const n = flag('newApp');
         const ready = n.state === 'ready' && n.url;
         b.innerHTML = `<span>${esc(n.text || (ready ? 'Pobierz nową aplikację Pitayas — ta wersja nie dostaje już nowości' : 'Nadchodzi nowa aplikacja Pitayas — gdy będzie gotowa, trzeba będzie ją pobrać'))}</span>${ready ? '<button class="chip" id="bNewApp">Pobierz</button>' : ''}`;

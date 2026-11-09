@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "Okno aplikacji: zdarzenia, otwieranie linków, powiadomienia",
+  "windows": ["main"],
+  "permissions": ["core:default", "opener:default", "notification:default"]
+}

@@ -1,0 +1,24 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Pitayas",
+  "mainBinaryName": "pitayas",
+  "version": "../package.json",
+  "identifier": "com.pitayas.mobile",
+  "build": { "frontendDist": "../../www" },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [{ "label": "main", "title": "Pitayas", "width": 400, "height": 820, "backgroundColor": "#121116" }],
+    "security": {
+      "csp": null,
+      "assetProtocol": { "enable": true, "scope": ["$APPDATA/**", "$APPCACHE/**", "$DOCUMENT/**", "$DOWNLOAD/**"] }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "category": "Utility",
+    "copyright": "Copyright © 2026 Pitayas",
+    "publisher": "Pitayas",
+    "shortDescription": "Pitayas — Deck, Cam, Screen i inne moduły",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.png", "icons/icon.ico", "icons/icon.icns"]
+  }
+}

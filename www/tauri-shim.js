@@ -1,0 +1,94 @@
+// ═══════ PITAYAS — NAKŁADKA DLA NOWEJ APLIKACJI (Tauri) ═══════
+// Rdzeń i moduły pisane były dla Capacitora (window.Capacitor.Plugins.*). W nowej aplikacji (Rust/Tauri) ta nakładka
+// podstawia te same nazwy i metody, a pod spodem woła polecenia z app/src-tauri. W starej aplikacji (Capacitor) nic nie robi.
+(function () {
+  var T = window.__TAURI__;
+  if (!T || window.Capacitor) return;
+  var invoke = function (cmd, args) { return T.core.invoke(cmd, args || {}); };
+  var listeners = {};
+  var handle = function (fn) { return { remove: function () { return Promise.resolve(fn && fn()); } }; };
+  var ua = navigator.userAgent || '';
+  var platform = /iPhone|iPad|iPod/.test(ua) ? 'ios' : 'android';
+  var dir = function (o) { return String((o && o.directory) || 'DATA').toUpperCase(); };
+
+  var Filesystem = {
+    getUri: function (o) { return invoke('fs_uri', { directory: dir(o), path: o.path }); },
+    writeFile: function (o) { return invoke('fs_write', { directory: dir(o), path: o.path, data: String(o.data || ''), recursive: Boolean(o.recursive), append: false, encoding: o.encoding || null }); },
+    appendFile: function (o) { return invoke('fs_write', { directory: dir(o), path: o.path, data: String(o.data || ''), recursive: true, append: true, encoding: o.encoding || null }); },
+    readFile: function (o) { return invoke('fs_read', { directory: dir(o), path: o.path }); },
+    mkdir: function (o) { return invoke('fs_mkdir', { directory: dir(o), path: o.path }); },
+    rmdir: function (o) { return invoke('fs_rmdir', { directory: dir(o), path: o.path, recursive: Boolean(o.recursive) }); },
+    deleteFile: function (o) { return invoke('fs_delete', { directory: dir(o), path: o.path }); },
+    stat: function (o) { return invoke('fs_stat', { directory: dir(o), path: o.path }); },
+    rename: function (o) { return invoke('fs_rename', { directory: dir(o), from: o.from, to: o.to }); },
+    downloadFile: function (o) { return invoke('fs_download', { url: o.url, directory: dir(o), path: o.path, progress: Boolean(o.progress) }); },
+    requestPermissions: function () { return Promise.resolve({ publicStorage: 'granted' }); },
+    checkPermissions: function () { return Promise.resolve({ publicStorage: 'granted' }); },
+    addListener: function (name, cb) {
+      if (name !== 'progress') return Promise.resolve(handle());
+      var off = null;
+      T.event.listen('fs-progress', function (e) { cb(e.payload); }).then(function (u) { off = u; });
+      return Promise.resolve(handle(function () { if (off) off(); }));
+    },
+  };
+
+  var openUrl = function (o) { return invoke('plugin:opener|open_url', { url: (o && o.url) || o }); };
+  var InAppBrowser = { openInExternalBrowser: openUrl, openInSystemBrowser: openUrl, openInWebView: openUrl, close: function () { return Promise.resolve(); } };
+
+  var App = {
+    getInfo: function () { return invoke('app_info'); },
+    minimizeApp: function () { return Promise.resolve(); },
+    exitApp: function () { return Promise.resolve(); },
+    addListener: function (name, cb) {
+      if (name === 'appStateChange') {
+        var fn = function () { cb({ isActive: document.visibilityState === 'visible' }); };
+        document.addEventListener('visibilitychange', fn);
+        return Promise.resolve(handle(function () { document.removeEventListener('visibilitychange', fn); }));
+      }
+      if (name === 'backButton' && T.app && T.app.onBackButtonPress) {
+        var p = T.app.onBackButtonPress(function () { cb({ canGoBack: false }); });
+        return Promise.resolve(handle(function () { p.then(function (l) { if (l && l.unregister) l.unregister(); }); }));
+      }
+      return Promise.resolve(handle());
+    },
+  };
+
+  var LocalNotifications = {
+    checkPermissions: function () { return invoke('plugin:notification|is_permission_granted').then(function (g) { return { display: g ? 'granted' : 'prompt' }; }); },
+    requestPermissions: function () { return invoke('plugin:notification|request_permission').then(function (s) { return { display: s === 'granted' ? 'granted' : 'denied' }; }); },
+    schedule: function (o) {
+      return Promise.all(((o && o.notifications) || []).map(function (n) {
+        return invoke('plugin:notification|notify', { options: { title: n.title || 'Pitayas', body: n.body || '' } });
+      })).then(function () { return { notifications: (o && o.notifications) || [] }; });
+    },
+    addListener: function () { return Promise.resolve(handle()); },
+  };
+
+  // Ekran nie gaśnie, gdy działa Deck, Cam albo Screen (Wake Lock API w WebView)
+  var lock = null;
+  var KeepAwake = {
+    keepAwake: function () {
+      if (!navigator.wakeLock) return Promise.resolve();
+      return navigator.wakeLock.request('screen').then(function (l) { lock = l; }).catch(function () {});
+    },
+    allowSleep: function () { var l = lock; lock = null; return l ? l.release().catch(function () {}) : Promise.resolve(); },
+    isSupported: function () { return Promise.resolve({ isSupported: Boolean(navigator.wakeLock) }); },
+  };
+  document.addEventListener('visibilitychange', function () { if (lock && document.visibilityState === 'visible') KeepAwake.keepAwake(); });
+
+  var PitayasUsb = {
+    start: function (o) { return invoke('usb_start', { port: (o && o.port) || 8195 }); },
+    stop: function () { return invoke('usb_stop'); },
+  };
+
+  var Plugins = { Filesystem: Filesystem, App: App, InAppBrowser: InAppBrowser, LocalNotifications: LocalNotifications, KeepAwake: KeepAwake, PitayasUsb: PitayasUsb };
+  window.Capacitor = {
+    Plugins: Plugins,
+    platform: platform,
+    getPlatform: function () { return platform; },
+    isNativePlatform: function () { return true; },
+    isPluginAvailable: function (name) { return Boolean(Plugins[name]); },
+    convertFileSrc: function (path) { return T.core.convertFileSrc(String(path).replace(/^file:\/\//, '')); },
+    PITAYAS_TAURI: true,
+  };
+})();

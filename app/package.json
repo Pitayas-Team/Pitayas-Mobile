@@ -1,0 +1,15 @@
+{
+  "name": "pitayas-app",
+  "private": true,
+  "version": "1.0.0-beta",
+  "description": "Pitayas — aplikacja na telefon (Tauri 2). Rdzeń i moduły OTA z ../www",
+  "author": "Pitayas <inbox@rakunek.com>",
+  "scripts": {
+    "tauri": "tauri",
+    "android": "tauri android build --apk",
+    "ios": "tauri ios build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

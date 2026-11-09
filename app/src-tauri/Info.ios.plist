@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- Komputer w sieci domowej i kabel: http:// i ws:// (Deck, Cam, Media, Screen) -->
+  <key>NSAppTransportSecurity</key>
+  <dict>
+    <key>NSAllowsArbitraryLoads</key>
+    <true/>
+    <key>NSAllowsLocalNetworking</key>
+    <true/>
+  </dict>
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>Pitayas łączy się z Twoim komputerem w sieci domowej (Deck, Cam, Media).</string>
+  <key>NSCameraUsageDescription</key>
+  <string>Pitaya Cam używa aparatu jako kamery internetowej komputera.</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>Pitaya Cam może przesyłać dźwięk z mikrofonu.</string>
+</dict>
+</plist>
