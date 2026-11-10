@@ -71,7 +71,7 @@
             if (!o) hs.set(k, { ...h });
             else {
                 o.seconds = Math.max(o.seconds || 0, h.seconds || 0);
-                if ((h.at || 0) > (o.at || 0)) { o.at = h.at; o.service = h.service; if (h.url) { o.url = h.url; o.svc = h.svc; } }
+                if ((h.at || 0) > (o.at || 0)) { o.at = h.at; o.service = h.service; if (h.url) { o.url = h.url; o.svc = h.svc; } if (h.dur) { o.pos = h.pos; o.dur = h.dur; } }
                 if (!o.url && h.url) { o.url = h.url; o.svc = h.svc; }
             }
         }
@@ -169,6 +169,20 @@
         s.tick = now;
         save();
     }
+    // Postęp z odtwarzacza (okno aplikacji / Chrome): pozycja i długość → „zostało N min”
+    let progSave = 0;
+    window.addEventListener('pitayas-watch-progress', (e) => {
+        const d = e.detail || {};
+        const s = store.session;
+        if (!s || !(d.duration > 1)) return;
+        s.pos = Math.round(d.time || 0); s.dur = Math.round(d.duration);
+        if (d.playing && s.where === 'phone') { const now = Date.now(); s.seconds = Math.max(s.seconds || 0, (now - s.start) / 1000); s.counted = false; }
+        if (Date.now() - progSave > 10000) { progSave = Date.now(); save(); }
+        const live = q('[data-left]');
+        if (live) live.textContent = leftText(s.pos, s.dur);
+    });
+    const leftMin = (pos, dur) => Math.max(0, Math.round((dur - pos) / 60));
+    const leftText = (pos, dur) => dur > 1 ? (dur - pos < 60 ? 'koniec filmu' : `zostało ${leftMin(pos, dur)} min`) : '';
     function endSession() {
         const s = store.session;
         if (!s) return;
@@ -176,8 +190,8 @@
         store.session = null;
         if (s.seconds >= 30) {
             const prev = s.item && store.history.find((h) => same(h.item, s.item));
-            if (prev) { prev.seconds += Math.round(s.seconds); prev.at = Date.now(); prev.service = s.service; prev.url = s.url; prev.svc = s.svc; store.history = [prev, ...store.history.filter((h) => h !== prev)]; }
-            else store.history.unshift({ item: s.item, title: s.title, service: s.service, url: s.url, svc: s.svc, at: Date.now(), seconds: Math.round(s.seconds) });
+            if (prev) { prev.seconds += Math.round(s.seconds); prev.at = Date.now(); prev.service = s.service; prev.url = s.url; prev.svc = s.svc; if (s.dur) { prev.pos = s.pos; prev.dur = s.dur; } store.history = [prev, ...store.history.filter((h) => h !== prev)]; }
+            else store.history.unshift({ item: s.item, title: s.title, service: s.service, url: s.url, svc: s.svc, pos: s.pos || 0, dur: s.dur || 0, at: Date.now(), seconds: Math.round(s.seconds) });
             store.history = store.history.slice(0, 200);
             saveSync();
         } else save();
@@ -196,19 +210,19 @@
             if (store.session && store.session.where === 'phone') { store.session.seconds = e.seconds || 0; store.session.counted = true; endSession(); if (el) renderPage(); }
         });
     }
-    function openInApp(url, title) {
+    function openInApp(url, title, resume) {
         const P = nativePlayer();
-        if (P) { hookPlayer(P); return P.open({ url, title, desktop: true }).catch((err) => api.toast(errText(err), 'err')); }
+        if (P) { hookPlayer(P); return P.open({ url, title, desktop: true, resume: resume || 0 }).catch((err) => api.toast(errText(err), 'err')); }
         // Starsza aplikacja bez wtyczki (iPhone): przeglądarka telefonu (ma Widevine)
         // iPhone: okno w aplikacji (nie wyrzuca do Safari ani aplikacji serwisu)
         const iab = api.Plugins.InAppBrowser;
         if (iab) (iab.openInWebView || iab.openInExternalBrowser).call(iab, { url }).catch(() => window.open(url, '_blank'));
         else window.open(url, '_blank');
     }
-    function playOnPhone(item, svc, url) {
+    function playOnPhone(item, svc, url, resume) {
         url = url || svc.url(item ? item.title : '');
         startSession(item, svc, url, 'phone');
-        return openInApp(url, item ? item.title : svc.name);
+        return openInApp(url, item ? item.title : svc.name, resume);
     }
     // „Połącz konto”: logowanie w oknie aplikacji (ciasteczka zostają, więc nie logujesz się drugi raz); po zamknięciu pytamy, czy się udało
     function connectSvc(svc) {
@@ -427,7 +441,11 @@
     function homeHtml() {
         const cont = store.history.filter((h) => h.url).slice(0, 12);
         const linked = SERVICES.filter((x) => store.mine.includes(x.id));
-        return `${cont.length ? `<section class="wt-rail"><div class="wt-label">Kontynuuj oglądanie</div><div class="wt-row">${cont.map((h, i) => `<button class="wt-cont" data-cont="${i}"><span class="wt-poster">${poster(h.item && h.item.poster)}<i class="wt-play"></i></span><b>${esc(h.title)}</b><small>${esc(h.service)} · ${long(h.seconds)}</small></button>`).join('')}</div></section>` : ''}
+        const upd = api.shellUpdate && api.shellUpdate();
+        const ses = store.session && store.session.dur ? store.session : null;
+        return `${upd ? `<div class="wt-panel wt-now"><b class="wt-h">Nowa wersja aplikacji ${esc(upd.version)}</b><p class="hint">Aktualizacja pobierze się z GitHuba i zainstaluje.</p><div class="wt-chips"><button class="chip" data-shellupd>Zainstaluj teraz</button></div></div>` : ''}
+            ${ses ? `<div class="wt-panel wt-now"><small>Trwa oglądanie</small><b>${esc(ses.title)}</b><span><span data-left>${esc(leftText(ses.pos || 0, ses.dur))}</span></span></div>` : ''}
+            ${cont.length ? `<section class="wt-rail"><div class="wt-label">Kontynuuj oglądanie</div><div class="wt-row">${cont.map((h, i) => `<button class="wt-cont" data-cont="${i}"><span class="wt-poster">${poster(h.item && h.item.poster)}<i class="wt-play"></i></span><span class="wt-bar"><i style="width:${h.dur ? Math.min(100, Math.round(h.pos / h.dur * 100)) : 0}%"></i></span><b>${esc(h.title)}</b><small>${h.dur ? esc(leftText(h.pos, h.dur)) : `${esc(h.service)} · ${long(h.seconds)}`}</small></button>`).join('')}</div></section>` : ''}
             ${rail('Do obejrzenia', 'wl')}
             ${!api.account() ? '<div class="wt-panel wt-c"><b class="wt-h">Zaloguj się, żeby przeglądać katalog</b><p class="hint">Konto Pitayas daje katalog filmów i seriali, synchronizację między urządzeniami i dostęp do pozostałych modułów. Zakładka „Konta” łączy serwisy, z których oglądasz.</p></div>'
                 : rails.loading && !rails.loaded ? '<div class="spinner"></div>' : rails.error ? `<p class="hint warn">${esc(rails.error)}</p>`
@@ -438,7 +456,7 @@
     function libraryHtml() {
         const total = store.history.reduce((n, h) => n + (h.seconds || 0), 0);
         const s = store.session;
-        return `${s ? `<div class="wt-panel wt-now"><small>Trwa oglądanie · ${s.where === 'tv' ? 'telewizor' : 'telefon'}</small><b>${esc(s.title)}</b><span>${esc(s.service)} · ${long(s.where === 'tv' ? s.seconds : (Date.now() - s.start) / 1000)}</span>
+        return `${s ? `<div class="wt-panel wt-now"><small>Trwa oglądanie · ${s.where === 'tv' ? 'telewizor' : 'telefon'}</small><b>${esc(s.title)}</b><span>${esc(s.service)} · ${long(s.where === 'tv' ? s.seconds : (Date.now() - s.start) / 1000)}${s.dur ? ` · <span data-left>${esc(leftText(s.pos || 0, s.dur))}</span>` : ''}</span>
                 <button class="chip ghost" data-endsession>Zakończ sesję</button></div>` : ''}
             <div class="wt-label">Do obejrzenia · ${store.watchlist.length}</div>
             ${store.watchlist.length ? `<div class="wt-grid">${store.watchlist.map((it, i) => card(it, i, 'data-wl')).join('')}</div>` : '<p class="hint">Dodawaj tytuły przyciskiem „+ Do obejrzenia” w katalogu.</p>'}
@@ -567,10 +585,11 @@
         on('[data-back2]', () => { tab = 'home'; render(); });
         on('[data-confirmconn]', () => { const id = pendingConnect; pendingConnect = null; if (id && !store.mine.includes(id)) store.mine.push(id); store.minePending = true; saveSync(); renderPage(); });
         on('[data-cancelconn]', () => { pendingConnect = null; renderPage(); });
+        on('[data-shellupd]', () => api.installShell && api.installShell());
         on('[data-have]', (b) => markConnected(b.dataset.have, false));
         on('[data-connect]', (b) => connectSvc(svcOf(b.dataset.connect)));
         on('[data-disconnect]', (b) => { store.mine = store.mine.filter((x) => x !== b.dataset.disconnect); store.minePending = true; saveSync(); renderPage(); });
-        on('[data-cont]', (b) => { const h = store.history.filter((x) => x.url)[Number(b.dataset.cont)]; if (h) playOnPhone(h.item, svcOf(h.svc) || { id: h.svc, name: h.service, url: () => h.url }, h.url); });
+        on('[data-cont]', (b) => { const h = store.history.filter((x) => x.url)[Number(b.dataset.cont)]; if (h) playOnPhone(h.item, svcOf(h.svc) || { id: h.svc, name: h.service, url: () => h.url }, h.url, h.dur && h.dur - h.pos > 60 ? h.pos : 0); });
         on('[data-open-svc]', (b) => playOnPhone(null, svcOf(b.dataset.openSvc)));
         on('[data-endsession]', () => { endSession(); renderPage(); });
         on('[data-clearhist]', () => { store.history = []; saveSync(); renderPage(); });

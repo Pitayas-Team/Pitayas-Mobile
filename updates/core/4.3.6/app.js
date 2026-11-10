@@ -3,8 +3,8 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '4.3.2';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
-const CORE_LABEL = '0.5.3';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
+const CORE_VERSION = '4.3.6';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
+const CORE_LABEL = '0.5.7';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -91,6 +91,14 @@ const cleanHost = (text) => text.trim().replace(/^[a-z]+:\/\//i, '').replace(/[/
 // installed: { id: { id, name, description, version, port, files, path | url } } — path w pamięci telefonu,
 // url tylko w przeglądarce (podgląd na komputerze), gdzie nie ma systemu plików.
 const installed = ls.get('pitayas-modules', {});
+// Aplikacja „Pitayas Watch” (komputer / telewizor): to samo jądro, ale bez ekranu modułów — Watch jest wbudowany i jest całą aplikacją
+const APP_MODE = window.PITAYAS_APP || '';
+if (APP_MODE === 'watch') {
+    for (const id of Object.keys(installed)) if (id !== 'watch') delete installed[id];
+    if (!installed.watch || installed.watch.url) {
+        installed.watch = { id: 'watch', name: 'Pitayas Watch', description: 'Filmy i seriale', version: '0.0.0', minCore: '0.1.0', files: ['module.js', 'module.css', 'icon.png'], url: 'modules/watch/' };
+    }
+}
 const saveInstalled = () => ls.set('pitayas-modules', JSON.parse(JSON.stringify(installed, (k, v) => (k === 'base' ? undefined : v))));
 const defs = {};          // kod modułów po załadowaniu: Pitayas.register({...})
 const online = {};
@@ -114,6 +122,8 @@ function makeApi(id) {
         close: () => showHome(),
         switcher: () => openSwitcher(),   // lista aplikacji — przejście do innego modułu
         cloud: () => settings.cloudSync !== false,
+        shellUpdate: () => shellUpdate(),
+        installShell: () => { const sh = shellUpdate(); if (sh) installShell(sh, true); },
         account: () => (account.token ? { user: account.user, token: account.token, server: accountServer() } : null),
         // Dostęp do aplikacji z panelu kont: { name, testersOnly, access } albo null, gdy aplikacji nie ma w panelu
         access: (appId) => (access[appId] ? { ...access[appId] } : null),
@@ -262,6 +272,7 @@ function openView(id) {
         b.onclick = () => openSettings();
     }
     view.querySelector('[data-switcher]').onclick = openSwitcher;
+    if (APP_MODE === 'watch') view.querySelector('[data-switcher]').remove();
     document.body.appendChild(view);
     $('home').hidden = true;
     activeView = { id, view };
@@ -463,7 +474,32 @@ async function removeDir(dir) {
 
 const coreUpdate = () => manifest && manifest.core && vcmp(manifest.core.version, CORE_VERSION) > 0
     && vcmp(shellVersion, manifest.core.minShell) >= 0 ? manifest.core : null;
-const shellUpdate = () => manifest && manifest.shell && NATIVE && vcmp(manifest.shell.version, shellVersion) > 0 ? manifest.shell : null;
+// Aplikacja Pitayas Watch na komputerze: nowa wersja z GitHuba (Pitayas-Team/Pitayas-Watch) przez wbudowany aktualizator
+let watchShell = null;
+async function checkWatchShell() {
+    if (APP_MODE !== 'watch' || !window.__TAURI__) return;
+    try {
+        const r = await window.__TAURI__.core.invoke('pitaya_update_check');
+        watchShell = r && r.ok && r.hasUpdate ? { version: r.latestVersion, page: r.url, auto: Boolean(r.canAutoInstall), kind: r.installKind } : null;
+    } catch {}
+}
+async function installWatchShell(shell, manual) {
+    if (shellBusy) return;
+    shellBusy = true;
+    const T = window.__TAURI__;
+    toast(`Pobieram Pitayas Watch ${shell.version}…`);
+    let off = null;
+    try { off = await T.event.listen('pitaya:update-progress', (e) => { const p = e.payload || {}, n = p.percent != null ? p.percent : p.pct; if (n >= 0 && n <= 100) toast(`Pobieram Pitayas Watch ${shell.version} — ${Math.round(n)}%`); }); } catch {}
+    try {
+        const r = await T.core.invoke('pitaya_update_apply');
+        if (r && r.ok && r.restart) { toast('Zainstalowano nową wersję — uruchamiam ponownie'); setTimeout(() => T.core.invoke('pitaya_update_restart'), 1500); }
+        else if (r && r.ok) toast('Otworzyłem stronę wydania — pobierz stamtąd');
+        else toast((r && r.error) || 'Aktualizacja nie powiodła się', 'err');
+    } catch (err) { toast(errText(err), 'err'); }
+    if (off) off();
+    shellBusy = false;
+}
+const shellUpdate = () => APP_MODE === 'watch' ? watchShell : manifest && manifest.shell && NATIVE && vcmp(manifest.shell.version, shellVersion) > 0 ? manifest.shell : null;
 const moduleUpdates = () => available().filter((m) => installed[m.id] && vcmp(m.version, installed[m.id].version) > 0 && compatible(m));
 const compatible = (m) => vcmp(CORE_VERSION, m.minCore) >= 0;
 
@@ -534,6 +570,7 @@ function renderBanner() {
 
 const IS_ANDROID = Boolean(window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'android');
 function openShellDownload(shell) {
+    if (APP_MODE === 'watch') return installWatchShell(shell, true);
     // Android (aplikacja 0.2.7+): pobieramy APK w aplikacji i od razu otwieramy instalator systemu
     if (IS_ANDROID && shell.android && device()) return installShell(shell, true);
     openShellPage(shell);
@@ -547,6 +584,7 @@ function openShellPage(shell) {
 }
 let shellBusy = false;
 async function installShell(shell, manual) {
+    if (APP_MODE === 'watch') return installWatchShell(shell, manual);
     if (shellBusy) return;
     shellBusy = true;
     const b = $('banner');
@@ -570,6 +608,11 @@ async function installShell(shell, manual) {
 // Automatyczne aktualizacje: nowa aplikacja na Androidzie pobiera się sama i otwiera instalator (raz na wersję;
 // potwierdzenie „Zainstaluj” zawsze należy do użytkownika — tak działa Android)
 async function autoShell() {
+    if (APP_MODE === 'watch') {
+        // AppImage podmienia się sam; RPM/DEB wymaga hasła, więc tylko podpowiadamy
+        if (watchShell && watchShell.kind === 'appimage' && watchShell.auto && settings.autoUpdate && ls.get('pitayas-shell-auto', '') !== watchShell.version) { ls.set('pitayas-shell-auto', watchShell.version); installWatchShell(watchShell, false); }
+        return;
+    }
     const shell = shellUpdate();
     if (!shell || !IS_ANDROID || !shell.android || !device() || !settings.autoUpdate) return;
     if (ls.get('pitayas-shell-auto', '') === shell.version) return;
@@ -613,6 +656,7 @@ async function checkUpdates(manual) {
         return false;
     }
     if (settings.autoUpdate || manual) await updateAll(manual);
+    await checkWatchShell();
     renderBanner();
     autoShell();
     return true;
@@ -720,11 +764,11 @@ function openRegister() {
         <div class="login-hero"><img src="icons/pitayas.png" alt=""><h2>Utwórz konto <span>Pitayas</span></h2>
           <p>Jedno konto na wszystkich telefonach: synchronizacja biblioteki Watch, powiadomienia i dostęp do modułów.</p></div>
         <form class="pc-form login-form" id="rgForm">
-          <div class="field"><input id="rgName" placeholder="Imię lub pseudonim (opcjonalnie)" autocomplete="nickname"></div>
-          <div class="field"><input id="rgEmail" type="email" placeholder="Adres e-mail (wyślemy kod)" autocapitalize="off" autocomplete="email" required></div>
-          <div class="field"><input id="rgLogin" placeholder="Login (2–40 znaków)" autocapitalize="off" autocomplete="username" required></div>
-          <div class="field"><input id="rgPass" type="password" placeholder="Hasło (min. 8 znaków)" autocomplete="new-password" minlength="8" required></div>
-          <div class="field"><input id="rgPass2" type="password" placeholder="Powtórz hasło" autocomplete="new-password" required></div>
+          <div class="field plain"><input id="rgName" placeholder="Imię lub pseudonim (opcjonalnie)" autocomplete="nickname"></div>
+          <div class="field plain"><input id="rgEmail" type="email" placeholder="Adres e-mail (wyślemy kod)" autocapitalize="off" autocomplete="email" required></div>
+          <div class="field plain"><input id="rgLogin" placeholder="Login (2–40 znaków)" autocapitalize="off" autocomplete="username" required></div>
+          <div class="field plain"><input id="rgPass" type="password" placeholder="Hasło (min. 8 znaków)" autocomplete="new-password" minlength="8" required></div>
+          <div class="field plain"><input id="rgPass2" type="password" placeholder="Powtórz hasło" autocomplete="new-password" required></div>
           <details class="privacy-box"><summary>Co przetwarzamy i jak chronimy dane</summary><div class="privacy-text">${PRIVACY}</div></details>
           <label class="check-row"><input type="checkbox" id="rgOk" required> <span>Rozumiem, jak Pitayas przetwarza moje dane, i zgadzam się na to.</span></label>
           <label class="check-row"><input type="checkbox" id="rgRemember" checked> <span>Zapamiętaj logowanie na tym urządzeniu</span></label>
@@ -749,7 +793,7 @@ function openConfirm(login, email) {
         <div class="login-hero"><img src="icons/pitayas.png" alt=""><h2>Wpisz <span>kod</span></h2>
           <p>Wysłaliśmy 6-cyfrowy kod na adres ${esc(email || 'podany w rejestracji')}. Kod działa 15 minut — zajrzyj też do spamu.</p></div>
         <form class="pc-form login-form" id="cfForm">
-          <div class="field"><input id="cfCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="000000" autocomplete="one-time-code" style="text-align:center;letter-spacing:8px;font-size:22px" required></div>
+          <div class="field plain"><input id="cfCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="000000" autocomplete="one-time-code" style="text-align:center;letter-spacing:8px;font-size:22px" required></div>
           <button type="submit" class="btn">Potwierdź</button>
           <button type="button" class="btn ghost" id="cfResend">Wyślij kod ponownie</button>
         </form>`, openLogin);
@@ -1077,7 +1121,9 @@ const SET_ICON_PATHS = {"user":"<circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4
 
 // Tryb Pitayas Watch (tylko dla zalogowanych): aplikacja startuje od razu w module Watch.
 // Wyjście z modułu („Wstecz”) pokazuje zwykły ekran główny, więc do Ustawień zawsze da się wrócić.
-const watchModeOn = () => Boolean(settings.watchMode && account.token && account.user && installed.watch && hasAccess('watch'));
+// Komputer / telewizor (Fedora): aplikacja startuje jak Stremio — od razu w Watch, bez ekranu z kafelkami (wyłączysz w Ustawieniach)
+const IS_DESKTOP = Boolean(window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'linux');
+const watchModeOn = () => (IS_DESKTOP && settings.watchMode !== false && installed.watch && hasAccess('watch')) || Boolean(settings.watchMode && account.token && account.user && installed.watch && hasAccess('watch'));
 async function setWatchMode(on) {
     settings.watchMode = on;
     ls.set('pitayas-settings', settings);
@@ -1127,14 +1173,14 @@ function openSettings() {
           ${setRow(setIcon('box', '#a77bff'), 'Moduły', esc(String(Object.keys(installed).length)), { id: 'sMods', sub: 'Pobierz, aktualizuj i usuwaj' })}
           ${setRow(setIcon('bell', '#ff9f45'), 'Powiadomienia', unread ? `<span class="set-badge">${unread}</span>` : '', { id: 'sNotifs' })}
           ${setRow(setIcon('refresh', '#ff4fa6'), 'Co dalej', null, { id: 'sRoad', sub: 'Plany rozwoju Pitayas' })}
-          ${u ? setRow(setIcon('phone', '#ff4fa6'), 'Tryb Pitayas Watch', null, { toggle: Boolean(settings.watchMode), toggleId: 'sWatch', sub: settings.watchMode ? 'Włączony — wyłącz, żeby wrócić do zwykłego ekranu z modułami' : 'Cała aplikacja staje się aplikacją do oglądania; inne moduły są pod przyciskiem „Aplikacje”' }) : ''}
+          ${u || IS_DESKTOP ? setRow(setIcon('phone', '#ff4fa6'), 'Tryb Pitayas Watch', null, { toggle: IS_DESKTOP ? settings.watchMode !== false : Boolean(settings.watchMode), toggleId: 'sWatch', sub: settings.watchMode ? 'Włączony — wyłącz, żeby wrócić do zwykłego ekranu z modułami' : 'Cała aplikacja staje się aplikacją do oglądania; inne moduły są pod przyciskiem „Aplikacje”' }) : ''}
         </div>
 
         <div class="set-label">Aktualizacje</div>
         <div class="set-group">
           ${setRow(setIcon('refresh', upToDate ? '#4cc38a' : '#3a8ef0'), upToDate ? 'Wszystko aktualne' : 'Dostępne aktualizacje', coreReady ? 'Uruchom ponownie' : '',
               { id: 'sCheck', sub: upToDate ? 'Dotknij, żeby sprawdzić teraz' : esc(pending.join(', ') || 'Dotknij, żeby zainstalować') })}
-          ${shell ? setRow(setIcon('dl', '#3fa8ff'), `Nowa aplikacja ${esc(shell.version)}`, null, { id: 'sShell', sub: IS_ANDROID ? 'Pobierz i zainstaluj' : 'Wymaga ponownej instalacji' }) : ''}
+          ${shell ? setRow(setIcon('dl', '#3fa8ff'), `Nowa aplikacja ${esc(shell.version)}`, null, { id: 'sShell', sub: IS_ANDROID || APP_MODE === 'watch' ? 'Pobierz i zainstaluj' : 'Wymaga ponownej instalacji' }) : ''}
           ${setRow(setIcon('auto', '#7ddc5a'), 'Aktualizuj automatycznie', null, { toggle: settings.autoUpdate, toggleId: 'sAuto', sub: IS_ANDROID ? 'Rdzeń, moduły i aplikacja' : 'Rdzeń i moduły w tle' })}
         </div>
         ${ls.get('pitayas-core-failed', false) ? '<p class="hint warn">Pobrany rdzeń nie uruchomił się — działa wbudowany. Spróbuj zaktualizować ponownie.</p>' : ''}
@@ -1147,6 +1193,7 @@ function openSettings() {
         </div>
 
         <div class="set-group">${setRow(setIcon('code', '#3a3646'), 'Zaawansowane', null, { id: 'sDev', sub: 'Źródło aktualizacji, diagnostyka, dziennik' })}</div>`);
+    if (APP_MODE === 'watch') for (const id of ['sPc', 'sMods', 'sRoad', 'sWatch']) { const el = $(id); const row = el && (el.closest('.set-row') || el); if (row) row.remove(); }
     bindAccount();
     $('sAuto').onchange = () => { settings.autoUpdate = $('sAuto').checked; ls.set('pitayas-settings', settings); };
     if ($('sWatch')) $('sWatch').onchange = () => setWatchMode($('sWatch').checked);
@@ -1601,6 +1648,70 @@ if (Plugins.App) {
 // ═══════ START ═══════
 renderHome();
 window.PITAYAS_CORE_OK = true;   // powłoka wie, że rdzeń się uruchomił
+// Komputer bez modułu Watch: pobieramy go sami (czekamy, aż kanał aktualizacji się wczyta)
+if (IS_DESKTOP && settings.watchMode !== false) {
+    let tries = 0;
+    const iv = setInterval(async () => {
+        if (installed.watch || ++tries > 40) return clearInterval(iv);
+        const entry = available().find((m) => m.id === 'watch');
+        if (!entry) return;
+        clearInterval(iv);
+        try { await installModule(entry); showHome(true); openModule('watch'); } catch (err) { toast(errText(err), 'err'); }
+    }, 1500);
+}
+// Telewizor sparowany z telefonem dostaje konto Pitayas z telefonu
+window.addEventListener('pitayas-tv-account', (e) => {
+    const d = e.detail || {};
+    if (!d.token || !d.user || !/^https:\/\//.test(d.server || '')) return;
+    if (account.token === d.token) return;
+    account.server = d.server;
+    rememberPref = true;
+    setLogin({ token: d.token, user: d.user });
+});
+// Pilot / klawiatura w aplikacji na komputerze: strzałki przesuwają zaznaczenie, Enter wybiera, Esc / Backspace wraca
+if (IS_DESKTOP) {
+    const SEL = 'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"]), .tile, .set-row.tap';
+    const vis = (el) => { const r = el.getBoundingClientRect(); return r.width > 4 && r.height > 4 && el.offsetParent !== null && !el.disabled; };
+    const scope = () => {
+        if (!$('sheet').hidden) return $('sheet');
+        return activeView ? activeView.view : $('home');
+    };
+    const centre = (r) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+    function moveFocus(dir) {
+        const items = [...scope().querySelectorAll(SEL)].filter(vis);
+        if (!items.length) return;
+        const cur = items.includes(document.activeElement) ? document.activeElement : null;
+        if (!cur) { items[0].focus(); return; }
+        const c = centre(cur.getBoundingClientRect());
+        let best = null, bestScore = Infinity;
+        for (const el of items) {
+            if (el === cur) continue;
+            const p = centre(el.getBoundingClientRect());
+            const dx = p.x - c.x, dy = p.y - c.y;
+            const along = dir === 'ArrowRight' ? dx : dir === 'ArrowLeft' ? -dx : dir === 'ArrowDown' ? dy : -dy;
+            if (along <= 4) continue;
+            const across = Math.abs(dir === 'ArrowRight' || dir === 'ArrowLeft' ? dy : dx);
+            const score = along + across * 2.2;
+            if (score < bestScore) { bestScore = score; best = el; }
+        }
+        if (best) { best.focus(); best.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+    }
+    document.addEventListener('keydown', (e) => {
+        const t = e.target, typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') && !['checkbox', 'button'].includes(t.type);
+        if (e.key.startsWith('Arrow') && !typing) { e.preventDefault(); moveFocus(e.key); }
+        else if (e.key === 'Enter' && t && t !== document.body && !typing && t.tagName !== 'BUTTON' && t.click) { e.preventDefault(); t.click(); }
+        else if ((e.key === 'Escape' || (e.key === 'Backspace' && !typing) || e.key === 'BrowserBack') && !e.defaultPrevented) {
+            e.preventDefault();
+            if (!$('sheet').hidden) return goBack();
+            const back = activeView && activeView.view.querySelector('[data-back2], .wt-back, [data-back]');
+            if (back) back.click();
+        }
+    });
+    const st = document.createElement('style');
+    st.textContent = ':focus-visible { outline: 3px solid #ff4fa6 !important; outline-offset: 2px; border-radius: 10px; } button, .tile, .wt-card { cursor: pointer; }';
+    document.head.appendChild(st);
+    setTimeout(() => { const f = scope().querySelector(SEL); if (f && document.activeElement === document.body) f.focus(); }, 1200);
+}
 Promise.all(Object.values(installed).map(injectModule)).then(() => { renderTiles(); if (watchModeOn() && !activeView) openModule('watch'); });
 setInterval(() => { if (!activeView && document.visibilityState === 'visible') refreshStatus(); }, 5000);
 (Plugins.App && NATIVE ? Plugins.App.getInfo().then((i) => { shellVersion = i.version; }).catch(() => {}) : Promise.resolve())
@@ -1608,6 +1719,6 @@ setInterval(() => { if (!activeView && document.visibilityState === 'visible') r
     .then(() => { applyScreenMode(); refreshAccess(); askNotifyPermission().finally(refreshNotifs); setInterval(refreshNotifs, 5 * 60 * 1000); return checkUpdates(false); })
     .then(() => {
         if (!Object.keys(installed).length) openModules();
-        else if (!pcs.list.length) editPc(null);
+        else if (!pcs.list.length && APP_MODE !== 'watch') editPc(null);
     });
 })();

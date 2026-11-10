@@ -105,7 +105,7 @@
   // Komputer: film gra w przeglądarce z Widevine (tv_open), a „zamknięto” wraca zdarzeniem z czasem oglądania
   if (DESKTOP) {
     PitayasWatch = {
-      open: function (o) { return invoke('tv_open', { url: String(o.url || ''), title: String(o.title || '') }); },
+      open: function (o) { return invoke('tv_open', { url: String(o.url || ''), title: String(o.title || ''), resume: o.resume > 0 ? Number(o.resume) : null }); },
       addListener: function (name, cb) {
         if (name !== 'closed') return Promise.resolve(handle());
         var off = null;
@@ -113,6 +113,7 @@
         return Promise.resolve(handle(function () { if (off) off(); }));
       },
     };
+    T.event.listen('pitayas-watch-progress', function (e) { window.dispatchEvent(new CustomEvent('pitayas-watch-progress', { detail: e.payload })); });
     T.event.listen('tv:account', function (e) { window.dispatchEvent(new CustomEvent('pitayas-tv-account', { detail: e.payload })); });
     // Tryb telewizora (ten komputer jako telewizor dla telefonów): używa go moduł Watch
     window.PitayasDesktop = {

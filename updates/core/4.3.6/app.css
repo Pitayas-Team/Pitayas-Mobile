@@ -322,5 +322,8 @@ input:focus, select:focus { outline: none; border-color: var(--m-accent); }
 .privacy-text { font-size: 13px; line-height: 1.55; color: #b9b5c6; padding: 4px 2px; }
 .privacy-text p { margin: 0 0 10px; }
 .privacy-text b { color: #fff; }
-.check-row { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.4; color: #b9b5c6; margin: 8px 0; }
-.check-row input { margin-top: 2px; flex: none; accent-color: #ff4fa6; }
+.check-row { display: flex; gap: 10px; align-items: flex-start; margin: 8px 0; font-size: 13px; line-height: 1.4; letter-spacing: 0; text-transform: none; font-weight: 400; color: #b9b5c6; }
+.check-row span { min-width: 0; flex: 1; }
+.check-row input[type=checkbox] { width: 22px !important; height: 22px; min-width: 22px; padding: 0 !important; margin: 0; flex: none; accent-color: #ff4fa6; }
+.login-form .field.plain input { padding-left: 14px; }
+.login-form, .privacy-box { max-width: 100%; box-sizing: border-box; }
