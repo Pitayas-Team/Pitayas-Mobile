@@ -329,15 +329,13 @@
 
     function discoverHtml() {
         if (!api.account()) return `<div class="wt-panel wt-c"><b class="wt-h">Katalog filmów i seriali</b><p class="hint">Zaloguj się na konto Pitayas w Ustawieniach aplikacji, żeby przeglądać katalog i sprawdzać, gdzie obejrzeć film. Pilot telewizora działa bez logowania.</p></div>${servicesHtml(null)}`;
-        if (disc.item) return detailHtml();
-        return `<form class="wt-search" data-search><input name="q" type="search" placeholder="Szukaj filmu albo serialu" value="${esc(disc.q)}" enterkeyhint="search"><button class="chip">Szukaj</button></form>
-            ${disc.loading ? '<div class="spinner"></div>' : disc.error ? `<p class="hint warn">${esc(disc.error)}</p>${servicesHtml(null)}`
+        return `${disc.loading ? '<div class="spinner"></div>' : disc.error ? `<p class="hint warn">${esc(disc.error)}</p>${servicesHtml(null)}`
                 : !disc.list ? '' : !disc.list.length ? '<p class="hint">Nic nie znaleziono.</p>'
-                    : `<div class="wt-label">${disc.q.trim() ? 'Wyniki' : 'Popularne w tym tygodniu'}</div><div class="wt-grid">${disc.list.map((it, i) => card(it, i, 'data-res')).join('')}</div>`}`;
+                    : `<div class="wt-label">Wyniki dla „${esc(disc.q.trim())}”</div><div class="wt-grid">${disc.list.map((it, i) => card(it, i, 'data-res')).join('')}</div>`}`;
     }
     // Przyciski „Na telewizorze / W telefonie” dla serwisu
     const svcRow = (svc, kind) => `<div class="wt-svc"><span><b>${esc(svc.name)}</b>${kind ? `<small>${esc(kind)}</small>` : ''}</span>
-        ${tvNow() ? `<button class="chip" data-tv="${svc.id}">Na telewizorze</button>` : ''}<button class="chip ${tvNow() ? 'ghost' : ''}" data-phone="${svc.id}">W telefonie</button></div>`;
+        ${tvNow() ? `<button class="chip" data-tv="${svc.id}">Na telewizorze</button>` : ''}<button class="chip ${tvNow() ? 'ghost' : ''}" data-phone="${svc.id}">${window.PitayasDesktop ? 'Odtwórz' : 'W telefonie'}</button></div>`;
     // „Moje serwisy”: zaznaczone u góry list, zapisane na koncie (te same na każdym telefonie)
     const mineFirst = (list, idOf) => [...list].sort((a, b) => (store.mine.includes(idOf(b)) ? 1 : 0) - (store.mine.includes(idOf(a)) ? 1 : 0));
     const mineHtml = () => `<div class="wt-panel"><b class="wt-h">Moje serwisy</b><p class="hint">Zaznacz serwisy, z których korzystasz — pojawią się pierwsze przy filmach, na każdym Twoim telefonie. Telewizor nie jest potrzebny: film otworzy się w telefonie.</p>
@@ -392,27 +390,38 @@
     }
 
     // ───── Start: kontynuuj oglądanie, połączone konta, do obejrzenia ─────
-    let view = '';
     function accountsHtml() {
         const pend = pendingConnect && svcOf(pendingConnect);
-        return `<button class="wt-back" data-back2>‹ Wróć</button>
-            ${pend ? `<div class="wt-panel wt-now"><b class="wt-h">Zalogowano do ${esc(pend.name)}?</b><p class="hint">Zamknij okno logowania („Gotowe”), a potem potwierdź tutaj.</p><div class="wt-chips"><button class="chip" data-confirmconn>Tak, połącz</button><button class="chip ghost" data-cancelconn>Anuluj</button></div></div>` : ''}
+        return `${pend ? `<div class="wt-panel wt-now"><b class="wt-h">Zalogowano do ${esc(pend.name)}?</b><p class="hint">Zamknij okno logowania („Gotowe”), a potem potwierdź tutaj.</p><div class="wt-chips"><button class="chip" data-confirmconn>Tak, połącz</button><button class="chip ghost" data-cancelconn>Anuluj</button></div></div>` : ''}
             <div class="wt-panel"><b class="wt-h">Połącz konta</b><p class="hint">Zaloguj się do serwisów, z których korzystasz — logowanie odbywa się w oknie aplikacji i zostaje zapamiętane. Lista połączonych kont synchronizuje się z kontem Pitayas. Nie widzimy ani nie przechowujemy Twoich haseł do serwisów.</p>
             ${SERVICES.map((x) => `<div class="wt-svc"><span><b>${esc(x.name)}</b><small>${store.mine.includes(x.id) ? '✓ połączono' : 'niepołączone'}</small></span>
                 <button class="chip ${store.mine.includes(x.id) ? 'ghost' : ''}" data-connect="${x.id}">${store.mine.includes(x.id) ? 'Zaloguj ponownie' : 'Połącz'}</button>
                 ${store.mine.includes(x.id) ? `<button class="chip ghost" data-disconnect="${x.id}">Odłącz</button>` : ''}</div>`).join('')}</div>`;
     }
+    // ───── Rzędy ─────
+    const rails = { loaded: false, loading: false, error: '', all: [], movie: [], tv: [] };
+    const railItems = (id) => id === 'wl' ? store.watchlist : id === 'cont' ? store.history.filter((h) => h.url).slice(0, 12).map((h) => h.item).filter(Boolean) : rails[id] || [];
+    async function loadRails() {
+        rails.loading = true; rails.error = '';
+        try {
+            const [a, m, t] = await Promise.all([tmdb('trending/all/week'), tmdb('trending/movie/week'), tmdb('trending/tv/week')]);
+            const prep = (d, type) => (d.results || []).filter((r) => (r.media_type || type) !== 'person').map((r) => slim({ media_type: type, ...r })).filter((r) => r.title && r.poster);
+            rails.all = prep(a); rails.movie = prep(m, 'movie'); rails.tv = prep(t, 'tv'); rails.loaded = true;
+        } catch (err) { rails.error = errText(err); }
+        rails.loading = false;
+        if (el && tab === 'home' && !disc.item) renderPage();
+    }
+    const railCard = (it, id, i) => `<button class="wt-card" data-rail="${id}:${i}"><span class="wt-poster">${poster(it.poster)}</span><b>${esc(it.title)}</b><small>${it.type === 'tv' ? 'Serial' : 'Film'}${it.year ? ` · ${esc(it.year)}` : ''}</small></button>`;
+    const rail = (title, id) => { const items = railItems(id); return items.length ? `<section class="wt-rail"><div class="wt-label">${title}</div><div class="wt-row">${items.map((it, i) => railCard(it, id, i)).join('')}</div></section>` : ''; };
     function homeHtml() {
-        if (view === 'accounts') return accountsHtml();
         const cont = store.history.filter((h) => h.url).slice(0, 12);
         const linked = SERVICES.filter((x) => store.mine.includes(x.id));
-        return `<div class="wt-label">Kontynuuj oglądanie</div>
-            ${cont.length ? `<div class="wt-row">${cont.map((h, i) => `<button class="wt-cont" data-cont="${i}"><span class="wt-poster">${poster(h.item && h.item.poster, 'w342')}</span><b>${esc(h.title)}</b><small>${esc(h.service)} · ${long(h.seconds)}</small></button>`).join('')}</div>`
-                : `<div class="wt-panel wt-c"><b class="wt-h">Jeszcze nic nie oglądałeś</b><p class="hint">Połącz konta serwisów, wybierz tytuł w „Odkrywaj” i włącz go — tutaj pojawi się „Kontynuuj oglądanie”.</p></div>`}
-            <div class="wt-label">Twoje konta</div>
-            <div class="wt-panel"><div class="wt-chips">${linked.map((x) => `<button class="chip" data-open-svc="${x.id}">${esc(x.name)}</button>`).join('')}<button class="chip ghost" data-accounts>${linked.length ? 'Zarządzaj kontami' : '+ Połącz konta'}</button></div>
-              ${linked.length ? '<p class="hint">Dotknij serwisu, żeby go otworzyć w aplikacji.</p>' : '<p class="hint">Zaloguj się do Netflixa, Disney+, HBO Max i innych — wszystko w jednym miejscu.</p>'}</div>
-            ${store.watchlist.length ? `<div class="wt-label">Do obejrzenia · ${store.watchlist.length}</div><div class="wt-grid">${store.watchlist.slice(0, 6).map((it, i) => card(it, i, 'data-wl')).join('')}</div>` : ''}`;
+        return `${cont.length ? `<section class="wt-rail"><div class="wt-label">Kontynuuj oglądanie</div><div class="wt-row">${cont.map((h, i) => `<button class="wt-cont" data-cont="${i}"><span class="wt-poster">${poster(h.item && h.item.poster)}<i class="wt-play"></i></span><b>${esc(h.title)}</b><small>${esc(h.service)} · ${long(h.seconds)}</small></button>`).join('')}</div></section>` : ''}
+            ${rail('Do obejrzenia', 'wl')}
+            ${!api.account() ? '<div class="wt-panel wt-c"><b class="wt-h">Zaloguj się, żeby przeglądać katalog</b><p class="hint">Konto Pitayas daje katalog filmów i seriali, synchronizację między urządzeniami i dostęp do pozostałych modułów. Zakładka „Konta” łączy serwisy, z których oglądasz.</p></div>'
+                : rails.loading && !rails.loaded ? '<div class="spinner"></div>' : rails.error ? `<p class="hint warn">${esc(rails.error)}</p>`
+                    : `${rail('Na czasie', 'all')}${rail('Popularne filmy', 'movie')}${rail('Popularne seriale', 'tv')}`}
+            <section class="wt-rail"><div class="wt-label">Twoje serwisy</div><div class="wt-row wt-svcs">${(linked.length ? linked : SERVICES.slice(0, 6)).map((x) => `<button class="wt-svcbtn" data-open-svc="${x.id}">${esc(x.name)}</button>`).join('')}<button class="wt-svcbtn add" data-accounts>${linked.length ? 'Konta' : '+ Połącz konta'}</button></div></section>`;
     }
 
     function libraryHtml() {
@@ -474,17 +483,22 @@
         return `<span>${clock(v.time)}</span>${live ? '<i class="wt-live"></i>' : `<input type="range" min="0" max="${v.duration}" value="${Math.min(v.time, v.duration)}" ${keys ? 'disabled' : ''} data-seekto>`}<span>${live ? '' : clock(v.duration)}</span>`;
     }
 
+    // Układ jak w Stremio: u góry wyszukiwarka, poniżej rzędy z okładkami (przewijane w bok); dodatkowe strony pod małymi przyciskami
+    const PAGES = () => [['library', 'Biblioteka'], ['accounts', 'Konta'], ['remote', 'Pilot'], ...(window.PitayasDesktop ? [['thispc', 'Ten komputer']] : [])];
     function render() {
         if (!el) return;
-        el.innerHTML = `<div class="wt-tabs">${[['home', 'Start'], ['discover', 'Odkrywaj'], ['library', 'Biblioteka'], ['remote', 'Pilot'], ...(window.PitayasDesktop ? [['thispc', 'Ten komputer']] : [])].map(([id, n]) => `<button data-tab="${id}" class="${tab === id ? 'on' : ''}">${n}</button>`).join('')}</div><div class="wt-page"></div>`;
-        el.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => { tab = b.dataset.tab; render(); }));
+        el.innerHTML = `<form class="wt-search wt-top" data-search><input name="q" type="search" placeholder="Szukaj filmu albo serialu" value="${esc(disc.q)}" enterkeyhint="search"><button class="chip">Szukaj</button></form>
+            <div class="wt-nav">${tab !== 'home' ? '<button class="chip" data-home>‹ Start</button>' : ''}${PAGES().map(([id, n]) => `<button class="chip ${tab === id ? '' : 'ghost'}" data-tab="${id}">${n}</button>`).join('')}</div><div class="wt-page"></div>`;
+        el.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => { tab = tab === b.dataset.tab ? 'home' : b.dataset.tab; Object.assign(disc, { item: null, detail: null, error: '' }); render(); }));
+        const h = q('[data-home]');
+        if (h) h.onclick = () => { tab = 'home'; disc.q = ''; Object.assign(disc, { item: null, detail: null, error: '' }); render(); };
         renderPage();
-        if (tab === 'discover' && api.account() && !disc.list && !disc.loading && !disc.error) loadList();
+        if (api.account() && !rails.loaded && !rails.loading) loadRails();
     }
     function renderPage() {
         const page = q('.wt-page');
         if (!page) return;
-        page.innerHTML = tab === 'thispc' ? pcHtml() : tab === 'home' ? homeHtml() : tab === 'discover' ? discoverHtml() : tab === 'library' ? libraryHtml() : remoteHtml();
+        page.innerHTML = disc.item && tab !== 'remote' ? detailHtml() : tab === 'thispc' ? pcHtml() : tab === 'accounts' ? accountsHtml() : tab === 'home' ? homeHtml() : tab === 'discover' ? discoverHtml() : tab === 'library' ? libraryHtml() : remoteHtml();
         bind();
     }
     // Stan z telewizora przychodzi co sekundę — podmieniamy tylko pasek postępu i ikony, żeby nie zrywać dotyku
@@ -528,17 +542,18 @@
         const on = (sel, fn) => el.querySelectorAll(sel).forEach((b) => (b.onclick = () => fn(b)));
         const svcOf = (id) => SERVICES.find((s) => s.id === id);
         const sf = q('[data-search]');
-        if (sf) sf.onsubmit = (e) => { e.preventDefault(); disc.q = sf.elements.q.value; sf.elements.q.blur(); loadList(); };
+        if (sf) sf.onsubmit = (e) => { e.preventDefault(); disc.q = sf.elements.q.value; sf.elements.q.blur(); if (!disc.q.trim()) { tab = 'home'; return render(); } tab = 'discover'; render(); loadList(); };
+        on('[data-rail]', (b) => { const [id, i] = b.dataset.rail.split(':'); const r = railItems(id); if (r[Number(i)]) openItem(r[Number(i)]); });
         on('[data-res]', (b) => openItem(disc.list[Number(b.dataset.res)]));
-        on('[data-wl]', (b) => { tab = 'discover'; render(); openItem(store.watchlist[Number(b.dataset.wl)]); });
-        on('[data-hist]', (b) => { const h = store.history[Number(b.dataset.hist)]; if (h.item) { tab = 'discover'; render(); openItem(h.item); } });
+        on('[data-wl]', (b) => openItem(store.watchlist[Number(b.dataset.wl)]));
+        on('[data-hist]', (b) => { const h = store.history[Number(b.dataset.hist)]; if (h.item) openItem(h.item); });
         on('[data-back]', () => { Object.assign(disc, { item: null, detail: null, error: '' }); renderPage(); });
         on('[data-list]', () => toggleList(disc.item));
-        on('[data-tv]', (b) => playOnTv(tab === 'discover' ? disc.item : null, svcOf(b.dataset.tv)));
+        on('[data-tv]', (b) => playOnTv(tab === 'remote' ? null : disc.item, svcOf(b.dataset.tv)));
         on('[data-phone]', (b) => playOnPhone(disc.item, svcOf(b.dataset.phone)));
         pcBind(on);
-        on('[data-accounts]', () => { view = 'accounts'; renderPage(); });
-        on('[data-back2]', () => { view = ''; renderPage(); });
+        on('[data-accounts]', () => { tab = 'accounts'; render(); });
+        on('[data-back2]', () => { tab = 'home'; render(); });
         on('[data-confirmconn]', () => { const id = pendingConnect; pendingConnect = null; if (id && !store.mine.includes(id)) store.mine.push(id); store.minePending = true; saveSync(); renderPage(); });
         on('[data-cancelconn]', () => { pendingConnect = null; renderPage(); });
         on('[data-connect]', (b) => connectSvc(svcOf(b.dataset.connect)));
