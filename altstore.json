@@ -18,6 +18,15 @@
       "screenshots": [],
       "versions": [
         {
+          "version": "1.0.3",
+          "buildVersion": "1.0.3",
+          "date": "2026-11-10",
+          "localizedDescription": "Logo jako ikona, tryb Watch, odtwarzacz Watch na Androidzie.",
+          "downloadURL": "https://github.com/Pitayas-Team/Pitayas-Mobile/releases/download/v1.0.3-beta/Pitayas-1.0.3-beta.ipa",
+          "size": 3880355,
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "1.0.0",
           "buildVersion": "1.0.0",
           "date": "2026-11-10",
@@ -27,12 +36,15 @@
           "minOSVersion": "15.0"
         }
       ],
-      "appPermissions": { "entitlements": [], "privacy": {} },
-      "version": "1.0.0",
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": {}
+      },
+      "version": "1.0.3",
       "versionDate": "2026-11-10",
-      "versionDescription": "Nowa aplikacja Pitayas (Rust/Tauri).",
-      "downloadURL": "https://github.com/Pitayas-Team/Pitayas-Mobile/releases/download/v1.0.2-beta/Pitayas-1.0.2-beta.ipa",
-      "size": 3756814
+      "versionDescription": "Logo jako ikona, tryb Watch, odtwarzacz Watch na Androidzie.",
+      "downloadURL": "https://github.com/Pitayas-Team/Pitayas-Mobile/releases/download/v1.0.3-beta/Pitayas-1.0.3-beta.ipa",
+      "size": 3880355
     }
   ],
   "news": []
