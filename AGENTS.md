@@ -26,7 +26,7 @@ Rdzeń i moduły są pobierane z GitHuba, więc zmiany trafiają do telefonów b
 ```
 www/index.html        ładowarka rdzenia (wpisuje wersję wbudowaną channel.js)
 www/core/             app.js (całość aplikacji), app.css, admin.js (panel admina, ładowany tylko adminom), egg.js, core.json
-modules/<id>/         module.json, module.js, module.css, icon.png (deck, cam, convert, media, screen, gear)
+modules/<id>/         module.json, module.js, module.css, icon.png (deck, cam, convert, media, screen, gear, watch)
 www/modules/          kopia modułów wbudowanych w powłokę (generuje channel.js)
 www/runners/notifications.js   BackgroundRunner: sprawdzanie powiadomień w tle
 scripts/channel.js    składa updates/ i sprawdza zgodność wersji rdzenia

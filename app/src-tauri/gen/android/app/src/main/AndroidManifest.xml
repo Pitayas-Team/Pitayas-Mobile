@@ -28,6 +28,14 @@
             </intent-filter>
         </activity>
 
+        <!-- Pitayas Watch: odtwarzacz serwisów VOD (WebView z Widevine, tryb komputera) -->
+        <activity
+            android:name=".WatchPlayerActivity"
+            android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|screenLayout|uiMode"
+            android:hardwareAccelerated="true"
+            android:theme="@android:style/Theme.Black.NoTitleBar"
+            android:exported="false" />
+
         <provider
           android:name="androidx.core.content.FileProvider"
           android:authorities="${applicationId}.fileprovider"

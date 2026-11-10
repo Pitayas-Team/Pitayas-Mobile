@@ -1,6 +1,6 @@
 [package]
 name = "pitayas-app"
-version = "1.0.0-beta"
+version = "1.0.3-beta"
 edition = "2021"
 description = "Pitayas — aplikacja na telefon"
 license = "MIT"
