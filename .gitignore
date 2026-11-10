@@ -13,6 +13,3 @@ dist/
 
 release-keystore.txt
 .claude/
-desktop/node_modules/
-desktop/src-tauri/target/
-desktop/src-tauri/gen/
