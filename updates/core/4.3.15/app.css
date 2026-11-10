@@ -1,23 +1,24 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 /* ═══════ PITAYAS MOBILE (RDZEŃ) ═══════
    Matowe, płaskie powierzchnie. Prawdziwe szkło (Liquid Glass) stawia tylko iOS 26 — natywnie,
    na kilku przyciskach, które się nie przesuwają (pasek u góry, nagłówek okna). Bez udawanego szkła w CSS. */
 :root {
   color-scheme: dark;
-  --m-bg: #111015;
-  --m-panel: #1b1a20;
-  --m-item: #26252c;
-  --m-field: #16151a;
-  --m-line: rgba(255,255,255,0.06);
-  --m-line-strong: rgba(255,255,255,0.10);
+  --m-bg: #111111;
+  --m-panel: #1a1a1a;
+  --m-item: #222222;
+  --m-field: #151515;
+  --m-line: #262626;
+  --m-line-strong: #303030;
   --m-accent: #ff4fa6;
   --m-accent-ink: #ffffff;
   --m-grad: var(--m-accent);
-  --m-leaf: #4cc38a;
+  --m-leaf: #7ee04a;
   --m-warn: #f0a33a;
   --m-danger: #ef5b6e;
-  --m-text: #ecebf1;
-  --m-text-2: #bebcc8;
-  --m-text-3: #8a8896;
+  --m-text: #f2f0ec;
+  --m-text-2: #cfcac3;
+  --m-text-3: #9a958d;
   /* Android: Capacitor podaje marginesy w --safe-area-inset-*, iPhone: env() */
   --top: max(16px, var(--safe-area-inset-top, env(safe-area-inset-top)));
   --bottom: max(16px, var(--safe-area-inset-bottom, env(safe-area-inset-bottom)));
@@ -338,3 +339,70 @@ html.ui-tv .view-body { padding: 8px 48px 48px; }
 html.ui-tv .sheet-card { max-width: 900px; margin: 0 auto; }
 html.ui-tv, html.ui-tv * { cursor: none; }
 html.ui-tv :focus-visible { outline-width: 4px !important; }
+
+/* ═══════ STYL PITAYAS (jak strona rakunek.com) ═══════
+   Ciepłe ciemne tło, karty 28px, serif w tytułach, pigułki, płaski róż z logo. Bez poświat i gradientów. */
+:root { --m-serif: 'Inter', -apple-system, system-ui, 'Segoe UI', Roboto, sans-serif; --m-accent-soft: rgba(255,79,166,.14); }
+* { font-family: 'Inter', -apple-system, system-ui, 'Segoe UI', Roboto, sans-serif; }
+h1, .bar-title, .sheet-head #sheetTitle, .login-hero h2, .acc-hero b, .critical-card h2 { font-family: var(--m-serif); font-weight: 700; letter-spacing: -.02em; }
+h1 { font-size: 30px; line-height: 1.1; }
+h1 span { color: var(--m-accent); }
+.bar-title { font-size: 19px; }
+.sheet-head #sheetTitle { font-size: 30px; line-height: 1.1; font-weight: 700; }
+.kicker { color: var(--m-accent); font-weight: 600; letter-spacing: .14em; }
+.head-logo { border-radius: 0; width: 46px; height: 46px; }
+.bar-btn, .sheet-head .bar-btn { border-radius: 50%; border: 1px solid var(--m-line); background: var(--m-panel); }
+
+/* Komputer: ciemna karta z nazwą w serifie i kropką stanu */
+.pc { background: #0a0a0a; border: none; border-radius: 28px; padding: 16px 20px; }
+.pc > svg:first-child { display: none; }
+.pc-text small { font-weight: 500; letter-spacing: .12em; color: rgba(244,242,238,.55); }
+.pc-line { display: flex; align-items: center; gap: 10px; margin-top: 3px; }
+.pc-text .pc-line b { font-family: var(--m-serif); font-weight: 700; font-size: 24px; line-height: 1.1; color: #fff; letter-spacing: -.01em; }
+.pc-line .dot { margin-top: 3px; }
+.pc-chev { color: rgba(244,242,238,.55); }
+
+/* Karty, listy */
+.tiles, .set-group, .pc-list, .mod-list, .mod-group, .notif-list { border-radius: 28px; }
+.tile img { border-radius: 14px; }
+.tile-text b { font-weight: 600; }
+.tile-plus { border-radius: 14px; background: var(--m-accent-soft); color: var(--m-accent); }
+.set-label, .kicker { text-transform: uppercase; }
+.set-label { font-weight: 500; letter-spacing: .12em; font-size: 11.5px; }
+.set-row, .tile { padding-left: 18px; padding-right: 18px; }
+.set-ic { border-radius: 50% !important; background: var(--m-accent-soft) !important; }
+.set-ic svg { stroke: var(--m-accent) !important; }
+.set-av, .set-av.big { font-family: var(--m-serif); font-weight: 700; }
+.account-btn, .acc-main, .pc-item, .banner, .rm-item, .info-grid, .log { border-radius: 28px; }
+.banner { border-radius: 999px; background: var(--m-accent-soft); color: var(--m-accent); border: none; font-weight: 500; }
+.banner .chip { background: var(--m-accent); color: #fff; }
+.ios-sw input:checked + i { background: var(--m-leaf); }
+
+/* Usuwanie modułu: drugie dotknięcie potwierdza */
+.mod-del.arm { width: auto; padding: 6px 12px; border-radius: 999px; background: var(--m-danger); color: #fff; font-size: 13px; font-weight: 600; }
+
+/* Przyciski, żetony, pola: pigułki */
+.btn { border-radius: 999px; font-weight: 600; }
+.chip { font-weight: 600; }
+.seg { border-radius: 999px; }
+.seg button { border-radius: 999px; font-weight: 500; }
+.seg button.on { background: var(--m-accent-soft); color: var(--m-accent); }
+.mod-get { font-weight: 600; }
+.mod-get.upd { background: var(--m-accent-soft); color: var(--m-accent); }
+.mod-pill.ok { color: var(--m-leaf); }
+.rm-tags span { background: var(--m-item); }
+.toast { border-radius: 999px; }
+.sheet-card { box-shadow: none; }
+
+@media (min-width: 700px) {
+  .tile { border-radius: 28px; }
+  h1 { font-size: 34px; }
+}
+
+/* Okno potwierdzenia (zamiast window.confirm) */
+.dlg { position: fixed; inset: 0; z-index: 90; background: rgba(0,0,0,.6); display: grid; place-items: center; padding: 24px; animation: fade .15s ease-out; }
+.dlg-card { width: 100%; max-width: 340px; background: var(--m-panel); border: 1px solid var(--m-line-strong); border-radius: 28px; padding: 22px 20px 18px; display: flex; flex-direction: column; gap: 18px; }
+.dlg-card p { font-size: 16px; line-height: 1.45; color: var(--m-text); }
+.dlg-btns { display: flex; gap: 10px; }
+.dlg-btns .btn { flex: 1; padding: 12px; }
+

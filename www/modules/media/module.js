@@ -195,7 +195,8 @@
     }
 
     async function removeFile(d) {
-        if (!confirm(`Usunąć „${d.name}”${d.state === 'done' ? ' z telefonu' : ''}?`)) return;
+        const q = `Usunąć „${d.name}”${d.state === 'done' ? ' z telefonu' : ''}?`;
+        if (!(window.pitayasConfirm ? await window.pitayasConfirm(q, 'Usuń', true) : confirm(q))) return;   // własne okno: confirm() bywa zablokowane
         if (d.state === 'done' && d.path) { try { await FS.deleteFile({ directory: d.directory, path: d.path }); } catch {} }
         store.phone = store.phone.filter((x) => x !== d);
         save();

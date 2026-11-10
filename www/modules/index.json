@@ -36,7 +36,7 @@
       "id": "deck",
       "name": "Pitaya Deck",
       "description": "Panel przycisków do komputera",
-      "version": "0.2.5",
+      "version": "0.2.6",
       "minCore": "0.1.0",
       "port": {
         "default": 8191,
@@ -72,7 +72,7 @@
       "id": "media",
       "name": "Pitayas Media",
       "description": "Filmy i seriale z Pitaya Streams, YouTube i linki — pobieranie na telefon",
-      "version": "0.1.4",
+      "version": "0.1.5",
       "minCore": "0.3.2",
       "port": {
         "default": 8193,

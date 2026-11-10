@@ -3,8 +3,8 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '4.3.11';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
-const CORE_LABEL = '0.6.2';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
+const CORE_VERSION = '4.3.14';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
+const CORE_LABEL = '0.6.5';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -54,7 +54,7 @@ document.body.insertAdjacentHTML('beforeend', `
   <section class="view" id="home" data-core-ui>
     <header class="head">
       <img src="icons/pitayas.png" alt="" class="head-logo">
-      <div class="head-title"><div class="kicker">PITAYAS</div><h1>Twoje <span>aplikacje</span></h1></div>
+      <div class="head-title"><h1><span>Pitayas</span></h1></div>
       <button class="bar-btn" id="setBtn" title="Ustawienia"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
     </header>
 
@@ -62,7 +62,7 @@ document.body.insertAdjacentHTML('beforeend', `
 
     <button class="pc" id="pcBtn">
       <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
-      <div class="pc-text"><small>Komputer</small><b id="pcName">Dodaj komputer</b></div>
+      <div class="pc-text"><small>Komputer</small><div class="pc-line"><span class="dot" id="pcDot"></span><b id="pcName">Dodaj komputer</b></div></div>
       <svg viewBox="0 0 24 24" class="pc-chev"><path d="M9 6l6 6-6 6"/></svg>
     </button>
 
@@ -187,6 +187,8 @@ async function refreshStatus() {
         const dot = $(`dot-${id}`);
         if (dot) dot.className = `dot ${online[id] ? 'on' : 'off'}`;
     });
+    // Kropka przy komputerze: zielona, gdy odpowiada choć jedna aplikacja, czerwona, gdy żadna
+    if ($('pcDot')) $('pcDot').className = `dot ${ids.some((id) => online[id]) ? 'on' : ids.length ? 'off' : ''}`;
     const off = ids.filter((id) => !online[id] && needsPc(installed[id])).map((id) => installed[id].name);
     $('homeHint').textContent = off.length
         ? `Nie widzę: ${off.join(', ')} na ${pc.host}. Uruchom na komputerze i sprawdź, czy telefon jest w tej samej sieci.`
@@ -200,7 +202,6 @@ function renderTiles() {
         <button class="tile${isSoon(m.id) ? ' locked soon' : hasAccess(m.id) ? '' : ' locked'}" data-open="${esc(m.id)}">
           <img src="${esc((m.base || '') + 'icon.png')}" alt="">
           <div class="tile-text"><b>${esc(m.name)}</b><small>${esc(m.description)}</small></div>
-          <span class="dot ${online[m.id] === true ? 'on' : online[m.id] === false ? 'off' : ''}" id="dot-${esc(m.id)}"></span>
         </button>`).join('') + `
         <button class="tile add" data-modules>
           <div class="tile-plus"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>
@@ -1106,9 +1107,18 @@ function renderModules() {
         renderBanner();
     }));
     $('sheetBody').querySelectorAll('[data-remove]').forEach((b) => (b.onclick = async () => {
+        // Bez okna confirm() (w nowej aplikacji bywa zablokowane i zawsze odpowiada „nie”): drugie dotknięcie potwierdza
         const m = installed[b.dataset.remove];
-        if (!confirm(`Usunąć moduł ${m.name}?`)) return;
+        if (!b.classList.contains('arm')) {
+            b.classList.add('arm');
+            b.textContent = 'Usunąć?';
+            clearTimeout(b._arm);
+            b._arm = setTimeout(() => renderModules(), 3500);
+            return;
+        }
+        clearTimeout(b._arm);
         await removeModule(m.id);
+        toast(`Usunięto ${m.name}`);
         renderModules();
     }));
 }

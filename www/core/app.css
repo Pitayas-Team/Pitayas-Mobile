@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 /* ═══════ PITAYAS MOBILE (RDZEŃ) ═══════
    Matowe, płaskie powierzchnie. Prawdziwe szkło (Liquid Glass) stawia tylko iOS 26 — natywnie,
    na kilku przyciskach, które się nie przesuwają (pasek u góry, nagłówek okna). Bez udawanego szkła w CSS. */
@@ -342,13 +342,13 @@ html.ui-tv :focus-visible { outline-width: 4px !important; }
 
 /* ═══════ STYL PITAYAS (jak strona rakunek.com) ═══════
    Ciepłe ciemne tło, karty 28px, serif w tytułach, pigułki, płaski róż z logo. Bez poświat i gradientów. */
-:root { --m-serif: 'Instrument Serif', Georgia, serif; --m-accent-soft: rgba(255,79,166,.14); }
+:root { --m-serif: 'Inter', -apple-system, system-ui, 'Segoe UI', Roboto, sans-serif; --m-accent-soft: rgba(255,79,166,.14); }
 * { font-family: 'Inter', -apple-system, system-ui, 'Segoe UI', Roboto, sans-serif; }
-h1, .bar-title, .sheet-head #sheetTitle, .login-hero h2, .acc-hero b, .critical-card h2 { font-family: var(--m-serif); font-weight: 400; letter-spacing: -.01em; }
-h1 { font-size: 34px; line-height: 1; }
+h1, .bar-title, .sheet-head #sheetTitle, .login-hero h2, .acc-hero b, .critical-card h2 { font-family: var(--m-serif); font-weight: 700; letter-spacing: -.02em; }
+h1 { font-size: 30px; line-height: 1.1; }
 h1 span { color: var(--m-accent); }
-.bar-title { font-size: 26px; }
-.sheet-head #sheetTitle { font-size: 38px; line-height: 1; font-weight: 400; }
+.bar-title { font-size: 19px; }
+.sheet-head #sheetTitle { font-size: 30px; line-height: 1.1; font-weight: 700; }
 .kicker { color: var(--m-accent); font-weight: 600; letter-spacing: .14em; }
 .head-logo { border-radius: 0; width: 46px; height: 46px; }
 .bar-btn, .sheet-head .bar-btn { border-radius: 50%; border: 1px solid var(--m-line); background: var(--m-panel); }
@@ -358,7 +358,7 @@ h1 span { color: var(--m-accent); }
 .pc > svg:first-child { display: none; }
 .pc-text small { font-weight: 500; letter-spacing: .12em; color: rgba(244,242,238,.55); }
 .pc-line { display: flex; align-items: center; gap: 10px; margin-top: 3px; }
-.pc-text .pc-line b { font-family: var(--m-serif); font-weight: 400; font-size: 30px; line-height: 1; color: #fff; }
+.pc-text .pc-line b { font-family: var(--m-serif); font-weight: 700; font-size: 24px; line-height: 1.1; color: #fff; letter-spacing: -.01em; }
 .pc-line .dot { margin-top: 3px; }
 .pc-chev { color: rgba(244,242,238,.55); }
 
@@ -372,7 +372,7 @@ h1 span { color: var(--m-accent); }
 .set-row, .tile { padding-left: 18px; padding-right: 18px; }
 .set-ic { border-radius: 50% !important; background: var(--m-accent-soft) !important; }
 .set-ic svg { stroke: var(--m-accent) !important; }
-.set-av, .set-av.big { font-family: var(--m-serif); font-weight: 400; }
+.set-av, .set-av.big { font-family: var(--m-serif); font-weight: 700; }
 .account-btn, .acc-main, .pc-item, .banner, .rm-item, .info-grid, .log { border-radius: 28px; }
 .banner { border-radius: 999px; background: var(--m-accent-soft); color: var(--m-accent); border: none; font-weight: 500; }
 .banner .chip { background: var(--m-accent); color: #fff; }
@@ -396,5 +396,13 @@ h1 span { color: var(--m-accent); }
 
 @media (min-width: 700px) {
   .tile { border-radius: 28px; }
-  h1 { font-size: 40px; }
+  h1 { font-size: 34px; }
 }
+
+/* Okno potwierdzenia (zamiast window.confirm) */
+.dlg { position: fixed; inset: 0; z-index: 90; background: rgba(0,0,0,.6); display: grid; place-items: center; padding: 24px; animation: fade .15s ease-out; }
+.dlg-card { width: 100%; max-width: 340px; background: var(--m-panel); border: 1px solid var(--m-line-strong); border-radius: 28px; padding: 22px 20px 18px; display: flex; flex-direction: column; gap: 18px; }
+.dlg-card p { font-size: 16px; line-height: 1.45; color: var(--m-text); }
+.dlg-btns { display: flex; gap: 10px; }
+.dlg-btns .btn { flex: 1; padding: 12px; }
+
