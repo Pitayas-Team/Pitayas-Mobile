@@ -154,6 +154,11 @@ pub fn find_browser(settings: &Settings) -> Option<BrowserInfo> {
     BROWSERS.iter().find_map(|(cmd, name, drm)| pitayas_core::util::which(cmd).map(|path| BrowserInfo { path, name: name.to_string(), drm: *drm }))
 }
 
+/// Czy jest przeglądarka z Widevine (Netflix, Disney+ itd.); bez niej film gra we własnym oknie aplikacji
+pub fn drm_ready(settings: &Settings) -> bool {
+    find_browser(settings).map(|b| b.drm).unwrap_or(false)
+}
+
 /// Opis dla ekranu startowego i GET /info
 pub fn browser_status(settings: &Settings) -> Value {
     match find_browser(settings) {

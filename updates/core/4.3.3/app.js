@@ -3,8 +3,8 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '4.2.9';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
-const CORE_LABEL = '0.5.0';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
+const CORE_VERSION = '4.3.3';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
+const CORE_LABEL = '0.5.4';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -113,6 +113,7 @@ function makeApi(id) {
         probe,
         close: () => showHome(),
         switcher: () => openSwitcher(),   // lista aplikacji — przejście do innego modułu
+        cloud: () => settings.cloudSync !== false,
         account: () => (account.token ? { user: account.user, token: account.token, server: accountServer() } : null),
         // Dostęp do aplikacji z panelu kont: { name, testersOnly, access } albo null, gdy aplikacji nie ma w panelu
         access: (appId) => (access[appId] ? { ...access[appId] } : null),
@@ -620,8 +621,25 @@ async function checkUpdates(manual) {
 // ═══════ KONTO PITAYAS ═══════
 // Logowanie loginem albo przez Discord na serwerze kont (admin.pitayas.eu). Serwer mówi, które moduły
 // są tylko dla testerów i czy to konto ma do nich dostęp. Bez logowania widać moduły dla wszystkich.
-const account = ls.get('pitayas-account', { token: '', user: null, server: '' });
-const saveAccount = () => ls.set('pitayas-account', account);
+// „Zapamiętaj logowanie”: na tym urządzeniu (token w pamięci aplikacji) albo tylko do zamknięcia aplikacji (token w pamięci sesji).
+// Hasła aplikacja nigdy nie zapisuje — przechowywany jest tylko token logowania, który można w każdej chwili unieważnić wylogowaniem.
+const account = (() => {
+    const a = ls.get('pitayas-account', { token: '', user: null, server: '' });
+    if (a.remember === false) {
+        let t = '';
+        try { t = sessionStorage.getItem('pitayas-session-token') || ''; } catch {}
+        a.token = t;
+        if (!t) a.user = null;
+    }
+    return a;
+})();
+let rememberPref = true;
+const saveAccount = () => {
+    if (account.remember === false) {
+        try { sessionStorage.setItem('pitayas-session-token', account.token || ''); } catch {}
+        ls.set('pitayas-account', { ...account, token: '', user: null });
+    } else ls.set('pitayas-account', account);
+};
 let access = ls.get('pitayas-access', {});    // { id: { testersOnly, access } } — ostatnia znana odpowiedź serwera
 const accountServer = () => {
     const s = (account.server || DEFAULT_ACCOUNTS).trim();
@@ -663,6 +681,7 @@ async function refreshAccess() {
 }
 
 function setLogin(d) {
+    account.remember = rememberPref;
     account.token = d.token;
     account.user = d.user;
     saveAccount();
@@ -687,6 +706,69 @@ async function logout() {
 
 const DISCORD_ICON = `<svg viewBox="0 0 24 24"><path d="M19.6 5.3A17 17 0 0 0 15.4 4l-.5 1.1a15.6 15.6 0 0 0-5.8 0L8.6 4a17 17 0 0 0-4.2 1.3C1.7 9.3 1 13.2 1.3 17a17 17 0 0 0 5.2 2.6l1.1-1.8-1.8-.9.4-.3a12 12 0 0 0 11.6 0l.4.3-1.8.9 1.1 1.8a17 17 0 0 0 5.2-2.6c.4-4.4-.7-8.3-3.1-11.7zM8.5 14.7c-1 0-1.9-1-1.9-2.1s.8-2.1 1.9-2.1 1.9 1 1.9 2.1-.8 2.1-1.9 2.1zm7 0c-1 0-1.9-1-1.9-2.1s.8-2.1 1.9-2.1 1.9 1 1.9 2.1-.8 2.1-1.9 2.1z"/></svg>`;
 const BROWSER_NAME = (window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'ios') ? 'Safari' : 'przeglądarce';
+const PRIVACY = `
+  <p><b>Co przetwarzamy</b><br>Login, imię lub pseudonim (opcjonalnie), adres e-mail i hasło. Jeśli włączysz synchronizację w chmurze: bibliotekę Watch („do obejrzenia”, historię) i listę połączonych serwisów.</p>
+  <p><b>Po co</b><br>Wyłącznie do działania konta: logowania, wysłania kodu potwierdzającego i synchronizacji między Twoimi telefonami. Nie sprzedajemy ich, nie przekazujemy nikomu, nie używamy do reklam ani profilowania.</p>
+  <p><b>Jak chronimy</b><br>Połączenie jest szyfrowane (HTTPS). Hasło zapisujemy wyłącznie jako nieodwracalny skrót — nawet administrator go nie odczyta. Dane synchronizacji są na serwerze zaszyfrowane (AES-256-GCM); klucz leży na serwerze Pitayas, więc to nie jest szyfrowanie „od końca do końca”.</p>
+  <p><b>Hasła do Netflixa i innych serwisów</b><br>Nigdy do nas nie trafiają — logujesz się bezpośrednio na stronie serwisu, a my zapamiętujemy tylko, że konto jest połączone.</p>
+  <p><b>E-mail</b><br>Używamy go tylko do kodów potwierdzających i ważnych wiadomości o koncie.</p>
+  <p><b>Twoje dane</b><br>Synchronizację w chmurze wyłączysz w Koncie, a swoje dane z serwera możesz usunąć tamże. O usunięcie całego konta poproś administratora Pitayas.</p>`;
+function openPrivacy(back) { openSheet('Prywatność i dane', `<div class="privacy-text">${PRIVACY}</div>`, back || openSettings); }
+
+function openRegister() {
+    openSheet('Nowe konto', `
+        <div class="login-hero"><img src="icons/pitayas.png" alt=""><h2>Utwórz konto <span>Pitayas</span></h2>
+          <p>Jedno konto na wszystkich telefonach: synchronizacja biblioteki Watch, powiadomienia i dostęp do modułów.</p></div>
+        <form class="pc-form login-form" id="rgForm">
+          <div class="field"><input id="rgName" placeholder="Imię lub pseudonim (opcjonalnie)" autocomplete="nickname"></div>
+          <div class="field"><input id="rgEmail" type="email" placeholder="Adres e-mail (wyślemy kod)" autocapitalize="off" autocomplete="email" required></div>
+          <div class="field"><input id="rgLogin" placeholder="Login (2–40 znaków)" autocapitalize="off" autocomplete="username" required></div>
+          <div class="field"><input id="rgPass" type="password" placeholder="Hasło (min. 8 znaków)" autocomplete="new-password" minlength="8" required></div>
+          <div class="field"><input id="rgPass2" type="password" placeholder="Powtórz hasło" autocomplete="new-password" required></div>
+          <details class="privacy-box"><summary>Co przetwarzamy i jak chronimy dane</summary><div class="privacy-text">${PRIVACY}</div></details>
+          <label class="check-row"><input type="checkbox" id="rgOk" required> <span>Rozumiem, jak Pitayas przetwarza moje dane, i zgadzam się na to.</span></label>
+          <label class="check-row"><input type="checkbox" id="rgRemember" checked> <span>Zapamiętaj logowanie na tym urządzeniu</span></label>
+          <button type="submit" class="btn">Utwórz konto</button>
+        </form>`, openLogin);
+    $('rgForm').onsubmit = async (e) => {
+        e.preventDefault();
+        if ($('rgPass').value !== $('rgPass2').value) return toast('Hasła nie są takie same', 'err');
+        rememberPref = $('rgRemember').checked;
+        const btn = $('rgForm').querySelector('.btn');
+        btn.disabled = true;
+        try {
+            const r = await accountFetch('api/register', { login: $('rgLogin').value.trim(), name: $('rgName').value.trim(), email: $('rgEmail').value.trim(), password: $('rgPass').value });
+            openConfirm(r.login, r.email);
+        } catch (err) { toast(errText(err), 'err'); btn.disabled = false; }
+    };
+}
+
+// Kod z e-maila: 6 cyfr; po poprawnym kodzie konto jest aktywne i od razu zalogowane
+function openConfirm(login, email) {
+    openSheet('Potwierdź e-mail', `
+        <div class="login-hero"><img src="icons/pitayas.png" alt=""><h2>Wpisz <span>kod</span></h2>
+          <p>Wysłaliśmy 6-cyfrowy kod na adres ${esc(email || 'podany w rejestracji')}. Kod działa 15 minut — zajrzyj też do spamu.</p></div>
+        <form class="pc-form login-form" id="cfForm">
+          <div class="field"><input id="cfCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="000000" autocomplete="one-time-code" style="text-align:center;letter-spacing:8px;font-size:22px" required></div>
+          <button type="submit" class="btn">Potwierdź</button>
+          <button type="button" class="btn ghost" id="cfResend">Wyślij kod ponownie</button>
+        </form>`, openLogin);
+    setTimeout(() => $('cfCode') && $('cfCode').focus(), 250);
+    $('cfForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const btn = $('cfForm').querySelector('.btn');
+        btn.disabled = true;
+        try {
+            setLogin(await accountFetch('api/register/confirm', { login, code: $('cfCode').value.trim() }));
+            toast('Konto potwierdzone — jesteś zalogowany');
+            openSettings();
+        } catch (err) { toast(errText(err), 'err'); btn.disabled = false; }
+    };
+    $('cfResend').onclick = async () => {
+        try { await accountFetch('api/register/resend', { login }); toast('Wysłano nowy kod'); } catch (err) { toast(errText(err), 'err'); }
+    };
+}
+
 function openLogin() {
     openSheet('', `
         <div class="login-hero">
@@ -699,19 +781,25 @@ function openLogin() {
         <form class="pc-form login-form" id="lgForm">
           <div class="field"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg><input id="lgLogin" placeholder="Login" autocapitalize="off" autocomplete="username" required></div>
           <div class="field"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><input id="lgPass" type="password" placeholder="Hasło" autocomplete="current-password" required></div>
+          <label class="check-row"><input type="checkbox" id="lgRemember" checked> <span>Zapamiętaj logowanie na tym urządzeniu</span></label>
           <button type="submit" class="btn">Zaloguj</button>
         </form>
-        <p class="hint login-foot">Nie masz konta? Poproś administratora Pitayas.</p>`, openSettings);
+        <button class="btn ghost" id="lgReg" type="button">Utwórz konto</button>`, openSettings);
+    $('lgReg').onclick = openRegister;
     $('lgDiscord').onclick = loginDiscord;
     setTimeout(() => $('lgLogin') && $('lgLogin').focus(), 250);
     $('lgForm').onsubmit = async (e) => {
         e.preventDefault();
         const btn = $('lgForm').querySelector('.btn');
+        rememberPref = $('lgRemember').checked;
         btn.disabled = true;
         try {
             setLogin(await accountFetch('api/login', { login: $('lgLogin').value.trim(), password: $('lgPass').value }));
             openSettings();
-        } catch (err) { toast(errText(err), 'err'); btn.disabled = false; }
+        } catch (err) {
+            if (/Potwierdź adres e-mail/.test(errText(err))) { toast(errText(err), 'err'); return openConfirm($('lgLogin').value.trim(), ''); }
+            toast(errText(err), 'err'); btn.disabled = false;
+        }
     };
 }
 
@@ -989,7 +1077,9 @@ const SET_ICON_PATHS = {"user":"<circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4
 
 // Tryb Pitayas Watch (tylko dla zalogowanych): aplikacja startuje od razu w module Watch.
 // Wyjście z modułu („Wstecz”) pokazuje zwykły ekran główny, więc do Ustawień zawsze da się wrócić.
-const watchModeOn = () => Boolean(settings.watchMode && account.token && account.user && installed.watch && hasAccess('watch'));
+// Komputer / telewizor (Fedora): aplikacja startuje jak Stremio — od razu w Watch, bez ekranu z kafelkami (wyłączysz w Ustawieniach)
+const IS_DESKTOP = Boolean(window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'linux');
+const watchModeOn = () => (IS_DESKTOP && settings.watchMode !== false && installed.watch && hasAccess('watch')) || Boolean(settings.watchMode && account.token && account.user && installed.watch && hasAccess('watch'));
 async function setWatchMode(on) {
     settings.watchMode = on;
     ls.set('pitayas-settings', settings);
@@ -1039,7 +1129,7 @@ function openSettings() {
           ${setRow(setIcon('box', '#a77bff'), 'Moduły', esc(String(Object.keys(installed).length)), { id: 'sMods', sub: 'Pobierz, aktualizuj i usuwaj' })}
           ${setRow(setIcon('bell', '#ff9f45'), 'Powiadomienia', unread ? `<span class="set-badge">${unread}</span>` : '', { id: 'sNotifs' })}
           ${setRow(setIcon('refresh', '#ff4fa6'), 'Co dalej', null, { id: 'sRoad', sub: 'Plany rozwoju Pitayas' })}
-          ${u ? setRow(setIcon('phone', '#ff4fa6'), 'Tryb Pitayas Watch', null, { toggle: Boolean(settings.watchMode), toggleId: 'sWatch', sub: settings.watchMode ? 'Włączony — wyłącz, żeby wrócić do zwykłego ekranu z modułami' : 'Cała aplikacja staje się aplikacją do oglądania; inne moduły są pod przyciskiem „Aplikacje”' }) : ''}
+          ${u || IS_DESKTOP ? setRow(setIcon('phone', '#ff4fa6'), 'Tryb Pitayas Watch', null, { toggle: IS_DESKTOP ? settings.watchMode !== false : Boolean(settings.watchMode), toggleId: 'sWatch', sub: settings.watchMode ? 'Włączony — wyłącz, żeby wrócić do zwykłego ekranu z modułami' : 'Cała aplikacja staje się aplikacją do oglądania; inne moduły są pod przyciskiem „Aplikacje”' }) : ''}
         </div>
 
         <div class="set-label">Aktualizacje</div>
@@ -1143,7 +1233,20 @@ function openAccount() {
         <div class="set-group">${apps.length ? apps.map(([id, a]) => setRow(setIcon('box', a.access ? '#7ddc5a' : '#5b6170'), esc(a.name || id), a.access ? '<span class="ok">✓ masz dostęp</span>' : '<span class="no">brak</span>')).join('') : setRow('', 'Wszystkie moduły są dla wszystkich', '')}</div>
         <p class="hint">Dostęp nadaje administrator w panelu Pitayas.</p>
         <div class="set-group">${setRow(setIcon('user', '#3a8ef0'), u.hasPassword === false ? 'Ustaw hasło' : 'Zmień hasło', null, { id: 'accPass' })}${u.admin ? setRow(setIcon('code', '#4cc38a'), 'Panel admina', null, { id: 'accAdmin' }) : ''}</div>
+        <div class="set-label">Dane i prywatność</div>
+        <div class="set-group">
+          ${setRow(setIcon('auto', '#3a8ef0'), 'Synchronizacja w chmurze', null, { toggle: settings.cloudSync !== false, toggleId: 'accCloud', sub: 'Biblioteka Watch i połączone serwisy w Twoim koncie, zaszyfrowane na serwerze. Wyłączone = dane zostają tylko w tym telefonie' })}
+          ${setRow(setIcon('user', '#7ddc5a'), 'Zapamiętane logowanie', account.remember === false ? 'do zamknięcia aplikacji' : 'na tym urządzeniu', {})}
+          ${setRow(setIcon('code', '#5b6170'), 'Co przetwarzamy', null, { id: 'accPriv', sub: 'Jakie dane zbieramy, po co i jak je chronimy' })}
+          ${setRow(setIcon('dl', '#ff6b6b'), 'Usuń dane z chmury', null, { id: 'accWipe', sub: 'Kasuje z serwera Twoją bibliotekę Watch (w telefonie zostaje)' })}
+        </div>
         <button class="btn danger-btn" id="accOut">Wyloguj</button>`, openSettings);
+    $('accCloud').onchange = () => { settings.cloudSync = $('accCloud').checked; ls.set('pitayas-settings', settings); toast(settings.cloudSync ? 'Synchronizacja włączona' : 'Synchronizacja wyłączona — dane zostają w telefonie'); };
+    $('accPriv').onclick = () => openPrivacy(openAccount);
+    $('accWipe').onclick = async () => {
+        if (!confirm('Usunąć z serwera Twoją bibliotekę Watch? W telefonie zostanie.')) return;
+        try { const r = await fetch(`${accountServer()}api/sync/watch`, { method: 'DELETE', headers: { Authorization: `Bearer ${account.token}` } }); toast(r.ok ? 'Usunięto dane z chmury' : 'Nie udało się usunąć', r.ok ? '' : 'err'); } catch { toast('Brak połączenia z serwerem', 'err'); }
+    };
     $('accOut').onclick = () => { if (confirm('Wylogować z konta Pitayas?')) logout(); };
     $('accPass').onclick = () => openPassword(openAccount);
     if ($('accAdmin')) $('accAdmin').onclick = openAdmin;
@@ -1170,7 +1273,7 @@ function openPassword(backTo = openAccount) {
         try {
             await accountFetch('api/password', { oldPassword: noPass ? '' : $('pwOld').value, newPassword: nw });
             account.user = { ...u, hasPassword: true };
-            ls.set('pitayas-account', account);
+            saveAccount();
             toast('Hasło zmienione');
             backTo();
         } catch (err) { toast(err.message || String(err), 'err'); $('pwSave').disabled = false; }
@@ -1500,6 +1603,70 @@ if (Plugins.App) {
 // ═══════ START ═══════
 renderHome();
 window.PITAYAS_CORE_OK = true;   // powłoka wie, że rdzeń się uruchomił
+// Komputer bez modułu Watch: pobieramy go sami (czekamy, aż kanał aktualizacji się wczyta)
+if (IS_DESKTOP && settings.watchMode !== false) {
+    let tries = 0;
+    const iv = setInterval(async () => {
+        if (installed.watch || ++tries > 40) return clearInterval(iv);
+        const entry = available().find((m) => m.id === 'watch');
+        if (!entry) return;
+        clearInterval(iv);
+        try { await installModule(entry); showHome(true); openModule('watch'); } catch (err) { toast(errText(err), 'err'); }
+    }, 1500);
+}
+// Telewizor sparowany z telefonem dostaje konto Pitayas z telefonu
+window.addEventListener('pitayas-tv-account', (e) => {
+    const d = e.detail || {};
+    if (!d.token || !d.user || !/^https:\/\//.test(d.server || '')) return;
+    if (account.token === d.token) return;
+    account.server = d.server;
+    rememberPref = true;
+    setLogin({ token: d.token, user: d.user });
+});
+// Pilot / klawiatura w aplikacji na komputerze: strzałki przesuwają zaznaczenie, Enter wybiera, Esc / Backspace wraca
+if (IS_DESKTOP) {
+    const SEL = 'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"]), .tile, .set-row.tap';
+    const vis = (el) => { const r = el.getBoundingClientRect(); return r.width > 4 && r.height > 4 && el.offsetParent !== null && !el.disabled; };
+    const scope = () => {
+        if (!$('sheet').hidden) return $('sheet');
+        return activeView ? activeView.view : $('home');
+    };
+    const centre = (r) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+    function moveFocus(dir) {
+        const items = [...scope().querySelectorAll(SEL)].filter(vis);
+        if (!items.length) return;
+        const cur = items.includes(document.activeElement) ? document.activeElement : null;
+        if (!cur) { items[0].focus(); return; }
+        const c = centre(cur.getBoundingClientRect());
+        let best = null, bestScore = Infinity;
+        for (const el of items) {
+            if (el === cur) continue;
+            const p = centre(el.getBoundingClientRect());
+            const dx = p.x - c.x, dy = p.y - c.y;
+            const along = dir === 'ArrowRight' ? dx : dir === 'ArrowLeft' ? -dx : dir === 'ArrowDown' ? dy : -dy;
+            if (along <= 4) continue;
+            const across = Math.abs(dir === 'ArrowRight' || dir === 'ArrowLeft' ? dy : dx);
+            const score = along + across * 2.2;
+            if (score < bestScore) { bestScore = score; best = el; }
+        }
+        if (best) { best.focus(); best.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+    }
+    document.addEventListener('keydown', (e) => {
+        const t = e.target, typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') && !['checkbox', 'button'].includes(t.type);
+        if (e.key.startsWith('Arrow') && !typing) { e.preventDefault(); moveFocus(e.key); }
+        else if (e.key === 'Enter' && t && t !== document.body && !typing && t.tagName !== 'BUTTON' && t.click) { e.preventDefault(); t.click(); }
+        else if ((e.key === 'Escape' || (e.key === 'Backspace' && !typing) || e.key === 'BrowserBack') && !e.defaultPrevented) {
+            e.preventDefault();
+            if (!$('sheet').hidden) return goBack();
+            const back = activeView && activeView.view.querySelector('[data-back2], .wt-back, [data-back]');
+            if (back) back.click();
+        }
+    });
+    const st = document.createElement('style');
+    st.textContent = ':focus-visible { outline: 3px solid #ff4fa6 !important; outline-offset: 2px; border-radius: 10px; } button, .tile, .wt-card { cursor: pointer; }';
+    document.head.appendChild(st);
+    setTimeout(() => { const f = scope().querySelector(SEL); if (f && document.activeElement === document.body) f.focus(); }, 1200);
+}
 Promise.all(Object.values(installed).map(injectModule)).then(() => { renderTiles(); if (watchModeOn() && !activeView) openModule('watch'); });
 setInterval(() => { if (!activeView && document.visibilityState === 'visible') refreshStatus(); }, 5000);
 (Plugins.App && NATIVE ? Plugins.App.getInfo().then((i) => { shellVersion = i.version; }).catch(() => {}) : Promise.resolve())

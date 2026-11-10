@@ -59,6 +59,18 @@ struct Inner {
     port: Mutex<Option<u16>>,
     error: Mutex<String>,
     stop: Mutex<Option<Arc<Notify>>>,
+    /// konto Pitayas przysłane przez sparowany telefon (okno telewizora loguje się na nie)
+    account: Mutex<Option<Value>>,
+    /// odtwarzanie we własnym oknie aplikacji, gdy nie ma przeglądarki z Widevine: otwórz / polecenie
+    fallback: Mutex<Option<Fallback>>,
+}
+
+pub type OpenFn = Arc<dyn Fn(String, String) -> Result<(), String> + Send + Sync>;
+pub type CmdFn = Arc<dyn Fn(&str, &Value) -> Result<(), String> + Send + Sync>;
+#[derive(Clone)]
+pub struct Fallback {
+    pub open: OpenFn,
+    pub cmd: CmdFn,
 }
 
 #[derive(Clone)]
@@ -105,7 +117,7 @@ impl Server {
         let s = Server(Arc::new(Inner {
             settings, log, player, name: host_name(), version: version.to_string(),
             clients: Mutex::default(), next_client: AtomicU64::new(1), fails: Mutex::default(), changed,
-            port: Mutex::default(), error: Mutex::default(), stop: Mutex::default(),
+            port: Mutex::default(), error: Mutex::default(), stop: Mutex::default(), account: Mutex::default(), fallback: Mutex::default(),
         }));
         s.pin();
         // Zmiany stanu odtwarzacza idą do wszystkich sparowanych telefonów
@@ -128,6 +140,14 @@ impl Server {
     /// Powiadomienia o zmianach widocznych na ekranie telewizora
     pub fn changes(&self) -> watch::Receiver<u64> {
         self.0.changed.subscribe()
+    }
+
+    pub fn set_fallback(&self, f: Fallback) {
+        *self.0.fallback.lock().unwrap() = Some(f);
+    }
+    /// Konto Pitayas z telefonu (jednorazowo) — okno telewizora loguje się na nie
+    pub fn take_account(&self) -> Option<Value> {
+        self.0.account.lock().unwrap().take()
     }
 
     pub fn pin(&self) -> String {
@@ -288,8 +308,12 @@ impl Server {
             "open" => {
                 let any_host = self.0.settings.get("anyHost") == Value::Bool(true);
                 let title: String = msg["title"].as_str().unwrap_or("").chars().filter(|c| !c.is_control()).take(200).collect();
+                let fallback = self.0.fallback.lock().unwrap().clone().filter(|_| !crate::player::drm_ready(&self.0.settings));
                 let r = match check_url(msg["url"].as_str().unwrap_or(""), any_host) {
-                    Ok(c) => self.0.player.open(c.url, title).await,
+                    Ok(c) => match fallback {
+                        Some(f) => (f.open)(c.url, title),
+                        None => self.0.player.open(c.url, title).await,
+                    },
                     Err(e) => Err(e),
                 };
                 Some(ack(r))
@@ -299,7 +323,21 @@ impl Server {
                 if !ACTIONS.contains(&action) {
                     return Some(ack(Err("Nieznane polecenie".into())));
                 }
-                Some(ack(self.0.player.command(action, msg["value"].clone()).await))
+                let fallback = self.0.fallback.lock().unwrap().clone().filter(|_| !crate::player::drm_ready(&self.0.settings));
+                match fallback {
+                    Some(f) => Some(ack((f.cmd)(action, &msg["value"]))),
+                    None => Some(ack(self.0.player.command(action, msg["value"].clone()).await)),
+                }
+            }
+            "account" => {
+                // Telefon przekazuje konto Pitayas: adres serwera kont, token własnej sesji i dane użytkownika
+                let (server, token) = (msg["server"].as_str().unwrap_or(""), msg["token"].as_str().unwrap_or(""));
+                if !server.starts_with("https://") || server.len() > 200 || token.is_empty() || token.len() > 200 || !msg["user"].is_object() {
+                    return Some(ack(Err("Niepoprawne dane konta".into())));
+                }
+                *self.0.account.lock().unwrap() = Some(json!({ "server": server, "token": token, "user": msg["user"] }));
+                self.touch();
+                Some(ack(Ok(())))
             }
             _ => None,
         }

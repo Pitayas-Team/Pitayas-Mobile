@@ -316,3 +316,11 @@ input:focus, select:focus { outline: none; border-color: var(--m-accent); }
 .rm-body p { margin-top: 4px; font-size: 14px; line-height: 1.45; color: var(--m-text-2); }
 .rm-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .rm-tags span { font-size: 12px; font-weight: 600; color: var(--m-text-2); background: var(--m-item); border-radius: 999px; padding: 3px 10px; }
+
+.privacy-box { margin: 4px 0 10px; font-size: 13px; color: var(--m-dim, #b9b5c6); }
+.privacy-box summary { cursor: pointer; color: #ff4fa6; padding: 6px 0; }
+.privacy-text { font-size: 13px; line-height: 1.55; color: #b9b5c6; padding: 4px 2px; }
+.privacy-text p { margin: 0 0 10px; }
+.privacy-text b { color: #fff; }
+.check-row { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; line-height: 1.4; color: #b9b5c6; margin: 8px 0; }
+.check-row input { margin-top: 2px; flex: none; accent-color: #ff4fa6; }

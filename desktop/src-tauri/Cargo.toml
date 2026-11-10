@@ -1,6 +1,6 @@
 [package]
 name = "pitayas-desktop"
-version = "1.0.3-beta"
+version = "1.0.4"
 edition = "2021"
 description = "Pitayas na komputer — jak aplikacja na telefonie, z trybem telewizora"
 license = "MIT"

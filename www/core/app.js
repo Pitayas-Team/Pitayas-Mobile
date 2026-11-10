@@ -3,8 +3,8 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '4.3.2';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
-const CORE_LABEL = '0.5.3';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
+const CORE_VERSION = '4.3.3';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
+const CORE_LABEL = '0.5.4';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -1077,7 +1077,9 @@ const SET_ICON_PATHS = {"user":"<circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4
 
 // Tryb Pitayas Watch (tylko dla zalogowanych): aplikacja startuje od razu w module Watch.
 // Wyjście z modułu („Wstecz”) pokazuje zwykły ekran główny, więc do Ustawień zawsze da się wrócić.
-const watchModeOn = () => Boolean(settings.watchMode && account.token && account.user && installed.watch && hasAccess('watch'));
+// Komputer / telewizor (Fedora): aplikacja startuje jak Stremio — od razu w Watch, bez ekranu z kafelkami (wyłączysz w Ustawieniach)
+const IS_DESKTOP = Boolean(window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'linux');
+const watchModeOn = () => (IS_DESKTOP && settings.watchMode !== false && installed.watch && hasAccess('watch')) || Boolean(settings.watchMode && account.token && account.user && installed.watch && hasAccess('watch'));
 async function setWatchMode(on) {
     settings.watchMode = on;
     ls.set('pitayas-settings', settings);
@@ -1127,7 +1129,7 @@ function openSettings() {
           ${setRow(setIcon('box', '#a77bff'), 'Moduły', esc(String(Object.keys(installed).length)), { id: 'sMods', sub: 'Pobierz, aktualizuj i usuwaj' })}
           ${setRow(setIcon('bell', '#ff9f45'), 'Powiadomienia', unread ? `<span class="set-badge">${unread}</span>` : '', { id: 'sNotifs' })}
           ${setRow(setIcon('refresh', '#ff4fa6'), 'Co dalej', null, { id: 'sRoad', sub: 'Plany rozwoju Pitayas' })}
-          ${u ? setRow(setIcon('phone', '#ff4fa6'), 'Tryb Pitayas Watch', null, { toggle: Boolean(settings.watchMode), toggleId: 'sWatch', sub: settings.watchMode ? 'Włączony — wyłącz, żeby wrócić do zwykłego ekranu z modułami' : 'Cała aplikacja staje się aplikacją do oglądania; inne moduły są pod przyciskiem „Aplikacje”' }) : ''}
+          ${u || IS_DESKTOP ? setRow(setIcon('phone', '#ff4fa6'), 'Tryb Pitayas Watch', null, { toggle: IS_DESKTOP ? settings.watchMode !== false : Boolean(settings.watchMode), toggleId: 'sWatch', sub: settings.watchMode ? 'Włączony — wyłącz, żeby wrócić do zwykłego ekranu z modułami' : 'Cała aplikacja staje się aplikacją do oglądania; inne moduły są pod przyciskiem „Aplikacje”' }) : ''}
         </div>
 
         <div class="set-label">Aktualizacje</div>
@@ -1601,6 +1603,70 @@ if (Plugins.App) {
 // ═══════ START ═══════
 renderHome();
 window.PITAYAS_CORE_OK = true;   // powłoka wie, że rdzeń się uruchomił
+// Komputer bez modułu Watch: pobieramy go sami (czekamy, aż kanał aktualizacji się wczyta)
+if (IS_DESKTOP && settings.watchMode !== false) {
+    let tries = 0;
+    const iv = setInterval(async () => {
+        if (installed.watch || ++tries > 40) return clearInterval(iv);
+        const entry = available().find((m) => m.id === 'watch');
+        if (!entry) return;
+        clearInterval(iv);
+        try { await installModule(entry); showHome(true); openModule('watch'); } catch (err) { toast(errText(err), 'err'); }
+    }, 1500);
+}
+// Telewizor sparowany z telefonem dostaje konto Pitayas z telefonu
+window.addEventListener('pitayas-tv-account', (e) => {
+    const d = e.detail || {};
+    if (!d.token || !d.user || !/^https:\/\//.test(d.server || '')) return;
+    if (account.token === d.token) return;
+    account.server = d.server;
+    rememberPref = true;
+    setLogin({ token: d.token, user: d.user });
+});
+// Pilot / klawiatura w aplikacji na komputerze: strzałki przesuwają zaznaczenie, Enter wybiera, Esc / Backspace wraca
+if (IS_DESKTOP) {
+    const SEL = 'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"]), .tile, .set-row.tap';
+    const vis = (el) => { const r = el.getBoundingClientRect(); return r.width > 4 && r.height > 4 && el.offsetParent !== null && !el.disabled; };
+    const scope = () => {
+        if (!$('sheet').hidden) return $('sheet');
+        return activeView ? activeView.view : $('home');
+    };
+    const centre = (r) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
+    function moveFocus(dir) {
+        const items = [...scope().querySelectorAll(SEL)].filter(vis);
+        if (!items.length) return;
+        const cur = items.includes(document.activeElement) ? document.activeElement : null;
+        if (!cur) { items[0].focus(); return; }
+        const c = centre(cur.getBoundingClientRect());
+        let best = null, bestScore = Infinity;
+        for (const el of items) {
+            if (el === cur) continue;
+            const p = centre(el.getBoundingClientRect());
+            const dx = p.x - c.x, dy = p.y - c.y;
+            const along = dir === 'ArrowRight' ? dx : dir === 'ArrowLeft' ? -dx : dir === 'ArrowDown' ? dy : -dy;
+            if (along <= 4) continue;
+            const across = Math.abs(dir === 'ArrowRight' || dir === 'ArrowLeft' ? dy : dx);
+            const score = along + across * 2.2;
+            if (score < bestScore) { bestScore = score; best = el; }
+        }
+        if (best) { best.focus(); best.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+    }
+    document.addEventListener('keydown', (e) => {
+        const t = e.target, typing = t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA') && !['checkbox', 'button'].includes(t.type);
+        if (e.key.startsWith('Arrow') && !typing) { e.preventDefault(); moveFocus(e.key); }
+        else if (e.key === 'Enter' && t && t !== document.body && !typing && t.tagName !== 'BUTTON' && t.click) { e.preventDefault(); t.click(); }
+        else if ((e.key === 'Escape' || (e.key === 'Backspace' && !typing) || e.key === 'BrowserBack') && !e.defaultPrevented) {
+            e.preventDefault();
+            if (!$('sheet').hidden) return goBack();
+            const back = activeView && activeView.view.querySelector('[data-back2], .wt-back, [data-back]');
+            if (back) back.click();
+        }
+    });
+    const st = document.createElement('style');
+    st.textContent = ':focus-visible { outline: 3px solid #ff4fa6 !important; outline-offset: 2px; border-radius: 10px; } button, .tile, .wt-card { cursor: pointer; }';
+    document.head.appendChild(st);
+    setTimeout(() => { const f = scope().querySelector(SEL); if (f && document.activeElement === document.body) f.focus(); }, 1200);
+}
 Promise.all(Object.values(installed).map(injectModule)).then(() => { renderTiles(); if (watchModeOn() && !activeView) openModule('watch'); });
 setInterval(() => { if (!activeView && document.visibilityState === 'visible') refreshStatus(); }, 5000);
 (Plugins.App && NATIVE ? Plugins.App.getInfo().then((i) => { shellVersion = i.version; }).catch(() => {}) : Promise.resolve())

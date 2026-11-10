@@ -219,6 +219,18 @@
         if (el) renderPage();
     }
 
+    // Telewizor dostaje własną sesję tego samego konta (wylogowanie na telewizorze nie wylogowuje telefonu); bez nowego endpointu — ta sama sesja
+    async function shareAccount(ws) {
+        const acc = api && api.account();
+        if (!acc) return;
+        let token = acc.token;
+        try {
+            const r = await fetch(`${acc.server.replace(/\/*$/, '/')}api/session/new`, { method: 'POST', headers: { Authorization: `Bearer ${acc.token}` } });
+            if (r.ok) token = (await r.json()).token || token;
+        } catch {}
+        try { ws.send(JSON.stringify({ t: 'account', id: 0, server: acc.server.replace(/\/*$/, '/'), token, user: acc.user })); } catch {}
+    }
+
     // ───── Telewizor ─────
     const tv = { ws: null, online: false, connecting: false, state: null, error: '', needPin: false, retry: 0, seq: 0, waiting: new Map() };
     function tvClose() {
@@ -247,6 +259,7 @@
                 t.name = m.tv || t.name; save();
                 Object.assign(tv, { online: true, connecting: false, needPin: false, error: '', state: m.state });
                 renderPilot();
+                if (pin) shareAccount(ws);   // pierwsze parowanie: telewizor loguje się na to samo konto Pitayas
             } else if (m.t === 'state') {
                 tv.state = m.state;
                 if (store.session && store.session.where === 'tv') {
@@ -361,6 +374,7 @@
             <div class="wt-svc"><span><b>Adres</b><small>${esc((s.addresses || []).join(', ') || 'brak sieci')} · port ${s.port}${s.error ? ` · ${esc(s.error)}` : ''}</small></span></div>
             <div class="wt-svc"><span><b style="font-size:22px;letter-spacing:4px">${pin}</b><small>kod parowania</small></span><button class="chip ghost" data-pcpin>Nowy kod</button></div></div>
           <div class="wt-panel"><b class="wt-h">Odtwarzanie</b><p class="hint">${esc((s.drm && s.drm.text) || '')}</p>
+            ${s.drmReady ? '' : '<p class="hint">Bez Chrome filmy otwierają się w oknie aplikacji (działają serwisy bez DRM). Netflix, Disney+, Prime Video i HBO Max wymagają Google Chrome.</p><div class="wt-svc"><span><b>Google Chrome</b><small>pobierze go od Google i zainstaluje (poprosi o hasło)</small></span><button class="chip" data-pcchrome>Zainstaluj</button></div>'}
             ${now ? `<div class="wt-svc"><span><b>${esc(s.player.title || 'Film')}</b><small>trwa odtwarzanie</small></span><button class="chip" data-pcstop>Zamknij</button></div>` : '<p class="hint">Wybierz tytuł w „Odkrywaj” i „W telefonie” — na komputerze otworzy się w przeglądarce z Widevine.</p>'}
             <div class="wt-svc"><span><b>Pełny ekran okna</b><small>tryb telewizora</small></span><button class="chip ${s.fullscreen ? '' : 'ghost'}" data-pcfull>${s.fullscreen ? 'Włączony' : 'Włącz'}</button></div></div>
           <div class="wt-panel"><b class="wt-h">Sparowane telefony</b>
@@ -369,6 +383,7 @@
     function pcBind(on) {
         if (!window.PitayasDesktop) return;
         const D = window.PitayasDesktop, set = (p) => p.then((s) => { pcState = s; renderPage(); }).catch((e) => api.toast(errText(e), 'err'));
+        on('[data-pcchrome]', (b) => { b.disabled = true; b.textContent = 'Instaluję…'; set(D.installChrome()); });
         on('[data-pcpin]', () => set(D.newPin()));
         on('[data-pcstop]', () => set(D.stop()));
         on('[data-pcfull]', () => set(D.fullscreen(!pcState.fullscreen)));

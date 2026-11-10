@@ -35,7 +35,12 @@
   };
 
   var openUrl = function (o) { return invoke('plugin:opener|open_url', { url: (o && o.url) || o }); };
-  var InAppBrowser = { openInExternalBrowser: openUrl, openInSystemBrowser: openUrl, openInWebView: openUrl, close: function () { return Promise.resolve(); } };
+  // Okno w aplikacji (iPhone: SFSafariViewController, Android: karta w aplikacji) — logowanie nie wyrzuca do przeglądarki ani aplikacji serwisu
+  var openInApp = function (o) {
+    var url = (o && o.url) || o;
+    return invoke('plugin:opener|open_url', { url: url, with: 'inAppBrowser' }).catch(function () { return openUrl(o); });
+  };
+  var InAppBrowser = { openInExternalBrowser: openUrl, openInSystemBrowser: openUrl, openInWebView: openInApp, close: function () { return Promise.resolve(); } };
 
   var App = {
     getInfo: function () { return invoke('app_info'); },
@@ -108,6 +113,7 @@
         return Promise.resolve(handle(function () { if (off) off(); }));
       },
     };
+    T.event.listen('tv:account', function (e) { window.dispatchEvent(new CustomEvent('pitayas-tv-account', { detail: e.payload })); });
     // Tryb telewizora (ten komputer jako telewizor dla telefonów): używa go moduł Watch
     window.PitayasDesktop = {
       state: function () { return invoke('tv_state'); },
@@ -117,6 +123,7 @@
       fullscreen: function (on) { return invoke('tv_fullscreen', { on: Boolean(on) }); },
       stop: function () { return invoke('tv_stop'); },
       cmd: function (action, value) { return invoke('tv_cmd', { action: action, value: value === undefined ? null : value }); },
+      installChrome: function () { return invoke('tv_install_chrome'); },
       onState: function (cb) { T.event.listen('tv:state', function (e) { cb(e.payload); }); },
     };
   }

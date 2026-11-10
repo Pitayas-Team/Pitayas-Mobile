@@ -78,7 +78,7 @@
     let syncing = false;
     async function syncNow() {
         const acc = api && api.account();
-        if (!acc || syncing) return;
+        if (!acc || syncing || (api.cloud && !api.cloud())) return;   // chmura wyłączona w Koncie — dane tylko w telefonie
         syncing = true;
         try {
             const base = `${acc.server.replace(/\/*$/, '/')}api/sync/watch`;
@@ -196,8 +196,9 @@
         const P = nativePlayer();
         if (P) { hookPlayer(P); return P.open({ url, title, desktop: true }).catch((err) => api.toast(errText(err), 'err')); }
         // Starsza aplikacja bez wtyczki (iPhone): przeglądarka telefonu (ma Widevine)
+        // iPhone: okno w aplikacji (nie wyrzuca do Safari ani aplikacji serwisu)
         const iab = api.Plugins.InAppBrowser;
-        if (iab) iab.openInExternalBrowser({ url }).catch(() => window.open(url, '_blank'));
+        if (iab) (iab.openInWebView || iab.openInExternalBrowser).call(iab, { url }).catch(() => window.open(url, '_blank'));
         else window.open(url, '_blank');
     }
     function playOnPhone(item, svc, url) {
@@ -209,12 +210,25 @@
     function connectSvc(svc) {
         pendingConnect = svc.id;
         openInApp(LOGIN[svc.id] || svc.url(''), `Logowanie: ${svc.name}`);
+        if (!nativePlayer()) setTimeout(() => { if (el) renderPage(); }, 400);   // bez natywnego odtwarzacza (iPhone) pytanie „zalogowano?” pokazujemy na liście
     }
     function askConnected() {
         const svc = svcOf(pendingConnect);
         pendingConnect = null;
         if (svc && window.confirm(`Czy zalogowano się do ${svc.name}?`)) { if (!store.mine.includes(svc.id)) store.mine.push(svc.id); store.minePending = true; saveSync(); }
         if (el) renderPage();
+    }
+
+    // Telewizor dostaje własną sesję tego samego konta (wylogowanie na telewizorze nie wylogowuje telefonu); bez nowego endpointu — ta sama sesja
+    async function shareAccount(ws) {
+        const acc = api && api.account();
+        if (!acc) return;
+        let token = acc.token;
+        try {
+            const r = await fetch(`${acc.server.replace(/\/*$/, '/')}api/session/new`, { method: 'POST', headers: { Authorization: `Bearer ${acc.token}` } });
+            if (r.ok) token = (await r.json()).token || token;
+        } catch {}
+        try { ws.send(JSON.stringify({ t: 'account', id: 0, server: acc.server.replace(/\/*$/, '/'), token, user: acc.user })); } catch {}
     }
 
     // ───── Telewizor ─────
@@ -245,6 +259,7 @@
                 t.name = m.tv || t.name; save();
                 Object.assign(tv, { online: true, connecting: false, needPin: false, error: '', state: m.state });
                 renderPilot();
+                if (pin) shareAccount(ws);   // pierwsze parowanie: telewizor loguje się na to samo konto Pitayas
             } else if (m.t === 'state') {
                 tv.state = m.state;
                 if (store.session && store.session.where === 'tv') {
@@ -348,10 +363,40 @@
             ${d && !known.length ? servicesHtml(it) : ''}`;
     }
 
+    // ───── Ten komputer jako telewizor (aplikacja na Fedorze) ─────
+    let pcState = null, pcHooked = false;
+    const pcRefresh = () => window.PitayasDesktop.state().then((s) => { pcState = s; if (el && tab === 'thispc') renderPage(); }).catch(() => {});
+    function pcHtml() {
+        if (!pcState) { pcRefresh(); return '<div class="spinner"></div>'; }
+        const s = pcState, pin = s.pin ? `${s.pin.slice(0, 3)} ${s.pin.slice(3)}` : '······', now = s.player && s.player.open;
+        return `<div class="wt-panel"><b class="wt-h">Ten komputer jako telewizor</b>
+            <p class="hint">Uruchom na telefonie moduł Watch → Pilot → „Dodaj telewizor” i wpisz adres oraz kod poniżej. Telefon wyśle film tutaj i będzie pilotem. Telefon i komputer muszą być w tej samej sieci.</p>
+            <div class="wt-svc"><span><b>Adres</b><small>${esc((s.addresses || []).join(', ') || 'brak sieci')} · port ${s.port}${s.error ? ` · ${esc(s.error)}` : ''}</small></span></div>
+            <div class="wt-svc"><span><b style="font-size:22px;letter-spacing:4px">${pin}</b><small>kod parowania</small></span><button class="chip ghost" data-pcpin>Nowy kod</button></div></div>
+          <div class="wt-panel"><b class="wt-h">Odtwarzanie</b><p class="hint">${esc((s.drm && s.drm.text) || '')}</p>
+            ${s.drmReady ? '' : '<p class="hint">Bez Chrome filmy otwierają się w oknie aplikacji (działają serwisy bez DRM). Netflix, Disney+, Prime Video i HBO Max wymagają Google Chrome.</p><div class="wt-svc"><span><b>Google Chrome</b><small>pobierze go od Google i zainstaluje (poprosi o hasło)</small></span><button class="chip" data-pcchrome>Zainstaluj</button></div>'}
+            ${now ? `<div class="wt-svc"><span><b>${esc(s.player.title || 'Film')}</b><small>trwa odtwarzanie</small></span><button class="chip" data-pcstop>Zamknij</button></div>` : '<p class="hint">Wybierz tytuł w „Odkrywaj” i „W telefonie” — na komputerze otworzy się w przeglądarce z Widevine.</p>'}
+            <div class="wt-svc"><span><b>Pełny ekran okna</b><small>tryb telewizora</small></span><button class="chip ${s.fullscreen ? '' : 'ghost'}" data-pcfull>${s.fullscreen ? 'Włączony' : 'Włącz'}</button></div></div>
+          <div class="wt-panel"><b class="wt-h">Sparowane telefony</b>
+            ${(s.devices || []).length ? s.devices.map((d) => `<div class="wt-svc"><span><b>${esc(d.name || 'Telefon')}</b><small>${d.online ? 'połączony' : 'rozłączony'}</small></span><button class="chip ghost" data-pcforget="${esc(d.id)}">Zapomnij</button></div>`).join('') : '<p class="hint">Żaden telefon nie jest jeszcze sparowany.</p>'}</div>`;
+    }
+    function pcBind(on) {
+        if (!window.PitayasDesktop) return;
+        const D = window.PitayasDesktop, set = (p) => p.then((s) => { pcState = s; renderPage(); }).catch((e) => api.toast(errText(e), 'err'));
+        on('[data-pcchrome]', (b) => { b.disabled = true; b.textContent = 'Instaluję…'; set(D.installChrome()); });
+        on('[data-pcpin]', () => set(D.newPin()));
+        on('[data-pcstop]', () => set(D.stop()));
+        on('[data-pcfull]', () => set(D.fullscreen(!pcState.fullscreen)));
+        on('[data-pcforget]', (b) => set(D.forget(b.dataset.pcforget)));
+        if (!pcHooked) { pcHooked = true; D.onState((s) => { pcState = s; if (el && tab === 'thispc') renderPage(); }); }
+    }
+
     // ───── Start: kontynuuj oglądanie, połączone konta, do obejrzenia ─────
     let view = '';
     function accountsHtml() {
+        const pend = pendingConnect && svcOf(pendingConnect);
         return `<button class="wt-back" data-back2>‹ Wróć</button>
+            ${pend ? `<div class="wt-panel wt-now"><b class="wt-h">Zalogowano do ${esc(pend.name)}?</b><p class="hint">Zamknij okno logowania („Gotowe”), a potem potwierdź tutaj.</p><div class="wt-chips"><button class="chip" data-confirmconn>Tak, połącz</button><button class="chip ghost" data-cancelconn>Anuluj</button></div></div>` : ''}
             <div class="wt-panel"><b class="wt-h">Połącz konta</b><p class="hint">Zaloguj się do serwisów, z których korzystasz — logowanie odbywa się w oknie aplikacji i zostaje zapamiętane. Lista połączonych kont synchronizuje się z kontem Pitayas. Nie widzimy ani nie przechowujemy Twoich haseł do serwisów.</p>
             ${SERVICES.map((x) => `<div class="wt-svc"><span><b>${esc(x.name)}</b><small>${store.mine.includes(x.id) ? '✓ połączono' : 'niepołączone'}</small></span>
                 <button class="chip ${store.mine.includes(x.id) ? 'ghost' : ''}" data-connect="${x.id}">${store.mine.includes(x.id) ? 'Zaloguj ponownie' : 'Połącz'}</button>
@@ -431,7 +476,7 @@
 
     function render() {
         if (!el) return;
-        el.innerHTML = `<div class="wt-tabs">${[['home', 'Start'], ['discover', 'Odkrywaj'], ['library', 'Biblioteka'], ['remote', 'Pilot']].map(([id, n]) => `<button data-tab="${id}" class="${tab === id ? 'on' : ''}">${n}</button>`).join('')}</div><div class="wt-page"></div>`;
+        el.innerHTML = `<div class="wt-tabs">${[['home', 'Start'], ['discover', 'Odkrywaj'], ['library', 'Biblioteka'], ['remote', 'Pilot'], ...(window.PitayasDesktop ? [['thispc', 'Ten komputer']] : [])].map(([id, n]) => `<button data-tab="${id}" class="${tab === id ? 'on' : ''}">${n}</button>`).join('')}</div><div class="wt-page"></div>`;
         el.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => { tab = b.dataset.tab; render(); }));
         renderPage();
         if (tab === 'discover' && api.account() && !disc.list && !disc.loading && !disc.error) loadList();
@@ -439,7 +484,7 @@
     function renderPage() {
         const page = q('.wt-page');
         if (!page) return;
-        page.innerHTML = tab === 'home' ? homeHtml() : tab === 'discover' ? discoverHtml() : tab === 'library' ? libraryHtml() : remoteHtml();
+        page.innerHTML = tab === 'thispc' ? pcHtml() : tab === 'home' ? homeHtml() : tab === 'discover' ? discoverHtml() : tab === 'library' ? libraryHtml() : remoteHtml();
         bind();
     }
     // Stan z telewizora przychodzi co sekundę — podmieniamy tylko pasek postępu i ikony, żeby nie zrywać dotyku
@@ -491,8 +536,11 @@
         on('[data-list]', () => toggleList(disc.item));
         on('[data-tv]', (b) => playOnTv(tab === 'discover' ? disc.item : null, svcOf(b.dataset.tv)));
         on('[data-phone]', (b) => playOnPhone(disc.item, svcOf(b.dataset.phone)));
+        pcBind(on);
         on('[data-accounts]', () => { view = 'accounts'; renderPage(); });
         on('[data-back2]', () => { view = ''; renderPage(); });
+        on('[data-confirmconn]', () => { const id = pendingConnect; pendingConnect = null; if (id && !store.mine.includes(id)) store.mine.push(id); store.minePending = true; saveSync(); renderPage(); });
+        on('[data-cancelconn]', () => { pendingConnect = null; renderPage(); });
         on('[data-connect]', (b) => connectSvc(svcOf(b.dataset.connect)));
         on('[data-disconnect]', (b) => { store.mine = store.mine.filter((x) => x !== b.dataset.disconnect); store.minePending = true; saveSync(); renderPage(); });
         on('[data-cont]', (b) => { const h = store.history.filter((x) => x.url)[Number(b.dataset.cont)]; if (h) playOnPhone(h.item, svcOf(h.svc) || { id: h.svc, name: h.service, url: () => h.url }, h.url); });
@@ -546,7 +594,6 @@
         pause() { tvClose(); },
         resume() {
             if (!el) return;
-            if (pendingConnect && !nativePlayer()) askConnected();
             if (store.session && store.session.where === 'phone' && !nativePlayer()) { endSession(); renderPage(); }
             if (tvNow() && !tv.needPin) tvConnect();
         },
