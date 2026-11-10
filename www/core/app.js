@@ -3,8 +3,8 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '4.3.4';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
-const CORE_LABEL = '0.5.5';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
+const CORE_VERSION = '4.3.5';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
+const CORE_LABEL = '0.5.6';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -91,6 +91,14 @@ const cleanHost = (text) => text.trim().replace(/^[a-z]+:\/\//i, '').replace(/[/
 // installed: { id: { id, name, description, version, port, files, path | url } } — path w pamięci telefonu,
 // url tylko w przeglądarce (podgląd na komputerze), gdzie nie ma systemu plików.
 const installed = ls.get('pitayas-modules', {});
+// Aplikacja „Pitayas Watch” (komputer / telewizor): to samo jądro, ale bez ekranu modułów — Watch jest wbudowany i jest całą aplikacją
+const APP_MODE = window.PITAYAS_APP || '';
+if (APP_MODE === 'watch') {
+    for (const id of Object.keys(installed)) if (id !== 'watch') delete installed[id];
+    if (!installed.watch || installed.watch.url) {
+        installed.watch = { id: 'watch', name: 'Pitayas Watch', description: 'Filmy i seriale', version: '0.0.0', minCore: '0.1.0', files: ['module.js', 'module.css', 'icon.png'], url: 'modules/watch/' };
+    }
+}
 const saveInstalled = () => ls.set('pitayas-modules', JSON.parse(JSON.stringify(installed, (k, v) => (k === 'base' ? undefined : v))));
 const defs = {};          // kod modułów po załadowaniu: Pitayas.register({...})
 const online = {};
@@ -262,6 +270,7 @@ function openView(id) {
         b.onclick = () => openSettings();
     }
     view.querySelector('[data-switcher]').onclick = openSwitcher;
+    if (APP_MODE === 'watch') view.querySelector('[data-switcher]').remove();
     document.body.appendChild(view);
     $('home').hidden = true;
     activeView = { id, view };
@@ -1149,6 +1158,7 @@ function openSettings() {
         </div>
 
         <div class="set-group">${setRow(setIcon('code', '#3a3646'), 'Zaawansowane', null, { id: 'sDev', sub: 'Źródło aktualizacji, diagnostyka, dziennik' })}</div>`);
+    if (APP_MODE === 'watch') for (const id of ['sPc', 'sMods', 'sRoad', 'sWatch', 'sShell']) { const el = $(id); const row = el && (el.closest('.set-row') || el); if (row) row.remove(); }
     bindAccount();
     $('sAuto').onchange = () => { settings.autoUpdate = $('sAuto').checked; ls.set('pitayas-settings', settings); };
     if ($('sWatch')) $('sWatch').onchange = () => setWatchMode($('sWatch').checked);
@@ -1674,6 +1684,6 @@ setInterval(() => { if (!activeView && document.visibilityState === 'visible') r
     .then(() => { applyScreenMode(); refreshAccess(); askNotifyPermission().finally(refreshNotifs); setInterval(refreshNotifs, 5 * 60 * 1000); return checkUpdates(false); })
     .then(() => {
         if (!Object.keys(installed).length) openModules();
-        else if (!pcs.list.length) editPc(null);
+        else if (!pcs.list.length && APP_MODE !== 'watch') editPc(null);
     });
 })();
