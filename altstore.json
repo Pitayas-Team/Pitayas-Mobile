@@ -18,6 +18,15 @@
       "screenshots": [],
       "versions": [
         {
+          "version": "1.0.4",
+          "buildVersion": "1.0.4",
+          "date": "2026-11-10",
+          "localizedDescription": "Logowanie (Discord i serwisy VOD) w oknie aplikacji, logo Pitayas jako ikona, tryb Watch.",
+          "downloadURL": "https://github.com/Pitayas-Team/Pitayas-Mobile/releases/download/v1.0.4/Pitayas-1.0.4.ipa",
+          "size": 3884811,
+          "minOSVersion": "15.0"
+        },
+        {
           "version": "1.0.3",
           "buildVersion": "1.0.3",
           "date": "2026-11-10",
@@ -40,11 +49,11 @@
         "entitlements": [],
         "privacy": {}
       },
-      "version": "1.0.3",
+      "version": "1.0.4",
       "versionDate": "2026-11-10",
-      "versionDescription": "Logo jako ikona, tryb Watch, odtwarzacz Watch na Androidzie.",
-      "downloadURL": "https://github.com/Pitayas-Team/Pitayas-Mobile/releases/download/v1.0.3-beta/Pitayas-1.0.3-beta.ipa",
-      "size": 3880355
+      "versionDescription": "Logowanie (Discord i serwisy VOD) w oknie aplikacji, logo Pitayas jako ikona, tryb Watch.",
+      "downloadURL": "https://github.com/Pitayas-Team/Pitayas-Mobile/releases/download/v1.0.4/Pitayas-1.0.4.ipa",
+      "size": 3884811
     }
   ],
   "news": []
