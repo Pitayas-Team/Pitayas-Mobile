@@ -81,7 +81,22 @@
     stop: function () { return invoke('usb_stop'); },
   };
 
+  // Odtwarzacz VOD modułu Watch (WebView z Widevine) — tylko w aplikacji z natywnym mostkiem (Android)
+  var PitayasWatch = window.PitayasWatchNative ? {
+    open: function (o) {
+      window.PitayasWatchNative.open(String(o.url || ''), String(o.title || ''), o.desktop !== false);
+      return Promise.resolve();
+    },
+    addListener: function (name, cb) {
+      if (name !== 'closed') return Promise.resolve(handle());
+      var fn = function (e) { cb(e.detail || {}); };
+      window.addEventListener('pitayas-watch-closed', fn);
+      return Promise.resolve(handle(function () { window.removeEventListener('pitayas-watch-closed', fn); }));
+    },
+  } : null;
+
   var Plugins = { Filesystem: Filesystem, App: App, InAppBrowser: InAppBrowser, LocalNotifications: LocalNotifications, KeepAwake: KeepAwake, PitayasUsb: PitayasUsb };
+  if (PitayasWatch) Plugins.PitayasWatch = PitayasWatch;
   window.Capacitor = {
     Plugins: Plugins,
     platform: platform,
