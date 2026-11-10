@@ -78,7 +78,7 @@
     let syncing = false;
     async function syncNow() {
         const acc = api && api.account();
-        if (!acc || syncing) return;
+        if (!acc || syncing || (api.cloud && !api.cloud())) return;   // chmura wyłączona w Koncie — dane tylko w telefonie
         syncing = true;
         try {
             const base = `${acc.server.replace(/\/*$/, '/')}api/sync/watch`;

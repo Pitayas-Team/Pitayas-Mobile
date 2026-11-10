@@ -3,8 +3,8 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '4.3.1';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
-const CORE_LABEL = '0.5.2';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
+const CORE_VERSION = '4.3.2';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
+const CORE_LABEL = '0.5.3';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -113,6 +113,7 @@ function makeApi(id) {
         probe,
         close: () => showHome(),
         switcher: () => openSwitcher(),   // lista aplikacji — przejście do innego modułu
+        cloud: () => settings.cloudSync !== false,
         account: () => (account.token ? { user: account.user, token: account.token, server: accountServer() } : null),
         // Dostęp do aplikacji z panelu kont: { name, testersOnly, access } albo null, gdy aplikacji nie ma w panelu
         access: (appId) => (access[appId] ? { ...access[appId] } : null),
@@ -620,8 +621,25 @@ async function checkUpdates(manual) {
 // ═══════ KONTO PITAYAS ═══════
 // Logowanie loginem albo przez Discord na serwerze kont (admin.pitayas.eu). Serwer mówi, które moduły
 // są tylko dla testerów i czy to konto ma do nich dostęp. Bez logowania widać moduły dla wszystkich.
-const account = ls.get('pitayas-account', { token: '', user: null, server: '' });
-const saveAccount = () => ls.set('pitayas-account', account);
+// „Zapamiętaj logowanie”: na tym urządzeniu (token w pamięci aplikacji) albo tylko do zamknięcia aplikacji (token w pamięci sesji).
+// Hasła aplikacja nigdy nie zapisuje — przechowywany jest tylko token logowania, który można w każdej chwili unieważnić wylogowaniem.
+const account = (() => {
+    const a = ls.get('pitayas-account', { token: '', user: null, server: '' });
+    if (a.remember === false) {
+        let t = '';
+        try { t = sessionStorage.getItem('pitayas-session-token') || ''; } catch {}
+        a.token = t;
+        if (!t) a.user = null;
+    }
+    return a;
+})();
+let rememberPref = true;
+const saveAccount = () => {
+    if (account.remember === false) {
+        try { sessionStorage.setItem('pitayas-session-token', account.token || ''); } catch {}
+        ls.set('pitayas-account', { ...account, token: '', user: null });
+    } else ls.set('pitayas-account', account);
+};
 let access = ls.get('pitayas-access', {});    // { id: { testersOnly, access } } — ostatnia znana odpowiedź serwera
 const accountServer = () => {
     const s = (account.server || DEFAULT_ACCOUNTS).trim();
@@ -663,6 +681,7 @@ async function refreshAccess() {
 }
 
 function setLogin(d) {
+    account.remember = rememberPref;
     account.token = d.token;
     account.user = d.user;
     saveAccount();
@@ -687,6 +706,15 @@ async function logout() {
 
 const DISCORD_ICON = `<svg viewBox="0 0 24 24"><path d="M19.6 5.3A17 17 0 0 0 15.4 4l-.5 1.1a15.6 15.6 0 0 0-5.8 0L8.6 4a17 17 0 0 0-4.2 1.3C1.7 9.3 1 13.2 1.3 17a17 17 0 0 0 5.2 2.6l1.1-1.8-1.8-.9.4-.3a12 12 0 0 0 11.6 0l.4.3-1.8.9 1.1 1.8a17 17 0 0 0 5.2-2.6c.4-4.4-.7-8.3-3.1-11.7zM8.5 14.7c-1 0-1.9-1-1.9-2.1s.8-2.1 1.9-2.1 1.9 1 1.9 2.1-.8 2.1-1.9 2.1zm7 0c-1 0-1.9-1-1.9-2.1s.8-2.1 1.9-2.1 1.9 1 1.9 2.1-.8 2.1-1.9 2.1z"/></svg>`;
 const BROWSER_NAME = (window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'ios') ? 'Safari' : 'przeglądarce';
+const PRIVACY = `
+  <p><b>Co przetwarzamy</b><br>Login, imię lub pseudonim (opcjonalnie), adres e-mail i hasło. Jeśli włączysz synchronizację w chmurze: bibliotekę Watch („do obejrzenia”, historię) i listę połączonych serwisów.</p>
+  <p><b>Po co</b><br>Wyłącznie do działania konta: logowania, wysłania kodu potwierdzającego i synchronizacji między Twoimi telefonami. Nie sprzedajemy ich, nie przekazujemy nikomu, nie używamy do reklam ani profilowania.</p>
+  <p><b>Jak chronimy</b><br>Połączenie jest szyfrowane (HTTPS). Hasło zapisujemy wyłącznie jako nieodwracalny skrót — nawet administrator go nie odczyta. Dane synchronizacji są na serwerze zaszyfrowane (AES-256-GCM); klucz leży na serwerze Pitayas, więc to nie jest szyfrowanie „od końca do końca”.</p>
+  <p><b>Hasła do Netflixa i innych serwisów</b><br>Nigdy do nas nie trafiają — logujesz się bezpośrednio na stronie serwisu, a my zapamiętujemy tylko, że konto jest połączone.</p>
+  <p><b>E-mail</b><br>Używamy go tylko do kodów potwierdzających i ważnych wiadomości o koncie.</p>
+  <p><b>Twoje dane</b><br>Synchronizację w chmurze wyłączysz w Koncie, a swoje dane z serwera możesz usunąć tamże. O usunięcie całego konta poproś administratora Pitayas.</p>`;
+function openPrivacy(back) { openSheet('Prywatność i dane', `<div class="privacy-text">${PRIVACY}</div>`, back || openSettings); }
+
 function openRegister() {
     openSheet('Nowe konto', `
         <div class="login-hero"><img src="icons/pitayas.png" alt=""><h2>Utwórz konto <span>Pitayas</span></h2>
@@ -697,11 +725,15 @@ function openRegister() {
           <div class="field"><input id="rgLogin" placeholder="Login (2–40 znaków)" autocapitalize="off" autocomplete="username" required></div>
           <div class="field"><input id="rgPass" type="password" placeholder="Hasło (min. 8 znaków)" autocomplete="new-password" minlength="8" required></div>
           <div class="field"><input id="rgPass2" type="password" placeholder="Powtórz hasło" autocomplete="new-password" required></div>
+          <details class="privacy-box"><summary>Co przetwarzamy i jak chronimy dane</summary><div class="privacy-text">${PRIVACY}</div></details>
+          <label class="check-row"><input type="checkbox" id="rgOk" required> <span>Rozumiem, jak Pitayas przetwarza moje dane, i zgadzam się na to.</span></label>
+          <label class="check-row"><input type="checkbox" id="rgRemember" checked> <span>Zapamiętaj logowanie na tym urządzeniu</span></label>
           <button type="submit" class="btn">Utwórz konto</button>
         </form>`, openLogin);
     $('rgForm').onsubmit = async (e) => {
         e.preventDefault();
         if ($('rgPass').value !== $('rgPass2').value) return toast('Hasła nie są takie same', 'err');
+        rememberPref = $('rgRemember').checked;
         const btn = $('rgForm').querySelector('.btn');
         btn.disabled = true;
         try {
@@ -749,6 +781,7 @@ function openLogin() {
         <form class="pc-form login-form" id="lgForm">
           <div class="field"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg><input id="lgLogin" placeholder="Login" autocapitalize="off" autocomplete="username" required></div>
           <div class="field"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><input id="lgPass" type="password" placeholder="Hasło" autocomplete="current-password" required></div>
+          <label class="check-row"><input type="checkbox" id="lgRemember" checked> <span>Zapamiętaj logowanie na tym urządzeniu</span></label>
           <button type="submit" class="btn">Zaloguj</button>
         </form>
         <button class="btn ghost" id="lgReg" type="button">Utwórz konto</button>`, openSettings);
@@ -758,6 +791,7 @@ function openLogin() {
     $('lgForm').onsubmit = async (e) => {
         e.preventDefault();
         const btn = $('lgForm').querySelector('.btn');
+        rememberPref = $('lgRemember').checked;
         btn.disabled = true;
         try {
             setLogin(await accountFetch('api/login', { login: $('lgLogin').value.trim(), password: $('lgPass').value }));
@@ -1197,7 +1231,20 @@ function openAccount() {
         <div class="set-group">${apps.length ? apps.map(([id, a]) => setRow(setIcon('box', a.access ? '#7ddc5a' : '#5b6170'), esc(a.name || id), a.access ? '<span class="ok">✓ masz dostęp</span>' : '<span class="no">brak</span>')).join('') : setRow('', 'Wszystkie moduły są dla wszystkich', '')}</div>
         <p class="hint">Dostęp nadaje administrator w panelu Pitayas.</p>
         <div class="set-group">${setRow(setIcon('user', '#3a8ef0'), u.hasPassword === false ? 'Ustaw hasło' : 'Zmień hasło', null, { id: 'accPass' })}${u.admin ? setRow(setIcon('code', '#4cc38a'), 'Panel admina', null, { id: 'accAdmin' }) : ''}</div>
+        <div class="set-label">Dane i prywatność</div>
+        <div class="set-group">
+          ${setRow(setIcon('auto', '#3a8ef0'), 'Synchronizacja w chmurze', null, { toggle: settings.cloudSync !== false, toggleId: 'accCloud', sub: 'Biblioteka Watch i połączone serwisy w Twoim koncie, zaszyfrowane na serwerze. Wyłączone = dane zostają tylko w tym telefonie' })}
+          ${setRow(setIcon('user', '#7ddc5a'), 'Zapamiętane logowanie', account.remember === false ? 'do zamknięcia aplikacji' : 'na tym urządzeniu', {})}
+          ${setRow(setIcon('code', '#5b6170'), 'Co przetwarzamy', null, { id: 'accPriv', sub: 'Jakie dane zbieramy, po co i jak je chronimy' })}
+          ${setRow(setIcon('dl', '#ff6b6b'), 'Usuń dane z chmury', null, { id: 'accWipe', sub: 'Kasuje z serwera Twoją bibliotekę Watch (w telefonie zostaje)' })}
+        </div>
         <button class="btn danger-btn" id="accOut">Wyloguj</button>`, openSettings);
+    $('accCloud').onchange = () => { settings.cloudSync = $('accCloud').checked; ls.set('pitayas-settings', settings); toast(settings.cloudSync ? 'Synchronizacja włączona' : 'Synchronizacja wyłączona — dane zostają w telefonie'); };
+    $('accPriv').onclick = () => openPrivacy(openAccount);
+    $('accWipe').onclick = async () => {
+        if (!confirm('Usunąć z serwera Twoją bibliotekę Watch? W telefonie zostanie.')) return;
+        try { const r = await fetch(`${accountServer()}api/sync/watch`, { method: 'DELETE', headers: { Authorization: `Bearer ${account.token}` } }); toast(r.ok ? 'Usunięto dane z chmury' : 'Nie udało się usunąć', r.ok ? '' : 'err'); } catch { toast('Brak połączenia z serwerem', 'err'); }
+    };
     $('accOut').onclick = () => { if (confirm('Wylogować z konta Pitayas?')) logout(); };
     $('accPass').onclick = () => openPassword(openAccount);
     if ($('accAdmin')) $('accAdmin').onclick = openAdmin;
@@ -1224,7 +1271,7 @@ function openPassword(backTo = openAccount) {
         try {
             await accountFetch('api/password', { oldPassword: noPass ? '' : $('pwOld').value, newPassword: nw });
             account.user = { ...u, hasPassword: true };
-            ls.set('pitayas-account', account);
+            saveAccount();
             toast('Hasło zmienione');
             backTo();
         } catch (err) { toast(err.message || String(err), 'err'); $('pwSave').disabled = false; }
