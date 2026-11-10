@@ -8,7 +8,9 @@
   var listeners = {};
   var handle = function (fn) { return { remove: function () { return Promise.resolve(fn && fn()); } }; };
   var ua = navigator.userAgent || '';
-  var platform = /iPhone|iPad|iPod/.test(ua) ? 'ios' : 'android';
+  // Android, iPhone albo komputer (Fedora/Linux — aplikacja desktop z trybem telewizora)
+  var DESKTOP = !/Android|iPhone|iPad|iPod/.test(ua);
+  var platform = /iPhone|iPad|iPod/.test(ua) ? 'ios' : DESKTOP ? 'linux' : 'android';
   var dir = function (o) { return String((o && o.directory) || 'DATA').toUpperCase(); };
 
   var Filesystem = {
@@ -94,6 +96,30 @@
       return Promise.resolve(handle(function () { window.removeEventListener('pitayas-watch-closed', fn); }));
     },
   } : null;
+
+  // Komputer: film gra w przeglądarce z Widevine (tv_open), a „zamknięto” wraca zdarzeniem z czasem oglądania
+  if (DESKTOP) {
+    PitayasWatch = {
+      open: function (o) { return invoke('tv_open', { url: String(o.url || ''), title: String(o.title || '') }); },
+      addListener: function (name, cb) {
+        if (name !== 'closed') return Promise.resolve(handle());
+        var off = null;
+        T.event.listen('pitayas-watch-closed', function (e) { cb(e.payload || {}); }).then(function (u) { off = u; });
+        return Promise.resolve(handle(function () { if (off) off(); }));
+      },
+    };
+    // Tryb telewizora (ten komputer jako telewizor dla telefonów): używa go moduł Watch
+    window.PitayasDesktop = {
+      state: function () { return invoke('tv_state'); },
+      newPin: function () { return invoke('tv_new_pin'); },
+      forget: function (id) { return invoke('tv_forget', { id: id || null }); },
+      anyHost: function (on) { return invoke('tv_any_host', { on: Boolean(on) }); },
+      fullscreen: function (on) { return invoke('tv_fullscreen', { on: Boolean(on) }); },
+      stop: function () { return invoke('tv_stop'); },
+      cmd: function (action, value) { return invoke('tv_cmd', { action: action, value: value === undefined ? null : value }); },
+      onState: function (cb) { T.event.listen('tv:state', function (e) { cb(e.payload); }); },
+    };
+  }
 
   var Plugins = { Filesystem: Filesystem, App: App, InAppBrowser: InAppBrowser, LocalNotifications: LocalNotifications, KeepAwake: KeepAwake, PitayasUsb: PitayasUsb };
   if (PitayasWatch) Plugins.PitayasWatch = PitayasWatch;

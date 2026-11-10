@@ -348,6 +348,32 @@
             ${d && !known.length ? servicesHtml(it) : ''}`;
     }
 
+    // ───── Ten komputer jako telewizor (aplikacja na Fedorze) ─────
+    let pcState = null, pcHooked = false;
+    const pcRefresh = () => window.PitayasDesktop.state().then((s) => { pcState = s; if (el && tab === 'thispc') renderPage(); }).catch(() => {});
+    function pcHtml() {
+        if (!pcState) { pcRefresh(); return '<div class="spinner"></div>'; }
+        const s = pcState, pin = s.pin ? `${s.pin.slice(0, 3)} ${s.pin.slice(3)}` : '······', now = s.player && s.player.open;
+        return `<div class="wt-panel"><b class="wt-h">Ten komputer jako telewizor</b>
+            <p class="hint">Uruchom na telefonie moduł Watch → Pilot → „Dodaj telewizor” i wpisz adres oraz kod poniżej. Telefon wyśle film tutaj i będzie pilotem. Telefon i komputer muszą być w tej samej sieci.</p>
+            <div class="wt-svc"><span><b>Adres</b><small>${esc((s.addresses || []).join(', ') || 'brak sieci')} · port ${s.port}${s.error ? ` · ${esc(s.error)}` : ''}</small></span></div>
+            <div class="wt-svc"><span><b style="font-size:22px;letter-spacing:4px">${pin}</b><small>kod parowania</small></span><button class="chip ghost" data-pcpin>Nowy kod</button></div></div>
+          <div class="wt-panel"><b class="wt-h">Odtwarzanie</b><p class="hint">${esc((s.drm && s.drm.text) || '')}</p>
+            ${now ? `<div class="wt-svc"><span><b>${esc(s.player.title || 'Film')}</b><small>trwa odtwarzanie</small></span><button class="chip" data-pcstop>Zamknij</button></div>` : '<p class="hint">Wybierz tytuł w „Odkrywaj” i „W telefonie” — na komputerze otworzy się w przeglądarce z Widevine.</p>'}
+            <div class="wt-svc"><span><b>Pełny ekran okna</b><small>tryb telewizora</small></span><button class="chip ${s.fullscreen ? '' : 'ghost'}" data-pcfull>${s.fullscreen ? 'Włączony' : 'Włącz'}</button></div></div>
+          <div class="wt-panel"><b class="wt-h">Sparowane telefony</b>
+            ${(s.devices || []).length ? s.devices.map((d) => `<div class="wt-svc"><span><b>${esc(d.name || 'Telefon')}</b><small>${d.online ? 'połączony' : 'rozłączony'}</small></span><button class="chip ghost" data-pcforget="${esc(d.id)}">Zapomnij</button></div>`).join('') : '<p class="hint">Żaden telefon nie jest jeszcze sparowany.</p>'}</div>`;
+    }
+    function pcBind(on) {
+        if (!window.PitayasDesktop) return;
+        const D = window.PitayasDesktop, set = (p) => p.then((s) => { pcState = s; renderPage(); }).catch((e) => api.toast(errText(e), 'err'));
+        on('[data-pcpin]', () => set(D.newPin()));
+        on('[data-pcstop]', () => set(D.stop()));
+        on('[data-pcfull]', () => set(D.fullscreen(!pcState.fullscreen)));
+        on('[data-pcforget]', (b) => set(D.forget(b.dataset.pcforget)));
+        if (!pcHooked) { pcHooked = true; D.onState((s) => { pcState = s; if (el && tab === 'thispc') renderPage(); }); }
+    }
+
     // ───── Start: kontynuuj oglądanie, połączone konta, do obejrzenia ─────
     let view = '';
     function accountsHtml() {
@@ -431,7 +457,7 @@
 
     function render() {
         if (!el) return;
-        el.innerHTML = `<div class="wt-tabs">${[['home', 'Start'], ['discover', 'Odkrywaj'], ['library', 'Biblioteka'], ['remote', 'Pilot']].map(([id, n]) => `<button data-tab="${id}" class="${tab === id ? 'on' : ''}">${n}</button>`).join('')}</div><div class="wt-page"></div>`;
+        el.innerHTML = `<div class="wt-tabs">${[['home', 'Start'], ['discover', 'Odkrywaj'], ['library', 'Biblioteka'], ['remote', 'Pilot'], ...(window.PitayasDesktop ? [['thispc', 'Ten komputer']] : [])].map(([id, n]) => `<button data-tab="${id}" class="${tab === id ? 'on' : ''}">${n}</button>`).join('')}</div><div class="wt-page"></div>`;
         el.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => { tab = b.dataset.tab; render(); }));
         renderPage();
         if (tab === 'discover' && api.account() && !disc.list && !disc.loading && !disc.error) loadList();
@@ -439,7 +465,7 @@
     function renderPage() {
         const page = q('.wt-page');
         if (!page) return;
-        page.innerHTML = tab === 'home' ? homeHtml() : tab === 'discover' ? discoverHtml() : tab === 'library' ? libraryHtml() : remoteHtml();
+        page.innerHTML = tab === 'thispc' ? pcHtml() : tab === 'home' ? homeHtml() : tab === 'discover' ? discoverHtml() : tab === 'library' ? libraryHtml() : remoteHtml();
         bind();
     }
     // Stan z telewizora przychodzi co sekundę — podmieniamy tylko pasek postępu i ikony, żeby nie zrywać dotyku
@@ -491,6 +517,7 @@
         on('[data-list]', () => toggleList(disc.item));
         on('[data-tv]', (b) => playOnTv(tab === 'discover' ? disc.item : null, svcOf(b.dataset.tv)));
         on('[data-phone]', (b) => playOnPhone(disc.item, svcOf(b.dataset.phone)));
+        pcBind(on);
         on('[data-accounts]', () => { view = 'accounts'; renderPage(); });
         on('[data-back2]', () => { view = ''; renderPage(); });
         on('[data-connect]', (b) => connectSvc(svcOf(b.dataset.connect)));

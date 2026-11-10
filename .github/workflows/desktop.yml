@@ -1,0 +1,39 @@
+# Pitayas na komputer (Fedora/Linux): AppImage, RPM i DEB. Uruchamia się po wypchnięciu taga desktop-v* (np. desktop-v1.0.3-beta) albo ręcznie.
+name: Wydanie aplikacji na komputer
+
+on:
+  push:
+    tags: ['desktop-v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  linux:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with: { workspaces: desktop/src-tauri }
+      - name: Pakiety systemowe
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev patchelf rpm
+      - name: Budowanie
+        working-directory: desktop
+        run: |
+          npm install --no-audit --no-fund
+          npx tauri build
+      - name: Wydanie na GitHubie
+        if: startsWith(github.ref, 'refs/tags/desktop-v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          B=desktop/src-tauri/target/release/bundle
+          gh release create "$TAG" $B/appimage/*.AppImage $B/rpm/*.rpm $B/deb/*.deb --repo "$GITHUB_REPOSITORY" --title "Pitayas na komputer ${TAG#desktop-v}" --prerelease \
+            --notes "Pitayas na komputer (Fedora/Linux): ta sama aplikacja co na telefonie, z modułami i trybem telewizora. Fedora: sudo dnf install ./Pitayas-*.rpm. Do filmów z DRM (Netflix, Disney+) zainstaluj Google Chrome."

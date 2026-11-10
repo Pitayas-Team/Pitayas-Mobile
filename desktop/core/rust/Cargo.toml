@@ -1,0 +1,19 @@
+[package]
+name = "pitayas-core"
+version = "0.3.0"
+edition = "2021"
+description = "Pitaya Core — wspólny rdzeń aplikacji Pitayas (Rust/Tauri)"
+license = "MIT"
+
+[features]
+default = ["tauri"]
+# Bez okna (serwery): ustawienia, logi, rejestr, kanał sterowania
+tauri = ["dep:tauri"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
+tokio = { version = "1", features = ["net", "io-util", "rt", "sync", "time", "macros"] }
+ureq = { version = "2", features = ["json"] }
+tauri = { version = "2", optional = true }
