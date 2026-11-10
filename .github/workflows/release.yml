@@ -72,6 +72,8 @@ jobs:
           brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
           npm install --no-audit --no-fund
           npx tauri ios init --ci
+          # Ikona aplikacji: init wstawia domyślną ikonę Tauri, więc wgrywamy logo Pitayas do projektu Xcode
+          npx tauri icon ../assets/icon-only.png
           # Bez podpisu: xcodebuild czyta ustawienia z tego pliku (podpisuje dopiero AltStore / SideStore / Sideloadly)
           printf 'CODE_SIGNING_ALLOWED=NO\nCODE_SIGNING_REQUIRED=NO\nCODE_SIGN_IDENTITY=\nDEVELOPMENT_TEAM=\n' > "$RUNNER_TEMP/nosign.xcconfig"
           export XCODE_XCCONFIG_FILE="$RUNNER_TEMP/nosign.xcconfig"
