@@ -3,8 +3,8 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '4.2.7';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
-const CORE_LABEL = '0.4.6';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
+const CORE_VERSION = '4.3.1';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
+const CORE_LABEL = '0.5.2';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -211,17 +211,17 @@ $('tiles').addEventListener('click', (e) => {
 
 // Przełączanie: z jednego modułu prosto do innego (bez wracania na ekran startowy)
 function openSwitcher() {
-    const list = Object.values(installed).filter((m) => !isHidden(m.id) && defs[m.id]).sort((a, b) => a.name.localeCompare(b.name));
+    const list = Object.values(installed).filter((m) => !isHidden(m.id) && defs[m.id] && !(watchModeOn() && m.id === 'watch')).sort((a, b) => a.name.localeCompare(b.name));
     openSheet('Aplikacje', `<div class="switch-grid">${list.map((m) => `
         <button class="switch-app${activeView && activeView.id === m.id ? ' on' : ''}" data-switch="${esc(m.id)}">
           <img src="${esc((m.base || '') + 'icon.png')}" alt=""><span>${esc(m.name.replace(/^Pitayas? /, ''))}</span>
         </button>`).join('')}
-        <button class="switch-app" data-switch=""><span class="switch-home"><svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/></svg></span><span>Start</span></button></div>`);
+        <button class="switch-app" data-switch=""><span class="switch-home"><svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/></svg></span><span>${watchModeOn() ? 'Watch' : 'Start'}</span></button></div>`);
     $('sheetBody').querySelectorAll('[data-switch]').forEach((b) => (b.onclick = () => {
         const id = b.dataset.switch;
         closeSheet();
         if (activeView && activeView.id === id) return;
-        showHome();
+        showHome(Boolean(id));
         if (id) openModule(id);
     }));
 }
@@ -251,7 +251,15 @@ function openView(id) {
           <button class="bar-btn" data-switcher data-glass="square.grid.2x2" title="Aplikacje"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg></button>
         </header>
         <div class="view-body"></div>`;
-    view.querySelector('[data-back]').onclick = showHome;
+    view.querySelector('[data-back]').onclick = () => showHome();
+    if (id === 'watch' && watchModeOn()) {
+        // Ekran główny trybu Watch: zamiast „wstecz” — Ustawienia (tam wyłączysz tryb Watch i wrócisz do zwykłego ekranu)
+        const b = view.querySelector('[data-back]');
+        b.title = 'Ustawienia';
+        b.innerHTML = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
+        b.removeAttribute('data-glass');
+        b.onclick = () => openSettings();
+    }
     view.querySelector('[data-switcher]').onclick = openSwitcher;
     document.body.appendChild(view);
     $('home').hidden = true;
@@ -259,7 +267,13 @@ function openView(id) {
     def.mount(view.querySelector('.view-body'), makeApi(id), view.querySelector('.bar-slot'));
 }
 
-function showHome() {
+function showHome(force) {
+    // Tryb Watch: Watch jest ekranem głównym — „wstecz” z innego modułu wraca do niego, a z niego nigdzie
+    if (!force && watchModeOn()) {
+        if (activeView && activeView.id === 'watch') return;
+        if (activeView) { const { id, view } = activeView; activeView = null; try { defs[id] && defs[id].unmount && defs[id].unmount(); } catch {} view.remove(); }
+        return openModule('watch');
+    }
     if (activeView) {
         const { id, view } = activeView;
         activeView = null;
@@ -673,6 +687,56 @@ async function logout() {
 
 const DISCORD_ICON = `<svg viewBox="0 0 24 24"><path d="M19.6 5.3A17 17 0 0 0 15.4 4l-.5 1.1a15.6 15.6 0 0 0-5.8 0L8.6 4a17 17 0 0 0-4.2 1.3C1.7 9.3 1 13.2 1.3 17a17 17 0 0 0 5.2 2.6l1.1-1.8-1.8-.9.4-.3a12 12 0 0 0 11.6 0l.4.3-1.8.9 1.1 1.8a17 17 0 0 0 5.2-2.6c.4-4.4-.7-8.3-3.1-11.7zM8.5 14.7c-1 0-1.9-1-1.9-2.1s.8-2.1 1.9-2.1 1.9 1 1.9 2.1-.8 2.1-1.9 2.1zm7 0c-1 0-1.9-1-1.9-2.1s.8-2.1 1.9-2.1 1.9 1 1.9 2.1-.8 2.1-1.9 2.1z"/></svg>`;
 const BROWSER_NAME = (window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'ios') ? 'Safari' : 'przeglądarce';
+function openRegister() {
+    openSheet('Nowe konto', `
+        <div class="login-hero"><img src="icons/pitayas.png" alt=""><h2>Utwórz konto <span>Pitayas</span></h2>
+          <p>Jedno konto na wszystkich telefonach: synchronizacja biblioteki Watch, powiadomienia i dostęp do modułów.</p></div>
+        <form class="pc-form login-form" id="rgForm">
+          <div class="field"><input id="rgName" placeholder="Imię lub pseudonim (opcjonalnie)" autocomplete="nickname"></div>
+          <div class="field"><input id="rgEmail" type="email" placeholder="Adres e-mail (wyślemy kod)" autocapitalize="off" autocomplete="email" required></div>
+          <div class="field"><input id="rgLogin" placeholder="Login (2–40 znaków)" autocapitalize="off" autocomplete="username" required></div>
+          <div class="field"><input id="rgPass" type="password" placeholder="Hasło (min. 8 znaków)" autocomplete="new-password" minlength="8" required></div>
+          <div class="field"><input id="rgPass2" type="password" placeholder="Powtórz hasło" autocomplete="new-password" required></div>
+          <button type="submit" class="btn">Utwórz konto</button>
+        </form>`, openLogin);
+    $('rgForm').onsubmit = async (e) => {
+        e.preventDefault();
+        if ($('rgPass').value !== $('rgPass2').value) return toast('Hasła nie są takie same', 'err');
+        const btn = $('rgForm').querySelector('.btn');
+        btn.disabled = true;
+        try {
+            const r = await accountFetch('api/register', { login: $('rgLogin').value.trim(), name: $('rgName').value.trim(), email: $('rgEmail').value.trim(), password: $('rgPass').value });
+            openConfirm(r.login, r.email);
+        } catch (err) { toast(errText(err), 'err'); btn.disabled = false; }
+    };
+}
+
+// Kod z e-maila: 6 cyfr; po poprawnym kodzie konto jest aktywne i od razu zalogowane
+function openConfirm(login, email) {
+    openSheet('Potwierdź e-mail', `
+        <div class="login-hero"><img src="icons/pitayas.png" alt=""><h2>Wpisz <span>kod</span></h2>
+          <p>Wysłaliśmy 6-cyfrowy kod na adres ${esc(email || 'podany w rejestracji')}. Kod działa 15 minut — zajrzyj też do spamu.</p></div>
+        <form class="pc-form login-form" id="cfForm">
+          <div class="field"><input id="cfCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="000000" autocomplete="one-time-code" style="text-align:center;letter-spacing:8px;font-size:22px" required></div>
+          <button type="submit" class="btn">Potwierdź</button>
+          <button type="button" class="btn ghost" id="cfResend">Wyślij kod ponownie</button>
+        </form>`, openLogin);
+    setTimeout(() => $('cfCode') && $('cfCode').focus(), 250);
+    $('cfForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const btn = $('cfForm').querySelector('.btn');
+        btn.disabled = true;
+        try {
+            setLogin(await accountFetch('api/register/confirm', { login, code: $('cfCode').value.trim() }));
+            toast('Konto potwierdzone — jesteś zalogowany');
+            openSettings();
+        } catch (err) { toast(errText(err), 'err'); btn.disabled = false; }
+    };
+    $('cfResend').onclick = async () => {
+        try { await accountFetch('api/register/resend', { login }); toast('Wysłano nowy kod'); } catch (err) { toast(errText(err), 'err'); }
+    };
+}
+
 function openLogin() {
     openSheet('', `
         <div class="login-hero">
@@ -687,7 +751,8 @@ function openLogin() {
           <div class="field"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><input id="lgPass" type="password" placeholder="Hasło" autocomplete="current-password" required></div>
           <button type="submit" class="btn">Zaloguj</button>
         </form>
-        <p class="hint login-foot">Nie masz konta? Poproś administratora Pitayas.</p>`, openSettings);
+        <button class="btn ghost" id="lgReg" type="button">Utwórz konto</button>`, openSettings);
+    $('lgReg').onclick = openRegister;
     $('lgDiscord').onclick = loginDiscord;
     setTimeout(() => $('lgLogin') && $('lgLogin').focus(), 250);
     $('lgForm').onsubmit = async (e) => {
@@ -697,7 +762,10 @@ function openLogin() {
         try {
             setLogin(await accountFetch('api/login', { login: $('lgLogin').value.trim(), password: $('lgPass').value }));
             openSettings();
-        } catch (err) { toast(errText(err), 'err'); btn.disabled = false; }
+        } catch (err) {
+            if (/Potwierdź adres e-mail/.test(errText(err))) { toast(errText(err), 'err'); return openConfirm($('lgLogin').value.trim(), ''); }
+            toast(errText(err), 'err'); btn.disabled = false;
+        }
     };
 }
 
@@ -973,6 +1041,31 @@ function setRow(icon, title, value, opts = {}) {
 function setIcon(k, color) { return `<span class="set-ic" style="background:${color}"><svg viewBox="0 0 24 24">${SET_ICON_PATHS[k]}</svg></span>`; }
 const SET_ICON_PATHS = {"user":"<circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6\"/>","refresh":"<path d=\"M21 12a9 9 0 1 1-3-6.7L21 8\"/><path d=\"M21 3v5h-5\"/>","auto":"<path d=\"M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8\"/>","phone":"<rect x=\"7\" y=\"2\" width=\"10\" height=\"20\" rx=\"2\"/><path d=\"M11 18h2\"/>","core":"<rect x=\"5\" y=\"5\" width=\"14\" height=\"14\" rx=\"3\"/><path d=\"M9 9h6v6H9z\"/>","box":"<path d=\"M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8\"/>","bell":"<path d=\"M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0\"/>","code":"<path d=\"M8 6l-6 6 6 6M16 6l6 6-6 6\"/>","dl":"<path d=\"M12 4v11M7 10l5 5 5-5M5 20h14\"/>"};
 
+// Tryb Pitayas Watch (tylko dla zalogowanych): aplikacja startuje od razu w module Watch.
+// Wyjście z modułu („Wstecz”) pokazuje zwykły ekran główny, więc do Ustawień zawsze da się wrócić.
+const watchModeOn = () => Boolean(settings.watchMode && account.token && account.user && installed.watch && hasAccess('watch'));
+async function setWatchMode(on) {
+    settings.watchMode = on;
+    ls.set('pitayas-settings', settings);
+    if (!on) { closeSheet(); showHome(true); return toast('Tryb Watch wyłączony — wróciłeś do zwykłego ekranu'); }
+    try {
+        if (!installed.watch) {
+            const entry = available().find((m) => m.id === 'watch');
+            if (!entry) throw new Error('Moduł Pitayas Watch nie jest jeszcze dostępny — sprawdź aktualizacje');
+            if (!hasAccess('watch')) throw new Error('To konto nie ma dostępu do Pitayas Watch');
+            await installModule(entry);
+        }
+        closeSheet();
+        showHome(true);
+        openModule('watch');
+    } catch (err) {
+        settings.watchMode = false;
+        ls.set('pitayas-settings', settings);
+        if ($('sWatch')) $('sWatch').checked = false;
+        toast(err.message || String(err), 'err');
+    }
+}
+
 function openSettings() {
     const shell = shellUpdate();
     const u = account.token && account.user;
@@ -1000,6 +1093,7 @@ function openSettings() {
           ${setRow(setIcon('box', '#a77bff'), 'Moduły', esc(String(Object.keys(installed).length)), { id: 'sMods', sub: 'Pobierz, aktualizuj i usuwaj' })}
           ${setRow(setIcon('bell', '#ff9f45'), 'Powiadomienia', unread ? `<span class="set-badge">${unread}</span>` : '', { id: 'sNotifs' })}
           ${setRow(setIcon('refresh', '#ff4fa6'), 'Co dalej', null, { id: 'sRoad', sub: 'Plany rozwoju Pitayas' })}
+          ${u ? setRow(setIcon('phone', '#ff4fa6'), 'Tryb Pitayas Watch', null, { toggle: Boolean(settings.watchMode), toggleId: 'sWatch', sub: settings.watchMode ? 'Włączony — wyłącz, żeby wrócić do zwykłego ekranu z modułami' : 'Cała aplikacja staje się aplikacją do oglądania; inne moduły są pod przyciskiem „Aplikacje”' }) : ''}
         </div>
 
         <div class="set-label">Aktualizacje</div>
@@ -1021,6 +1115,7 @@ function openSettings() {
         <div class="set-group">${setRow(setIcon('code', '#3a3646'), 'Zaawansowane', null, { id: 'sDev', sub: 'Źródło aktualizacji, diagnostyka, dziennik' })}</div>`);
     bindAccount();
     $('sAuto').onchange = () => { settings.autoUpdate = $('sAuto').checked; ls.set('pitayas-settings', settings); };
+    if ($('sWatch')) $('sWatch').onchange = () => setWatchMode($('sWatch').checked);
     $('sCheck').onclick = async () => {
         if (coreReady) return location.reload();
         const v = $('sCheck').querySelector('.set-v');
@@ -1459,7 +1554,7 @@ if (Plugins.App) {
 // ═══════ START ═══════
 renderHome();
 window.PITAYAS_CORE_OK = true;   // powłoka wie, że rdzeń się uruchomił
-Promise.all(Object.values(installed).map(injectModule)).then(renderTiles);
+Promise.all(Object.values(installed).map(injectModule)).then(() => { renderTiles(); if (watchModeOn() && !activeView) openModule('watch'); });
 setInterval(() => { if (!activeView && document.visibilityState === 'visible') refreshStatus(); }, 5000);
 (Plugins.App && NATIVE ? Plugins.App.getInfo().then((i) => { shellVersion = i.version; }).catch(() => {}) : Promise.resolve())
     .then(loadBundled)

@@ -3,8 +3,8 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '4.3.0';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
-const CORE_LABEL = '0.5.1';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
+const CORE_VERSION = '4.3.1';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
+const CORE_LABEL = '0.5.2';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -693,6 +693,7 @@ function openRegister() {
           <p>Jedno konto na wszystkich telefonach: synchronizacja biblioteki Watch, powiadomienia i dostęp do modułów.</p></div>
         <form class="pc-form login-form" id="rgForm">
           <div class="field"><input id="rgName" placeholder="Imię lub pseudonim (opcjonalnie)" autocomplete="nickname"></div>
+          <div class="field"><input id="rgEmail" type="email" placeholder="Adres e-mail (wyślemy kod)" autocapitalize="off" autocomplete="email" required></div>
           <div class="field"><input id="rgLogin" placeholder="Login (2–40 znaków)" autocapitalize="off" autocomplete="username" required></div>
           <div class="field"><input id="rgPass" type="password" placeholder="Hasło (min. 8 znaków)" autocomplete="new-password" minlength="8" required></div>
           <div class="field"><input id="rgPass2" type="password" placeholder="Powtórz hasło" autocomplete="new-password" required></div>
@@ -704,10 +705,35 @@ function openRegister() {
         const btn = $('rgForm').querySelector('.btn');
         btn.disabled = true;
         try {
-            setLogin(await accountFetch('api/register', { login: $('rgLogin').value.trim(), name: $('rgName').value.trim(), password: $('rgPass').value }));
-            toast('Konto utworzone — jesteś zalogowany');
+            const r = await accountFetch('api/register', { login: $('rgLogin').value.trim(), name: $('rgName').value.trim(), email: $('rgEmail').value.trim(), password: $('rgPass').value });
+            openConfirm(r.login, r.email);
+        } catch (err) { toast(errText(err), 'err'); btn.disabled = false; }
+    };
+}
+
+// Kod z e-maila: 6 cyfr; po poprawnym kodzie konto jest aktywne i od razu zalogowane
+function openConfirm(login, email) {
+    openSheet('Potwierdź e-mail', `
+        <div class="login-hero"><img src="icons/pitayas.png" alt=""><h2>Wpisz <span>kod</span></h2>
+          <p>Wysłaliśmy 6-cyfrowy kod na adres ${esc(email || 'podany w rejestracji')}. Kod działa 15 minut — zajrzyj też do spamu.</p></div>
+        <form class="pc-form login-form" id="cfForm">
+          <div class="field"><input id="cfCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="000000" autocomplete="one-time-code" style="text-align:center;letter-spacing:8px;font-size:22px" required></div>
+          <button type="submit" class="btn">Potwierdź</button>
+          <button type="button" class="btn ghost" id="cfResend">Wyślij kod ponownie</button>
+        </form>`, openLogin);
+    setTimeout(() => $('cfCode') && $('cfCode').focus(), 250);
+    $('cfForm').onsubmit = async (e) => {
+        e.preventDefault();
+        const btn = $('cfForm').querySelector('.btn');
+        btn.disabled = true;
+        try {
+            setLogin(await accountFetch('api/register/confirm', { login, code: $('cfCode').value.trim() }));
+            toast('Konto potwierdzone — jesteś zalogowany');
             openSettings();
         } catch (err) { toast(errText(err), 'err'); btn.disabled = false; }
+    };
+    $('cfResend').onclick = async () => {
+        try { await accountFetch('api/register/resend', { login }); toast('Wysłano nowy kod'); } catch (err) { toast(errText(err), 'err'); }
     };
 }
 
@@ -736,7 +762,10 @@ function openLogin() {
         try {
             setLogin(await accountFetch('api/login', { login: $('lgLogin').value.trim(), password: $('lgPass').value }));
             openSettings();
-        } catch (err) { toast(errText(err), 'err'); btn.disabled = false; }
+        } catch (err) {
+            if (/Potwierdź adres e-mail/.test(errText(err))) { toast(errText(err), 'err'); return openConfirm($('lgLogin').value.trim(), ''); }
+            toast(errText(err), 'err'); btn.disabled = false;
+        }
     };
 }
 
