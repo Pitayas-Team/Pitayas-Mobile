@@ -2569,7 +2569,7 @@ dependencies = [
 
 [[package]]
 name = "pitayas-app"
-version = "1.0.3-beta"
+version = "1.0.4"
 dependencies = [
  "base64 0.22.1",
  "futures-util",

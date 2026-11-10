@@ -196,8 +196,9 @@
         const P = nativePlayer();
         if (P) { hookPlayer(P); return P.open({ url, title, desktop: true }).catch((err) => api.toast(errText(err), 'err')); }
         // Starsza aplikacja bez wtyczki (iPhone): przeglądarka telefonu (ma Widevine)
+        // iPhone: okno w aplikacji (nie wyrzuca do Safari ani aplikacji serwisu)
         const iab = api.Plugins.InAppBrowser;
-        if (iab) iab.openInExternalBrowser({ url }).catch(() => window.open(url, '_blank'));
+        if (iab) (iab.openInWebView || iab.openInExternalBrowser).call(iab, { url }).catch(() => window.open(url, '_blank'));
         else window.open(url, '_blank');
     }
     function playOnPhone(item, svc, url) {
@@ -209,6 +210,7 @@
     function connectSvc(svc) {
         pendingConnect = svc.id;
         openInApp(LOGIN[svc.id] || svc.url(''), `Logowanie: ${svc.name}`);
+        if (!nativePlayer()) setTimeout(() => { if (el) renderPage(); }, 400);   // bez natywnego odtwarzacza (iPhone) pytanie „zalogowano?” pokazujemy na liście
     }
     function askConnected() {
         const svc = svcOf(pendingConnect);
@@ -377,7 +379,9 @@
     // ───── Start: kontynuuj oglądanie, połączone konta, do obejrzenia ─────
     let view = '';
     function accountsHtml() {
+        const pend = pendingConnect && svcOf(pendingConnect);
         return `<button class="wt-back" data-back2>‹ Wróć</button>
+            ${pend ? `<div class="wt-panel wt-now"><b class="wt-h">Zalogowano do ${esc(pend.name)}?</b><p class="hint">Zamknij okno logowania („Gotowe”), a potem potwierdź tutaj.</p><div class="wt-chips"><button class="chip" data-confirmconn>Tak, połącz</button><button class="chip ghost" data-cancelconn>Anuluj</button></div></div>` : ''}
             <div class="wt-panel"><b class="wt-h">Połącz konta</b><p class="hint">Zaloguj się do serwisów, z których korzystasz — logowanie odbywa się w oknie aplikacji i zostaje zapamiętane. Lista połączonych kont synchronizuje się z kontem Pitayas. Nie widzimy ani nie przechowujemy Twoich haseł do serwisów.</p>
             ${SERVICES.map((x) => `<div class="wt-svc"><span><b>${esc(x.name)}</b><small>${store.mine.includes(x.id) ? '✓ połączono' : 'niepołączone'}</small></span>
                 <button class="chip ${store.mine.includes(x.id) ? 'ghost' : ''}" data-connect="${x.id}">${store.mine.includes(x.id) ? 'Zaloguj ponownie' : 'Połącz'}</button>
@@ -520,6 +524,8 @@
         pcBind(on);
         on('[data-accounts]', () => { view = 'accounts'; renderPage(); });
         on('[data-back2]', () => { view = ''; renderPage(); });
+        on('[data-confirmconn]', () => { const id = pendingConnect; pendingConnect = null; if (id && !store.mine.includes(id)) store.mine.push(id); store.minePending = true; saveSync(); renderPage(); });
+        on('[data-cancelconn]', () => { pendingConnect = null; renderPage(); });
         on('[data-connect]', (b) => connectSvc(svcOf(b.dataset.connect)));
         on('[data-disconnect]', (b) => { store.mine = store.mine.filter((x) => x !== b.dataset.disconnect); store.minePending = true; saveSync(); renderPage(); });
         on('[data-cont]', (b) => { const h = store.history.filter((x) => x.url)[Number(b.dataset.cont)]; if (h) playOnPhone(h.item, svcOf(h.svc) || { id: h.svc, name: h.service, url: () => h.url }, h.url); });
@@ -573,7 +579,6 @@
         pause() { tvClose(); },
         resume() {
             if (!el) return;
-            if (pendingConnect && !nativePlayer()) askConnected();
             if (store.session && store.session.where === 'phone' && !nativePlayer()) { endSession(); renderPage(); }
             if (tvNow() && !tv.needPin) tvConnect();
         },
