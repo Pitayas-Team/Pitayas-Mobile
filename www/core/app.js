@@ -3,8 +3,8 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '4.3.9';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
-const CORE_LABEL = '0.6.0';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
+const CORE_VERSION = '4.3.10';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
+const CORE_LABEL = '0.6.1';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -1074,7 +1074,7 @@ function renderModules() {
         const have = installed[m.id];
         const newer = have && vcmp(m.version, have.version) > 0;
         const ok = compatible(m);
-        const action = isSoon(m.id) ? '<span class="mod-pill lock">Wkrótce</span>'
+        const action = !ids.has(m.id) ? '<span class="mod-pill lock">Wycofany</span>' : isSoon(m.id) ? '<span class="mod-pill lock">Wkrótce</span>'
             : !hasAccess(m.id) ? '<span class="mod-pill lock">🔒 Testerzy</span>'
             : !ok ? `<span class="mod-pill">Rdzeń ${esc(m.minCore)}+</span>`
             : !have ? `<button class="mod-get" data-install="${esc(m.id)}">Pobierz</button>`
