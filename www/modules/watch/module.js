@@ -25,6 +25,8 @@
         { id: 'polsat', name: 'Polsat Box Go', match: /polsat/i, url: () => 'https://polsatboxgo.pl/' },
         { id: 'youtube', name: 'YouTube', match: /youtube/i, url: (t) => `https://www.youtube.com/results?search_query=${q8(t)}` },
     ];
+    const LOGIN = { netflix: 'https://www.netflix.com/login', disney: 'https://www.disneyplus.com/login', prime: 'https://www.primevideo.com/', hbo: 'https://auth.max.com/login', skyshowtime: 'https://www.skyshowtime.com/signin', apple: 'https://tv.apple.com/', canal: 'https://www.canalplus.com/pl/', player: 'https://player.pl/', tvp: 'https://vod.tvp.pl/', polsat: 'https://polsatboxgo.pl/', youtube: 'https://accounts.google.com/ServiceLogin?service=youtube' };
+    const svcOf = (id) => SERVICES.find((x) => x.id === id);
     const KINDS = [['flatrate', 'w abonamencie'], ['free', 'za darmo'], ['ads', 'z reklamami'], ['rent', 'wypożyczenie'], ['buy', 'zakup']];
 
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
@@ -44,7 +46,7 @@
     const saveSync = () => { save(); clearTimeout(syncTimer); syncTimer = setTimeout(syncNow, 1500); };
     const tvNow = () => store.tvs.find((t) => t.host === store.tv) || store.tvs[0] || null;
 
-    let el = null, api = null, tab = 'discover';
+    let el = null, api = null, tab = 'home';
     const disc = { q: '', list: null, loading: false, error: '', item: null, detail: null };
     const q = (sel) => el && el.querySelector(sel);
 
@@ -152,7 +154,7 @@
     // Sesja = oglądanie jednego tytułu; czas liczymy tylko wtedy, gdy film naprawdę gra (telewizor) albo jest otwarty (telefon)
     function startSession(item, svc, url, where) {
         endSession();
-        store.session = { item: item || null, title: item ? item.title : svc.name, service: svc.name, url, where, start: Date.now(), seconds: 0, tick: Date.now() };
+        store.session = { item: item || null, title: item ? item.title : svc.name, service: svc.name, svc: svc.id, url, where, start: Date.now(), seconds: 0, tick: Date.now() };
         save();
     }
     function tickSession(playing) {
@@ -170,8 +172,8 @@
         store.session = null;
         if (s.seconds >= 30) {
             const prev = s.item && store.history.find((h) => same(h.item, s.item));
-            if (prev) { prev.seconds += Math.round(s.seconds); prev.at = Date.now(); prev.service = s.service; store.history = [prev, ...store.history.filter((h) => h !== prev)]; }
-            else store.history.unshift({ item: s.item, title: s.title, service: s.service, at: Date.now(), seconds: Math.round(s.seconds) });
+            if (prev) { prev.seconds += Math.round(s.seconds); prev.at = Date.now(); prev.service = s.service; prev.url = s.url; prev.svc = s.svc; store.history = [prev, ...store.history.filter((h) => h !== prev)]; }
+            else store.history.unshift({ item: s.item, title: s.title, service: s.service, url: s.url, svc: s.svc, at: Date.now(), seconds: Math.round(s.seconds) });
             store.history = store.history.slice(0, 200);
             saveSync();
         } else save();
@@ -180,22 +182,39 @@
     // ───── Odtwarzanie w telefonie ─────
     const nativePlayer = () => (Cap && Cap.isPluginAvailable && Cap.isPluginAvailable('PitayasWatch') ? Cap.Plugins.PitayasWatch : null);
     let playerHooked = false;
-    function playOnPhone(item, svc) {
-        const url = svc.url(item ? item.title : '');
-        startSession(item, svc, url, 'phone');
+    let pendingConnect = null;
+    function hookPlayer(P) {
+        if (playerHooked) return;
+        playerHooked = true;
+        // Wtyczka sama mierzy czas z otwartym odtwarzaczem (bez czasu w tle)
+        P.addListener('closed', (e) => {
+            if (pendingConnect) return askConnected();
+            if (store.session && store.session.where === 'phone') { store.session.seconds = e.seconds || 0; store.session.counted = true; endSession(); if (el) renderPage(); }
+        });
+    }
+    function openInApp(url, title) {
         const P = nativePlayer();
-        if (P) {
-            if (!playerHooked) {
-                playerHooked = true;
-                // Wtyczka sama mierzy czas z otwartym odtwarzaczem (bez czasu w tle)
-                P.addListener('closed', (e) => { if (store.session && store.session.where === 'phone') { store.session.seconds = e.seconds || 0; store.session.counted = true; endSession(); if (el) renderPage(); } });
-            }
-            return P.open({ url, title: item ? item.title : svc.name, desktop: true }).catch((err) => api.toast(errText(err), 'err'));
-        }
-        // Starsza aplikacja bez wtyczki: przeglądarka telefonu (ma Widevine)
+        if (P) { hookPlayer(P); return P.open({ url, title, desktop: true }).catch((err) => api.toast(errText(err), 'err')); }
+        // Starsza aplikacja bez wtyczki (iPhone): przeglądarka telefonu (ma Widevine)
         const iab = api.Plugins.InAppBrowser;
         if (iab) iab.openInExternalBrowser({ url }).catch(() => window.open(url, '_blank'));
         else window.open(url, '_blank');
+    }
+    function playOnPhone(item, svc, url) {
+        url = url || svc.url(item ? item.title : '');
+        startSession(item, svc, url, 'phone');
+        return openInApp(url, item ? item.title : svc.name);
+    }
+    // „Połącz konto”: logowanie w oknie aplikacji (ciasteczka zostają, więc nie logujesz się drugi raz); po zamknięciu pytamy, czy się udało
+    function connectSvc(svc) {
+        pendingConnect = svc.id;
+        openInApp(LOGIN[svc.id] || svc.url(''), `Logowanie: ${svc.name}`);
+    }
+    function askConnected() {
+        const svc = svcOf(pendingConnect);
+        pendingConnect = null;
+        if (svc && window.confirm(`Czy zalogowano się do ${svc.name}?`)) { if (!store.mine.includes(svc.id)) store.mine.push(svc.id); store.minePending = true; saveSync(); }
+        if (el) renderPage();
     }
 
     // ───── Telewizor ─────
@@ -329,12 +348,33 @@
             ${d && !known.length ? servicesHtml(it) : ''}`;
     }
 
+    // ───── Start: kontynuuj oglądanie, połączone konta, do obejrzenia ─────
+    let view = '';
+    function accountsHtml() {
+        return `<button class="wt-back" data-back2>‹ Wróć</button>
+            <div class="wt-panel"><b class="wt-h">Połącz konta</b><p class="hint">Zaloguj się do serwisów, z których korzystasz — logowanie odbywa się w oknie aplikacji i zostaje zapamiętane. Lista połączonych kont synchronizuje się z kontem Pitayas. Nie widzimy ani nie przechowujemy Twoich haseł do serwisów.</p>
+            ${SERVICES.map((x) => `<div class="wt-svc"><span><b>${esc(x.name)}</b><small>${store.mine.includes(x.id) ? '✓ połączono' : 'niepołączone'}</small></span>
+                <button class="chip ${store.mine.includes(x.id) ? 'ghost' : ''}" data-connect="${x.id}">${store.mine.includes(x.id) ? 'Zaloguj ponownie' : 'Połącz'}</button>
+                ${store.mine.includes(x.id) ? `<button class="chip ghost" data-disconnect="${x.id}">Odłącz</button>` : ''}</div>`).join('')}</div>`;
+    }
+    function homeHtml() {
+        if (view === 'accounts') return accountsHtml();
+        const cont = store.history.filter((h) => h.url).slice(0, 12);
+        const linked = SERVICES.filter((x) => store.mine.includes(x.id));
+        return `<div class="wt-label">Kontynuuj oglądanie</div>
+            ${cont.length ? `<div class="wt-row">${cont.map((h, i) => `<button class="wt-cont" data-cont="${i}"><span class="wt-poster">${poster(h.item && h.item.poster, 'w342')}</span><b>${esc(h.title)}</b><small>${esc(h.service)} · ${long(h.seconds)}</small></button>`).join('')}</div>`
+                : `<div class="wt-panel wt-c"><b class="wt-h">Jeszcze nic nie oglądałeś</b><p class="hint">Połącz konta serwisów, wybierz tytuł w „Odkrywaj” i włącz go — tutaj pojawi się „Kontynuuj oglądanie”.</p></div>`}
+            <div class="wt-label">Twoje konta</div>
+            <div class="wt-panel"><div class="wt-chips">${linked.map((x) => `<button class="chip" data-open-svc="${x.id}">${esc(x.name)}</button>`).join('')}<button class="chip ghost" data-accounts>${linked.length ? 'Zarządzaj kontami' : '+ Połącz konta'}</button></div>
+              ${linked.length ? '<p class="hint">Dotknij serwisu, żeby go otworzyć w aplikacji.</p>' : '<p class="hint">Zaloguj się do Netflixa, Disney+, HBO Max i innych — wszystko w jednym miejscu.</p>'}</div>
+            ${store.watchlist.length ? `<div class="wt-label">Do obejrzenia · ${store.watchlist.length}</div><div class="wt-grid">${store.watchlist.slice(0, 6).map((it, i) => card(it, i, 'data-wl')).join('')}</div>` : ''}`;
+    }
+
     function libraryHtml() {
         const total = store.history.reduce((n, h) => n + (h.seconds || 0), 0);
         const s = store.session;
         return `${s ? `<div class="wt-panel wt-now"><small>Trwa oglądanie · ${s.where === 'tv' ? 'telewizor' : 'telefon'}</small><b>${esc(s.title)}</b><span>${esc(s.service)} · ${long(s.where === 'tv' ? s.seconds : (Date.now() - s.start) / 1000)}</span>
                 <button class="chip ghost" data-endsession>Zakończ sesję</button></div>` : ''}
-            ${mineHtml()}
             <div class="wt-label">Do obejrzenia · ${store.watchlist.length}</div>
             ${store.watchlist.length ? `<div class="wt-grid">${store.watchlist.map((it, i) => card(it, i, 'data-wl')).join('')}</div>` : '<p class="hint">Dodawaj tytuły przyciskiem „+ Do obejrzenia” w katalogu.</p>'}
             <div class="wt-label">Historia${total ? ` · razem ${long(total)}` : ''}</div>
@@ -391,7 +431,7 @@
 
     function render() {
         if (!el) return;
-        el.innerHTML = `<div class="wt-tabs">${[['discover', 'Odkrywaj'], ['library', 'Biblioteka'], ['remote', 'Pilot']].map(([id, n]) => `<button data-tab="${id}" class="${tab === id ? 'on' : ''}">${n}</button>`).join('')}</div><div class="wt-page"></div>`;
+        el.innerHTML = `<div class="wt-tabs">${[['home', 'Start'], ['discover', 'Odkrywaj'], ['library', 'Biblioteka'], ['remote', 'Pilot']].map(([id, n]) => `<button data-tab="${id}" class="${tab === id ? 'on' : ''}">${n}</button>`).join('')}</div><div class="wt-page"></div>`;
         el.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => { tab = b.dataset.tab; render(); }));
         renderPage();
         if (tab === 'discover' && api.account() && !disc.list && !disc.loading && !disc.error) loadList();
@@ -399,7 +439,7 @@
     function renderPage() {
         const page = q('.wt-page');
         if (!page) return;
-        page.innerHTML = tab === 'discover' ? discoverHtml() : tab === 'library' ? libraryHtml() : remoteHtml();
+        page.innerHTML = tab === 'home' ? homeHtml() : tab === 'discover' ? discoverHtml() : tab === 'library' ? libraryHtml() : remoteHtml();
         bind();
     }
     // Stan z telewizora przychodzi co sekundę — podmieniamy tylko pasek postępu i ikony, żeby nie zrywać dotyku
@@ -451,6 +491,12 @@
         on('[data-list]', () => toggleList(disc.item));
         on('[data-tv]', (b) => playOnTv(tab === 'discover' ? disc.item : null, svcOf(b.dataset.tv)));
         on('[data-phone]', (b) => playOnPhone(disc.item, svcOf(b.dataset.phone)));
+        on('[data-accounts]', () => { view = 'accounts'; renderPage(); });
+        on('[data-back2]', () => { view = ''; renderPage(); });
+        on('[data-connect]', (b) => connectSvc(svcOf(b.dataset.connect)));
+        on('[data-disconnect]', (b) => { store.mine = store.mine.filter((x) => x !== b.dataset.disconnect); store.minePending = true; saveSync(); renderPage(); });
+        on('[data-cont]', (b) => { const h = store.history.filter((x) => x.url)[Number(b.dataset.cont)]; if (h) playOnPhone(h.item, svcOf(h.svc) || { id: h.svc, name: h.service, url: () => h.url }, h.url); });
+        on('[data-open-svc]', (b) => playOnPhone(null, svcOf(b.dataset.openSvc)));
         on('[data-endsession]', () => { endSession(); renderPage(); });
         on('[data-clearhist]', () => { store.history = []; saveSync(); renderPage(); });
         on('[data-mine]', (b) => { const id = b.dataset.mine; store.mine = store.mine.includes(id) ? store.mine.filter((x) => x !== id) : [...store.mine, id]; store.minePending = true; saveSync(); renderPage(); });
@@ -500,6 +546,7 @@
         pause() { tvClose(); },
         resume() {
             if (!el) return;
+            if (pendingConnect && !nativePlayer()) askConnected();
             if (store.session && store.session.where === 'phone' && !nativePlayer()) { endSession(); renderPage(); }
             if (tvNow() && !tv.needPin) tvConnect();
         },
