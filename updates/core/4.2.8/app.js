@@ -3,8 +3,8 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '4.2.4';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
-const CORE_LABEL = '0.4.5';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
+const CORE_VERSION = '4.2.8';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
+const CORE_LABEL = '0.4.9';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -184,7 +184,7 @@ async function refreshStatus() {
 function renderTiles() {
     const list = Object.values(installed).filter((m) => !isHidden(m.id)).sort((a, b) => a.name.localeCompare(b.name));
     $('tiles').innerHTML = list.map((m) => `
-        <button class="tile${hasAccess(m.id) ? '' : ' locked'}" data-open="${esc(m.id)}">
+        <button class="tile${isSoon(m.id) ? ' locked soon' : hasAccess(m.id) ? '' : ' locked'}" data-open="${esc(m.id)}">
           <img src="${esc((m.base || '') + 'icon.png')}" alt="">
           <div class="tile-text"><b>${esc(m.name)}</b><small>${esc(m.description)}</small></div>
           <span class="dot ${online[m.id] === true ? 'on' : online[m.id] === false ? 'off' : ''}" id="dot-${esc(m.id)}"></span>
@@ -227,6 +227,7 @@ function openSwitcher() {
 }
 
 function openModule(id) {
+    if (isSoon(id)) return toast('Wkrótce — ten moduł wróci w nowej aplikacji Pitayas', 'err');
     if (!hasAccess(id)) return toast(account.token ? 'Ten moduł jest tylko dla testerów' : 'Moduł dla testerów — zaloguj się w Ustawieniach', 'err');
     if (!current() && needsPc(installed[id])) return openPcs();   // Deck, Cam potrzebują komputera; Convert nie
     const def = defs[id];
@@ -362,6 +363,11 @@ const source = () => {
     return s.endsWith('/') ? s : `${s}/`;
 };
 let manifest = null;
+// Zdalne przełączniki z kanału (scripts/flags.json): soon = moduły zablokowane do czasu nowej aplikacji,
+// newApp = { state: 'soon' | 'ready', text, url } — informacja, że trzeba pobrać nową aplikację Pitayas
+const flag = (k) => (manifest && manifest.flags ? manifest.flags[k] : ls.get('pitayas-flags', {})[k]);
+const isSoon = (id) => Array.isArray(flag('soon')) && flag('soon').includes(id);
+
 let bundled = null;     // moduły wbudowane w aplikację (www/modules) — działają bez internetu
 let shellVersion = '0.0.0';
 
@@ -400,6 +406,7 @@ async function fetchManifest() {
         const r = await fetch(`${source()}manifest.json?t=${Date.now()}`, { cache: 'no-store' });
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         manifest = await r.json();
+        ls.set('pitayas-flags', manifest.flags || {});
         const off = Boolean(manifest.flags && manifest.flags.glass === false);
         if (off !== ls.get('pitayas-glass-off', false)) {
             ls.set('pitayas-glass-off', off);
@@ -493,6 +500,10 @@ function renderBanner() {
     } else if (core || mods.length) {
         const names = [core && `Rdzeń ${core.label || core.version}`, ...mods.map((m) => `${m.name} ${m.version}`)].filter(Boolean);
         b.innerHTML = `<span>Aktualizacje: ${esc(names.join(', '))}</span><button class="chip" id="bUpdate">Aktualizuj</button>`;
+    } else if (flag('newApp') && flag('newApp').state && !(window.Capacitor && window.Capacitor.PITAYAS_TAURI)) {   // tylko w starej aplikacji
+        const n = flag('newApp');
+        const ready = n.state === 'ready' && n.url;
+        b.innerHTML = `<span>${esc(n.text || (ready ? 'Pobierz nową aplikację Pitayas — ta wersja nie dostaje już nowości' : 'Nadchodzi nowa aplikacja Pitayas — gdy będzie gotowa, trzeba będzie ją pobrać'))}</span>${ready ? '<button class="chip" id="bNewApp">Pobierz</button>' : ''}`;
     } else if (shell) {
         b.innerHTML = `<span>Nowa wersja aplikacji ${esc(shell.version)}</span><button class="chip" id="bShell">${IS_ANDROID ? 'Zainstaluj' : 'Pobierz'}</button>`;
     } else {
@@ -503,6 +514,7 @@ function renderBanner() {
     if ($('bReload')) $('bReload').onclick = () => location.reload();
     if ($('bUpdate')) $('bUpdate').onclick = () => updateAll(true);
     if ($('bShell')) $('bShell').onclick = () => openShellDownload(shell);
+    if ($('bNewApp')) $('bNewApp').onclick = () => openShellPage({ page: flag('newApp').url, url: flag('newApp').url });
 }
 
 const IS_ANDROID = Boolean(window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'android');
@@ -914,7 +926,8 @@ function renderModules() {
         const have = installed[m.id];
         const newer = have && vcmp(m.version, have.version) > 0;
         const ok = compatible(m);
-        const action = !hasAccess(m.id) ? '<span class="mod-pill lock">🔒 Testerzy</span>'
+        const action = isSoon(m.id) ? '<span class="mod-pill lock">Wkrótce</span>'
+            : !hasAccess(m.id) ? '<span class="mod-pill lock">🔒 Testerzy</span>'
             : !ok ? `<span class="mod-pill">Rdzeń ${esc(m.minCore)}+</span>`
             : !have ? `<button class="mod-get" data-install="${esc(m.id)}">Pobierz</button>`
             : newer ? `<button class="mod-get upd" data-install="${esc(m.id)}">Aktualizuj</button>`
@@ -960,6 +973,30 @@ function setRow(icon, title, value, opts = {}) {
 function setIcon(k, color) { return `<span class="set-ic" style="background:${color}"><svg viewBox="0 0 24 24">${SET_ICON_PATHS[k]}</svg></span>`; }
 const SET_ICON_PATHS = {"user":"<circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6\"/>","refresh":"<path d=\"M21 12a9 9 0 1 1-3-6.7L21 8\"/><path d=\"M21 3v5h-5\"/>","auto":"<path d=\"M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8\"/>","phone":"<rect x=\"7\" y=\"2\" width=\"10\" height=\"20\" rx=\"2\"/><path d=\"M11 18h2\"/>","core":"<rect x=\"5\" y=\"5\" width=\"14\" height=\"14\" rx=\"3\"/><path d=\"M9 9h6v6H9z\"/>","box":"<path d=\"M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8\"/>","bell":"<path d=\"M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0\"/>","code":"<path d=\"M8 6l-6 6 6 6M16 6l6 6-6 6\"/>","dl":"<path d=\"M12 4v11M7 10l5 5 5-5M5 20h14\"/>"};
 
+// Tryb Pitayas Watch (tylko dla zalogowanych): aplikacja startuje od razu w module Watch.
+// Wyjście z modułu („Wstecz”) pokazuje zwykły ekran główny, więc do Ustawień zawsze da się wrócić.
+const watchModeOn = () => Boolean(settings.watchMode && account.token && account.user && installed.watch && hasAccess('watch'));
+async function setWatchMode(on) {
+    settings.watchMode = on;
+    ls.set('pitayas-settings', settings);
+    if (!on) return;
+    try {
+        if (!installed.watch) {
+            const entry = available().find((m) => m.id === 'watch');
+            if (!entry) throw new Error('Moduł Pitayas Watch nie jest jeszcze dostępny — sprawdź aktualizacje');
+            if (!hasAccess('watch')) throw new Error('To konto nie ma dostępu do Pitayas Watch');
+            await installModule(entry);
+        }
+        closeSheet();
+        openModule('watch');
+    } catch (err) {
+        settings.watchMode = false;
+        ls.set('pitayas-settings', settings);
+        if ($('sWatch')) $('sWatch').checked = false;
+        toast(err.message || String(err), 'err');
+    }
+}
+
 function openSettings() {
     const shell = shellUpdate();
     const u = account.token && account.user;
@@ -987,6 +1024,7 @@ function openSettings() {
           ${setRow(setIcon('box', '#a77bff'), 'Moduły', esc(String(Object.keys(installed).length)), { id: 'sMods', sub: 'Pobierz, aktualizuj i usuwaj' })}
           ${setRow(setIcon('bell', '#ff9f45'), 'Powiadomienia', unread ? `<span class="set-badge">${unread}</span>` : '', { id: 'sNotifs' })}
           ${setRow(setIcon('refresh', '#ff4fa6'), 'Co dalej', null, { id: 'sRoad', sub: 'Plany rozwoju Pitayas' })}
+          ${u ? setRow(setIcon('phone', '#ff4fa6'), 'Tryb Pitayas Watch', null, { toggle: Boolean(settings.watchMode), toggleId: 'sWatch', sub: 'Aplikacja otwiera się od razu na filmach i pilocie telewizora' }) : ''}
         </div>
 
         <div class="set-label">Aktualizacje</div>
@@ -1008,6 +1046,7 @@ function openSettings() {
         <div class="set-group">${setRow(setIcon('code', '#3a3646'), 'Zaawansowane', null, { id: 'sDev', sub: 'Źródło aktualizacji, diagnostyka, dziennik' })}</div>`);
     bindAccount();
     $('sAuto').onchange = () => { settings.autoUpdate = $('sAuto').checked; ls.set('pitayas-settings', settings); };
+    if ($('sWatch')) $('sWatch').onchange = () => setWatchMode($('sWatch').checked);
     $('sCheck').onclick = async () => {
         if (coreReady) return location.reload();
         const v = $('sCheck').querySelector('.set-v');
@@ -1028,10 +1067,12 @@ function openSettings() {
 // ═══════ CO DALEJ (mapa drogowa) ═══════
 // Plan z panelu admina (admin.pitayas.eu → Plan / Panel admina w aplikacji); ta sama lista co na pitayas.eu.
 const RM_LABEL = { progress: 'W trakcie', planned: 'Planowane', done: 'Wydane' };
+// Termin: „soon” → Wkrótce, data RRRR-MM-DD → „15 grudnia 2026”, starszy tekst bez zmian
+const fmtEta = (e) => (!e ? '' : e === 'soon' ? 'Wkrótce' : /^\d{4}-\d{2}-\d{2}$/.test(e) ? new Date(`${e}T12:00:00`).toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric' }) : e);
 const roadmapCard = (it) => `
     <div class="rm-item ${esc(it.status)}"><span class="rm-dot"></span>
       <div class="rm-body"><b>${esc(it.title)}</b>${it.desc ? `<p>${esc(it.desc)}</p>` : ''}
-        ${it.app || it.eta ? `<div class="rm-tags">${it.app ? `<span>${esc(it.app)}</span>` : ''}${it.eta ? `<span>${esc(it.eta)}</span>` : ''}</div>` : ''}</div>
+        ${it.app || it.eta ? `<div class="rm-tags">${it.app ? `<span>${esc(it.app)}</span>` : ''}${it.eta ? `<span>${esc(fmtEta(it.eta))}</span>` : ''}</div>` : ''}</div>
     </div>`;
 function roadmapHtml(items) {
     if (!items.length) return '<p class="hint">Plan jeszcze się pojawi — zajrzyj tu wkrótce.</p>';
@@ -1059,7 +1100,7 @@ const moduleIcon = (id) => {
     const m = available().find((x) => x.id === id);
     return m ? `${m.src || (m.base ? `${source()}${m.base}` : '')}icon.png` : null;
 };
-window.PitayasCore = { RM_LABEL, roadmapCard, moduleIcon, $, esc, toast, openSheet, closeSheet, setRow, setIcon: (k, c) => setIcon(k, c), accountFetch: (p, b) => accountFetch(p, b), openSettings: () => openSettings() };
+window.PitayasCore = { RM_LABEL, fmtEta, roadmapCard, moduleIcon, $, esc, toast, openSheet, closeSheet, setRow, setIcon: (k, c) => setIcon(k, c), accountFetch: (p, b) => accountFetch(p, b), openSettings: () => openSettings() };
 function openAdmin() {
     if (window.PitayasAdmin) return window.PitayasAdmin.open();
     const base = (window.PITAYAS_CORE && window.PITAYAS_CORE.base) || 'core/';
@@ -1444,7 +1485,7 @@ if (Plugins.App) {
 // ═══════ START ═══════
 renderHome();
 window.PITAYAS_CORE_OK = true;   // powłoka wie, że rdzeń się uruchomił
-Promise.all(Object.values(installed).map(injectModule)).then(renderTiles);
+Promise.all(Object.values(installed).map(injectModule)).then(() => { renderTiles(); if (watchModeOn() && !activeView) openModule('watch'); });
 setInterval(() => { if (!activeView && document.visibilityState === 'visible') refreshStatus(); }, 5000);
 (Plugins.App && NATIVE ? Plugins.App.getInfo().then((i) => { shellVersion = i.version; }).catch(() => {}) : Promise.resolve())
     .then(loadBundled)
