@@ -3,8 +3,8 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '4.3.3';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
-const CORE_LABEL = '0.5.4';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
+const CORE_VERSION = '4.3.4';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
+const CORE_LABEL = '0.5.5';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -720,11 +720,11 @@ function openRegister() {
         <div class="login-hero"><img src="icons/pitayas.png" alt=""><h2>Utwórz konto <span>Pitayas</span></h2>
           <p>Jedno konto na wszystkich telefonach: synchronizacja biblioteki Watch, powiadomienia i dostęp do modułów.</p></div>
         <form class="pc-form login-form" id="rgForm">
-          <div class="field"><input id="rgName" placeholder="Imię lub pseudonim (opcjonalnie)" autocomplete="nickname"></div>
-          <div class="field"><input id="rgEmail" type="email" placeholder="Adres e-mail (wyślemy kod)" autocapitalize="off" autocomplete="email" required></div>
-          <div class="field"><input id="rgLogin" placeholder="Login (2–40 znaków)" autocapitalize="off" autocomplete="username" required></div>
-          <div class="field"><input id="rgPass" type="password" placeholder="Hasło (min. 8 znaków)" autocomplete="new-password" minlength="8" required></div>
-          <div class="field"><input id="rgPass2" type="password" placeholder="Powtórz hasło" autocomplete="new-password" required></div>
+          <div class="field plain"><input id="rgName" placeholder="Imię lub pseudonim (opcjonalnie)" autocomplete="nickname"></div>
+          <div class="field plain"><input id="rgEmail" type="email" placeholder="Adres e-mail (wyślemy kod)" autocapitalize="off" autocomplete="email" required></div>
+          <div class="field plain"><input id="rgLogin" placeholder="Login (2–40 znaków)" autocapitalize="off" autocomplete="username" required></div>
+          <div class="field plain"><input id="rgPass" type="password" placeholder="Hasło (min. 8 znaków)" autocomplete="new-password" minlength="8" required></div>
+          <div class="field plain"><input id="rgPass2" type="password" placeholder="Powtórz hasło" autocomplete="new-password" required></div>
           <details class="privacy-box"><summary>Co przetwarzamy i jak chronimy dane</summary><div class="privacy-text">${PRIVACY}</div></details>
           <label class="check-row"><input type="checkbox" id="rgOk" required> <span>Rozumiem, jak Pitayas przetwarza moje dane, i zgadzam się na to.</span></label>
           <label class="check-row"><input type="checkbox" id="rgRemember" checked> <span>Zapamiętaj logowanie na tym urządzeniu</span></label>
@@ -749,7 +749,7 @@ function openConfirm(login, email) {
         <div class="login-hero"><img src="icons/pitayas.png" alt=""><h2>Wpisz <span>kod</span></h2>
           <p>Wysłaliśmy 6-cyfrowy kod na adres ${esc(email || 'podany w rejestracji')}. Kod działa 15 minut — zajrzyj też do spamu.</p></div>
         <form class="pc-form login-form" id="cfForm">
-          <div class="field"><input id="cfCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="000000" autocomplete="one-time-code" style="text-align:center;letter-spacing:8px;font-size:22px" required></div>
+          <div class="field plain"><input id="cfCode" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="000000" autocomplete="one-time-code" style="text-align:center;letter-spacing:8px;font-size:22px" required></div>
           <button type="submit" class="btn">Potwierdź</button>
           <button type="button" class="btn ghost" id="cfResend">Wyślij kod ponownie</button>
         </form>`, openLogin);

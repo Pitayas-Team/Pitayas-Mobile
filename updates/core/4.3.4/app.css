@@ -316,3 +316,14 @@ input:focus, select:focus { outline: none; border-color: var(--m-accent); }
 .rm-body p { margin-top: 4px; font-size: 14px; line-height: 1.45; color: var(--m-text-2); }
 .rm-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .rm-tags span { font-size: 12px; font-weight: 600; color: var(--m-text-2); background: var(--m-item); border-radius: 999px; padding: 3px 10px; }
+
+.privacy-box { margin: 4px 0 10px; font-size: 13px; color: var(--m-dim, #b9b5c6); }
+.privacy-box summary { cursor: pointer; color: #ff4fa6; padding: 6px 0; }
+.privacy-text { font-size: 13px; line-height: 1.55; color: #b9b5c6; padding: 4px 2px; }
+.privacy-text p { margin: 0 0 10px; }
+.privacy-text b { color: #fff; }
+.check-row { display: flex; gap: 10px; align-items: flex-start; margin: 8px 0; font-size: 13px; line-height: 1.4; letter-spacing: 0; text-transform: none; font-weight: 400; color: #b9b5c6; }
+.check-row span { min-width: 0; flex: 1; }
+.check-row input[type=checkbox] { width: 22px !important; height: 22px; min-width: 22px; padding: 0 !important; margin: 0; flex: none; accent-color: #ff4fa6; }
+.login-form .field.plain input { padding-left: 14px; }
+.login-form, .privacy-box { max-width: 100%; box-sizing: border-box; }

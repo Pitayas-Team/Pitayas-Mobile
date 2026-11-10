@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "generated": "2026-11-10T18:43:54.878Z",
+  "generated": "2026-11-10T18:51:07.252Z",
   "shell": {
     "version": "1.0.4",
     "android": "https://github.com/Pitayas-Team/Pitayas-Mobile/releases/download/v1.0.4/Pitayas-1.0.4.apk",
@@ -8,10 +8,10 @@
     "page": "https://github.com/Pitayas-Team/Pitayas-Mobile/releases/latest"
   },
   "core": {
-    "version": "4.3.3",
-    "label": "0.5.4",
+    "version": "4.3.4",
+    "label": "0.5.5",
     "minShell": "0.1.0",
-    "base": "core/4.3.3/",
+    "base": "core/4.3.4/",
     "files": [
       "app.js",
       "app.css",
