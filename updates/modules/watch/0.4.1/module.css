@@ -100,3 +100,20 @@
   .wt-mod .wt-label { font-size: 13px; }
   .wt-mod .wt-rail .wt-card b, .wt-mod .wt-cont b { font-size: 15px; }
 }
+
+.wt-mod .wt-bar { display: block; height: 4px; border-radius: 2px; background: var(--m-line-strong, #2e2b38); overflow: hidden; margin-top: -2px; }
+.wt-mod .wt-bar i { display: block; height: 100%; background: var(--m-accent); }
+
+/* Komputer: szeroki układ — wyszukiwarka i przyciski w jednym wierszu, duże okładki */
+html.ui-pc .wt-mod .wt-top { max-width: 560px; }
+html.ui-pc .wt-mod .wt-nav { margin-top: -4px; }
+html.ui-pc .wt-mod .wt-rail .wt-card { width: 180px; }
+html.ui-pc .wt-mod .wt-cont { width: 250px; }
+html.ui-pc .wt-mod .wt-rail .wt-card b, html.ui-pc .wt-mod .wt-cont b { font-size: 15px; }
+html.ui-pc .wt-mod .wt-grid { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+/* Telewizor: większe odstępy i okładki (cały interfejs jest dodatkowo powiększony przez aplikację) */
+html.ui-tv .wt-mod { gap: 22px; }
+html.ui-tv .wt-mod .wt-rail .wt-card { width: 190px; }
+html.ui-tv .wt-mod .wt-cont { width: 270px; }
+html.ui-tv .wt-mod .wt-grid { grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+html.ui-tv .wt-mod .wt-top { max-width: 760px; }

@@ -447,7 +447,7 @@
             ${ses ? `<div class="wt-panel wt-now"><small>Trwa oglądanie</small><b>${esc(ses.title)}</b><span><span data-left>${esc(leftText(ses.pos || 0, ses.dur))}</span></span></div>` : ''}
             ${cont.length ? `<section class="wt-rail"><div class="wt-label">Kontynuuj oglądanie</div><div class="wt-row">${cont.map((h, i) => `<button class="wt-cont" data-cont="${i}"><span class="wt-poster">${poster(h.item && h.item.poster)}<i class="wt-play"></i></span><span class="wt-bar"><i style="width:${h.dur ? Math.min(100, Math.round(h.pos / h.dur * 100)) : 0}%"></i></span><b>${esc(h.title)}</b><small>${h.dur ? esc(leftText(h.pos, h.dur)) : `${esc(h.service)} · ${long(h.seconds)}`}</small></button>`).join('')}</div></section>` : ''}
             ${rail('Do obejrzenia', 'wl')}
-            ${!api.account() ? '<div class="wt-panel wt-c"><b class="wt-h">Zaloguj się, żeby przeglądać katalog</b><p class="hint">Konto Pitayas daje katalog filmów i seriali, synchronizację między urządzeniami i dostęp do pozostałych modułów. Zakładka „Konta” łączy serwisy, z których oglądasz.</p></div>'
+            ${!api.account() ? '<div class="wt-panel wt-c"><b class="wt-h">Zaloguj się, żeby przeglądać katalog</b><p class="hint">Konto Pitayas daje katalog filmów i seriali oraz synchronizację między urządzeniami. Zakładka „Konta” łączy serwisy, z których oglądasz.</p><div class="wt-chips"><button class="chip" data-login2>Zaloguj się</button></div></div>'
                 : rails.loading && !rails.loaded ? '<div class="spinner"></div>' : rails.error ? `<p class="hint warn">${esc(rails.error)}</p>`
                     : `${rail('Na czasie', 'all')}${rail('Popularne filmy', 'movie')}${rail('Popularne seriale', 'tv')}`}
             <section class="wt-rail"><div class="wt-label">Twoje serwisy</div><div class="wt-row wt-svcs">${(linked.length ? linked : SERVICES.slice(0, 6)).map((x) => `<button class="wt-svcbtn" data-open-svc="${x.id}">${esc(x.name)}</button>`).join('')}<button class="wt-svcbtn add" data-accounts>${linked.length ? 'Konta' : '+ Połącz konta'}</button></div></section>`;
@@ -517,7 +517,9 @@
     function render() {
         if (!el) return;
         el.innerHTML = `<form class="wt-search wt-top" data-search><input name="q" type="search" placeholder="Szukaj filmu albo serialu" value="${esc(disc.q)}" enterkeyhint="search"><button class="chip">Szukaj</button></form>
-            <div class="wt-nav">${tab !== 'home' ? '<button class="chip" data-home>‹ Start</button>' : ''}${PAGES().map(([id, n]) => `<button class="chip ${tab === id ? '' : 'ghost'}" data-tab="${id}">${n}</button>`).join('')}</div><div class="wt-page"></div>`;
+            <div class="wt-nav">${tab !== 'home' ? '<button class="chip" data-home>‹ Start</button>' : ''}${PAGES().map(([id, n]) => `<button class="chip ${tab === id ? '' : 'ghost'}" data-tab="${id}">${n}</button>`).join('')}<button class="chip wt-acc" data-login>${api.account() ? esc((api.account().user.name || api.account().user.login || 'Konto')) : 'Zaloguj się'}</button></div><div class="wt-page"></div>`;
+        const lg = q('[data-login]');
+        if (lg) lg.onclick = () => (api.account() ? api.openSettings() : api.openLogin());
         el.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => { tab = tab === b.dataset.tab ? 'home' : b.dataset.tab; Object.assign(disc, { item: null, detail: null, error: '' }); render(); }));
         const h = q('[data-home]');
         if (h) h.onclick = () => { tab = 'home'; disc.q = ''; Object.assign(disc, { item: null, detail: null, error: '' }); render(); };
@@ -585,6 +587,7 @@
         on('[data-back2]', () => { tab = 'home'; render(); });
         on('[data-confirmconn]', () => { const id = pendingConnect; pendingConnect = null; if (id && !store.mine.includes(id)) store.mine.push(id); store.minePending = true; saveSync(); renderPage(); });
         on('[data-cancelconn]', () => { pendingConnect = null; renderPage(); });
+        on('[data-login2]', () => api.openLogin());
         on('[data-shellupd]', () => api.installShell && api.installShell());
         on('[data-have]', (b) => markConnected(b.dataset.have, false));
         on('[data-connect]', (b) => connectSvc(svcOf(b.dataset.connect)));

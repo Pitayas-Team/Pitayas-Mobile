@@ -3,8 +3,8 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '4.3.4';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
-const CORE_LABEL = '0.5.5';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
+const CORE_VERSION = '4.3.8';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
+const CORE_LABEL = '0.5.9';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -91,6 +91,14 @@ const cleanHost = (text) => text.trim().replace(/^[a-z]+:\/\//i, '').replace(/[/
 // installed: { id: { id, name, description, version, port, files, path | url } } — path w pamięci telefonu,
 // url tylko w przeglądarce (podgląd na komputerze), gdzie nie ma systemu plików.
 const installed = ls.get('pitayas-modules', {});
+// Aplikacja „Pitayas Watch” (komputer / telewizor): to samo jądro, ale bez ekranu modułów — Watch jest wbudowany i jest całą aplikacją
+const APP_MODE = window.PITAYAS_APP || '';
+if (APP_MODE === 'watch') {
+    for (const id of Object.keys(installed)) if (id !== 'watch') delete installed[id];
+    if (!installed.watch || installed.watch.url) {
+        installed.watch = { id: 'watch', name: 'Pitayas Watch', description: 'Filmy i seriale', version: '0.0.0', minCore: '0.1.0', files: ['module.js', 'module.css', 'icon.png'], url: 'modules/watch/' };
+    }
+}
 const saveInstalled = () => ls.set('pitayas-modules', JSON.parse(JSON.stringify(installed, (k, v) => (k === 'base' ? undefined : v))));
 const defs = {};          // kod modułów po załadowaniu: Pitayas.register({...})
 const online = {};
@@ -114,6 +122,10 @@ function makeApi(id) {
         close: () => showHome(),
         switcher: () => openSwitcher(),   // lista aplikacji — przejście do innego modułu
         cloud: () => settings.cloudSync !== false,
+        openLogin: () => openLogin(),
+        openSettings: () => openSettings(),
+        shellUpdate: () => shellUpdate(),
+        installShell: () => { const sh = shellUpdate(); if (sh) installShell(sh, true); },
         account: () => (account.token ? { user: account.user, token: account.token, server: accountServer() } : null),
         // Dostęp do aplikacji z panelu kont: { name, testersOnly, access } albo null, gdy aplikacji nie ma w panelu
         access: (appId) => (access[appId] ? { ...access[appId] } : null),
@@ -262,6 +274,7 @@ function openView(id) {
         b.onclick = () => openSettings();
     }
     view.querySelector('[data-switcher]').onclick = openSwitcher;
+    if (APP_MODE === 'watch') view.querySelector('[data-switcher]').remove();
     document.body.appendChild(view);
     $('home').hidden = true;
     activeView = { id, view };
@@ -463,7 +476,32 @@ async function removeDir(dir) {
 
 const coreUpdate = () => manifest && manifest.core && vcmp(manifest.core.version, CORE_VERSION) > 0
     && vcmp(shellVersion, manifest.core.minShell) >= 0 ? manifest.core : null;
-const shellUpdate = () => manifest && manifest.shell && NATIVE && vcmp(manifest.shell.version, shellVersion) > 0 ? manifest.shell : null;
+// Aplikacja Pitayas Watch na komputerze: nowa wersja z GitHuba (Pitayas-Team/Pitayas-Watch) przez wbudowany aktualizator
+let watchShell = null;
+async function checkWatchShell() {
+    if (APP_MODE !== 'watch' || !window.__TAURI__) return;
+    try {
+        const r = await window.__TAURI__.core.invoke('pitaya_update_check');
+        watchShell = r && r.ok && r.hasUpdate ? { version: r.latestVersion, page: r.url, auto: Boolean(r.canAutoInstall), kind: r.installKind } : null;
+    } catch {}
+}
+async function installWatchShell(shell, manual) {
+    if (shellBusy) return;
+    shellBusy = true;
+    const T = window.__TAURI__;
+    toast(`Pobieram Pitayas Watch ${shell.version}…`);
+    let off = null;
+    try { off = await T.event.listen('pitaya:update-progress', (e) => { const p = e.payload || {}, n = p.percent != null ? p.percent : p.pct; if (n >= 0 && n <= 100) toast(`Pobieram Pitayas Watch ${shell.version} — ${Math.round(n)}%`); }); } catch {}
+    try {
+        const r = await T.core.invoke('pitaya_update_apply');
+        if (r && r.ok && r.restart) { toast('Zainstalowano nową wersję — uruchamiam ponownie'); setTimeout(() => T.core.invoke('pitaya_update_restart'), 1500); }
+        else if (r && r.ok) toast('Otworzyłem stronę wydania — pobierz stamtąd');
+        else toast((r && r.error) || 'Aktualizacja nie powiodła się', 'err');
+    } catch (err) { toast(errText(err), 'err'); }
+    if (off) off();
+    shellBusy = false;
+}
+const shellUpdate = () => APP_MODE === 'watch' ? watchShell : manifest && manifest.shell && NATIVE && vcmp(manifest.shell.version, shellVersion) > 0 ? manifest.shell : null;
 const moduleUpdates = () => available().filter((m) => installed[m.id] && vcmp(m.version, installed[m.id].version) > 0 && compatible(m));
 const compatible = (m) => vcmp(CORE_VERSION, m.minCore) >= 0;
 
@@ -534,6 +572,7 @@ function renderBanner() {
 
 const IS_ANDROID = Boolean(window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'android');
 function openShellDownload(shell) {
+    if (APP_MODE === 'watch') return installWatchShell(shell, true);
     // Android (aplikacja 0.2.7+): pobieramy APK w aplikacji i od razu otwieramy instalator systemu
     if (IS_ANDROID && shell.android && device()) return installShell(shell, true);
     openShellPage(shell);
@@ -547,6 +586,7 @@ function openShellPage(shell) {
 }
 let shellBusy = false;
 async function installShell(shell, manual) {
+    if (APP_MODE === 'watch') return installWatchShell(shell, manual);
     if (shellBusy) return;
     shellBusy = true;
     const b = $('banner');
@@ -570,6 +610,11 @@ async function installShell(shell, manual) {
 // Automatyczne aktualizacje: nowa aplikacja na Androidzie pobiera się sama i otwiera instalator (raz na wersję;
 // potwierdzenie „Zainstaluj” zawsze należy do użytkownika — tak działa Android)
 async function autoShell() {
+    if (APP_MODE === 'watch') {
+        // AppImage podmienia się sam; RPM/DEB wymaga hasła, więc tylko podpowiadamy
+        if (watchShell && watchShell.kind === 'appimage' && watchShell.auto && settings.autoUpdate && ls.get('pitayas-shell-auto', '') !== watchShell.version) { ls.set('pitayas-shell-auto', watchShell.version); installWatchShell(watchShell, false); }
+        return;
+    }
     const shell = shellUpdate();
     if (!shell || !IS_ANDROID || !shell.android || !device() || !settings.autoUpdate) return;
     if (ls.get('pitayas-shell-auto', '') === shell.version) return;
@@ -613,6 +658,7 @@ async function checkUpdates(manual) {
         return false;
     }
     if (settings.autoUpdate || manual) await updateAll(manual);
+    await checkWatchShell();
     renderBanner();
     autoShell();
     return true;
@@ -1136,7 +1182,8 @@ function openSettings() {
         <div class="set-group">
           ${setRow(setIcon('refresh', upToDate ? '#4cc38a' : '#3a8ef0'), upToDate ? 'Wszystko aktualne' : 'Dostępne aktualizacje', coreReady ? 'Uruchom ponownie' : '',
               { id: 'sCheck', sub: upToDate ? 'Dotknij, żeby sprawdzić teraz' : esc(pending.join(', ') || 'Dotknij, żeby zainstalować') })}
-          ${shell ? setRow(setIcon('dl', '#3fa8ff'), `Nowa aplikacja ${esc(shell.version)}`, null, { id: 'sShell', sub: IS_ANDROID ? 'Pobierz i zainstaluj' : 'Wymaga ponownej instalacji' }) : ''}
+          ${shell ? setRow(setIcon('dl', '#3fa8ff'), `Nowa aplikacja ${esc(shell.version)}`, null, { id: 'sShell', sub: IS_ANDROID || APP_MODE === 'watch' ? 'Pobierz i zainstaluj' : 'Wymaga ponownej instalacji' }) : ''}
+          ${APP_MODE === 'watch' ? setRow(setIcon('phone', '#ff4fa6'), 'Tryb telewizora', null, { toggle: document.documentElement.classList.contains('ui-tv'), toggleId: 'sTvUi', sub: 'Pełny ekran, duży interfejs, obsługa pilotem. Wyłączony: okno dla komputera' }) : ''}
           ${setRow(setIcon('auto', '#7ddc5a'), 'Aktualizuj automatycznie', null, { toggle: settings.autoUpdate, toggleId: 'sAuto', sub: IS_ANDROID ? 'Rdzeń, moduły i aplikacja' : 'Rdzeń i moduły w tle' })}
         </div>
         ${ls.get('pitayas-core-failed', false) ? '<p class="hint warn">Pobrany rdzeń nie uruchomił się — działa wbudowany. Spróbuj zaktualizować ponownie.</p>' : ''}
@@ -1149,7 +1196,9 @@ function openSettings() {
         </div>
 
         <div class="set-group">${setRow(setIcon('code', '#3a3646'), 'Zaawansowane', null, { id: 'sDev', sub: 'Źródło aktualizacji, diagnostyka, dziennik' })}</div>`);
+    if (APP_MODE === 'watch') for (const id of ['sPc', 'sMods', 'sRoad', 'sWatch']) { const el = $(id); const row = el && (el.closest('.set-row') || el); if (row) row.remove(); }
     bindAccount();
+    if ($('sTvUi')) $('sTvUi').onchange = () => window.pitayasSetUi($('sTvUi').checked ? 'tv' : 'pc');
     $('sAuto').onchange = () => { settings.autoUpdate = $('sAuto').checked; ls.set('pitayas-settings', settings); };
     if ($('sWatch')) $('sWatch').onchange = () => setWatchMode($('sWatch').checked);
     $('sCheck').onclick = async () => {
@@ -1614,6 +1663,14 @@ if (IS_DESKTOP && settings.watchMode !== false) {
         try { await installModule(entry); showHome(true); openModule('watch'); } catch (err) { toast(errText(err), 'err'); }
     }, 1500);
 }
+// Dwa wyglądy aplikacji Watch: komputer (okno, mysz) i telewizor (pełny ekran, duży interfejs, pilot) — wybiera aplikacja, przełączasz w Ustawieniach
+if (APP_MODE === 'watch') {
+    document.documentElement.classList.add('app-watch');
+    const setUi = (m) => { document.documentElement.classList.remove('ui-pc', 'ui-tv'); document.documentElement.classList.add(m === 'tv' ? 'ui-tv' : 'ui-pc'); };
+    setUi('pc');
+    if (window.PitayasDesktop) window.PitayasDesktop.uiMode().then(setUi).catch(() => {});
+    window.pitayasSetUi = (m) => window.PitayasDesktop.setUiMode(m).then((r) => { setUi(r); return r; });
+}
 // Telewizor sparowany z telefonem dostaje konto Pitayas z telefonu
 window.addEventListener('pitayas-tv-account', (e) => {
     const d = e.detail || {};
@@ -1674,6 +1731,6 @@ setInterval(() => { if (!activeView && document.visibilityState === 'visible') r
     .then(() => { applyScreenMode(); refreshAccess(); askNotifyPermission().finally(refreshNotifs); setInterval(refreshNotifs, 5 * 60 * 1000); return checkUpdates(false); })
     .then(() => {
         if (!Object.keys(installed).length) openModules();
-        else if (!pcs.list.length) editPc(null);
+        else if (!pcs.list.length && APP_MODE !== 'watch') editPc(null);
     });
 })();

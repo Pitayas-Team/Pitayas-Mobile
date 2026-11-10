@@ -124,6 +124,8 @@
       fullscreen: function (on) { return invoke('tv_fullscreen', { on: Boolean(on) }); },
       stop: function () { return invoke('tv_stop'); },
       cmd: function (action, value) { return invoke('tv_cmd', { action: action, value: value === undefined ? null : value }); },
+      uiMode: function () { return invoke('tv_ui_mode'); },
+      setUiMode: function (m) { return invoke('tv_set_ui', { mode: m }); },
       installChrome: function () { return invoke('tv_install_chrome'); },
       onState: function (cb) { T.event.listen('tv:state', function (e) { cb(e.payload); }); },
     };

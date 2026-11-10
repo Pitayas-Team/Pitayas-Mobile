@@ -2,7 +2,7 @@
   "id": "watch",
   "name": "Pitayas Watch",
   "description": "Filmy i seriale: połącz konta serwisów, kontynuuj oglądanie w aplikacji, katalog i pilot do telewizora",
-  "version": "0.4.0",
+  "version": "0.4.2",
   "minCore": "0.3.2",
   "port": {
     "default": 8197,

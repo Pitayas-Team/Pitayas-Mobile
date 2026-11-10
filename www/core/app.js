@@ -3,8 +3,8 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '4.3.6';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
-const CORE_LABEL = '0.5.7';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
+const CORE_VERSION = '4.3.8';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
+const CORE_LABEL = '0.5.9';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -122,6 +122,8 @@ function makeApi(id) {
         close: () => showHome(),
         switcher: () => openSwitcher(),   // lista aplikacji — przejście do innego modułu
         cloud: () => settings.cloudSync !== false,
+        openLogin: () => openLogin(),
+        openSettings: () => openSettings(),
         shellUpdate: () => shellUpdate(),
         installShell: () => { const sh = shellUpdate(); if (sh) installShell(sh, true); },
         account: () => (account.token ? { user: account.user, token: account.token, server: accountServer() } : null),
@@ -1181,6 +1183,7 @@ function openSettings() {
           ${setRow(setIcon('refresh', upToDate ? '#4cc38a' : '#3a8ef0'), upToDate ? 'Wszystko aktualne' : 'Dostępne aktualizacje', coreReady ? 'Uruchom ponownie' : '',
               { id: 'sCheck', sub: upToDate ? 'Dotknij, żeby sprawdzić teraz' : esc(pending.join(', ') || 'Dotknij, żeby zainstalować') })}
           ${shell ? setRow(setIcon('dl', '#3fa8ff'), `Nowa aplikacja ${esc(shell.version)}`, null, { id: 'sShell', sub: IS_ANDROID || APP_MODE === 'watch' ? 'Pobierz i zainstaluj' : 'Wymaga ponownej instalacji' }) : ''}
+          ${APP_MODE === 'watch' ? setRow(setIcon('phone', '#ff4fa6'), 'Tryb telewizora', null, { toggle: document.documentElement.classList.contains('ui-tv'), toggleId: 'sTvUi', sub: 'Pełny ekran, duży interfejs, obsługa pilotem. Wyłączony: okno dla komputera' }) : ''}
           ${setRow(setIcon('auto', '#7ddc5a'), 'Aktualizuj automatycznie', null, { toggle: settings.autoUpdate, toggleId: 'sAuto', sub: IS_ANDROID ? 'Rdzeń, moduły i aplikacja' : 'Rdzeń i moduły w tle' })}
         </div>
         ${ls.get('pitayas-core-failed', false) ? '<p class="hint warn">Pobrany rdzeń nie uruchomił się — działa wbudowany. Spróbuj zaktualizować ponownie.</p>' : ''}
@@ -1195,6 +1198,7 @@ function openSettings() {
         <div class="set-group">${setRow(setIcon('code', '#3a3646'), 'Zaawansowane', null, { id: 'sDev', sub: 'Źródło aktualizacji, diagnostyka, dziennik' })}</div>`);
     if (APP_MODE === 'watch') for (const id of ['sPc', 'sMods', 'sRoad', 'sWatch']) { const el = $(id); const row = el && (el.closest('.set-row') || el); if (row) row.remove(); }
     bindAccount();
+    if ($('sTvUi')) $('sTvUi').onchange = () => window.pitayasSetUi($('sTvUi').checked ? 'tv' : 'pc');
     $('sAuto').onchange = () => { settings.autoUpdate = $('sAuto').checked; ls.set('pitayas-settings', settings); };
     if ($('sWatch')) $('sWatch').onchange = () => setWatchMode($('sWatch').checked);
     $('sCheck').onclick = async () => {
@@ -1658,6 +1662,14 @@ if (IS_DESKTOP && settings.watchMode !== false) {
         clearInterval(iv);
         try { await installModule(entry); showHome(true); openModule('watch'); } catch (err) { toast(errText(err), 'err'); }
     }, 1500);
+}
+// Dwa wyglądy aplikacji Watch: komputer (okno, mysz) i telewizor (pełny ekran, duży interfejs, pilot) — wybiera aplikacja, przełączasz w Ustawieniach
+if (APP_MODE === 'watch') {
+    document.documentElement.classList.add('app-watch');
+    const setUi = (m) => { document.documentElement.classList.remove('ui-pc', 'ui-tv'); document.documentElement.classList.add(m === 'tv' ? 'ui-tv' : 'ui-pc'); };
+    setUi('pc');
+    if (window.PitayasDesktop) window.PitayasDesktop.uiMode().then(setUi).catch(() => {});
+    window.pitayasSetUi = (m) => window.PitayasDesktop.setUiMode(m).then((r) => { setUi(r); return r; });
 }
 // Telewizor sparowany z telefonem dostaje konto Pitayas z telefonu
 window.addEventListener('pitayas-tv-account', (e) => {
