@@ -40,7 +40,7 @@
         try { s = JSON.parse(localStorage.getItem(KEY)); } catch {}
         return Object.assign({ tvs: [], tv: '', watchlist: [], history: [], session: null, mine: [], gone: {}, rev: 0 }, s || {});
     })();
-    let syncTimer = null;
+    let syncTimer = null, syncLoop = null;
     const save = () => { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch {} };
     // Zmiany biblioteki i serwisów idą na konto Pitayas (zapis z opóźnieniem); czas sesji (co kilka sekund) nie wywołuje wysyłki
     const saveSync = () => { save(); clearTimeout(syncTimer); syncTimer = setTimeout(syncNow, 1500); };
@@ -69,7 +69,11 @@
             const k = h.item ? keyOf(h.item) : `t:${h.title}`;
             const o = hs.get(k);
             if (!o) hs.set(k, { ...h });
-            else if (o.at !== h.at || o.seconds !== h.seconds) { o.seconds = Math.max(o.seconds || 0, h.seconds || 0); if ((h.at || 0) > (o.at || 0)) { o.at = h.at; o.service = h.service; } }
+            else {
+                o.seconds = Math.max(o.seconds || 0, h.seconds || 0);
+                if ((h.at || 0) > (o.at || 0)) { o.at = h.at; o.service = h.service; if (h.url) { o.url = h.url; o.svc = h.svc; } }
+                if (!o.url && h.url) { o.url = h.url; o.svc = h.svc; }
+            }
         }
         store.history = [...hs.values()].sort((a, b) => (b.at || 0) - (a.at || 0)).slice(0, 200);
         if (d.mine && !store.minePending) store.mine = d.mine.filter((id) => SERVICES.some((x) => x.id === id));
@@ -188,7 +192,7 @@
         playerHooked = true;
         // Wtyczka sama mierzy czas z otwartym odtwarzaczem (bez czasu w tle)
         P.addListener('closed', (e) => {
-            if (pendingConnect) return askConnected();
+            if (pendingConnect) return (e.seconds || 0) >= 20 ? markConnected(pendingConnect, true) : askConnected();
             if (store.session && store.session.where === 'phone') { store.session.seconds = e.seconds || 0; store.session.counted = true; endSession(); if (el) renderPage(); }
         });
     }
@@ -211,6 +215,13 @@
         pendingConnect = svc.id;
         openInApp(LOGIN[svc.id] || svc.url(''), `Logowanie: ${svc.name}`);
         if (!nativePlayer()) setTimeout(() => { if (el) renderPage(); }, 400);   // bez natywnego odtwarzacza (iPhone) pytanie „zalogowano?” pokazujemy na liście
+    }
+    function markConnected(id, auto) {
+        pendingConnect = null;
+        if (id && !store.mine.includes(id)) store.mine.push(id);
+        store.minePending = true; saveSync();
+        if (auto && svcOf(id)) api.toast(`${svcOf(id).name}: konto połączone`);
+        if (el) renderPage();
     }
     function askConnected() {
         const svc = svcOf(pendingConnect);
@@ -396,7 +407,7 @@
             <div class="wt-panel"><b class="wt-h">Połącz konta</b><p class="hint">Zaloguj się do serwisów, z których korzystasz — logowanie odbywa się w oknie aplikacji i zostaje zapamiętane. Lista połączonych kont synchronizuje się z kontem Pitayas. Nie widzimy ani nie przechowujemy Twoich haseł do serwisów.</p>
             ${SERVICES.map((x) => `<div class="wt-svc"><span><b>${esc(x.name)}</b><small>${store.mine.includes(x.id) ? '✓ połączono' : 'niepołączone'}</small></span>
                 <button class="chip ${store.mine.includes(x.id) ? 'ghost' : ''}" data-connect="${x.id}">${store.mine.includes(x.id) ? 'Zaloguj ponownie' : 'Połącz'}</button>
-                ${store.mine.includes(x.id) ? `<button class="chip ghost" data-disconnect="${x.id}">Odłącz</button>` : ''}</div>`).join('')}</div>`;
+                ${store.mine.includes(x.id) ? `<button class="chip ghost" data-disconnect="${x.id}">Odłącz</button>` : `<button class="chip ghost" data-have="${x.id}">Mam już konto</button>`}</div>`).join('')}</div>`;
     }
     // ───── Rzędy ─────
     const rails = { loaded: false, loading: false, error: '', all: [], movie: [], tv: [] };
@@ -556,6 +567,7 @@
         on('[data-back2]', () => { tab = 'home'; render(); });
         on('[data-confirmconn]', () => { const id = pendingConnect; pendingConnect = null; if (id && !store.mine.includes(id)) store.mine.push(id); store.minePending = true; saveSync(); renderPage(); });
         on('[data-cancelconn]', () => { pendingConnect = null; renderPage(); });
+        on('[data-have]', (b) => markConnected(b.dataset.have, false));
         on('[data-connect]', (b) => connectSvc(svcOf(b.dataset.connect)));
         on('[data-disconnect]', (b) => { store.mine = store.mine.filter((x) => x !== b.dataset.disconnect); store.minePending = true; saveSync(); renderPage(); });
         on('[data-cont]', (b) => { const h = store.history.filter((x) => x.url)[Number(b.dataset.cont)]; if (h) playOnPhone(h.item, svcOf(h.svc) || { id: h.svc, name: h.service, url: () => h.url }, h.url); });
@@ -604,16 +616,19 @@
             render();
             if (tvNow()) tvConnect();
             syncNow();
+            clearInterval(syncLoop); syncLoop = setInterval(syncNow, 60000);
         },
 
         pause() { tvClose(); },
         resume() {
             if (!el) return;
+            syncNow();
             if (store.session && store.session.where === 'phone' && !nativePlayer()) { endSession(); renderPage(); }
             if (tvNow() && !tv.needPin) tvConnect();
         },
 
         unmount() {
+            clearInterval(syncLoop);
             tvClose();
             el = null;
         },
