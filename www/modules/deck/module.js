@@ -472,6 +472,7 @@
                     <div class="screen-title">Łączenie…</div>
                     <div class="screen-text">Łączę się z Pitaya Deck na komputerze.</div>
                     <div class="spinner"></div>
+                    <button class="screen-back" data-close>Wróć do Pitayas</button>
                   </div>
                 </div>
                 <div class="saver" hidden><div class="saver-clock"><div class="saver-time"></div><div class="saver-date"></div></div></div>
@@ -483,7 +484,10 @@
             // Przejście do innej aplikacji (rdzeń 0.3.7+)
             $('.btn-apps').hidden = !api.switcher;
             if (api.switcher) $('.btn-apps').onclick = () => api.switcher();
-            $('.screen').addEventListener('click', (e) => { if (e.target.closest('[data-ext]')) openExternal(); });
+            $('.screen').addEventListener('click', (e) => {
+                if (e.target.closest('[data-ext]')) openExternal();
+                else if (e.target.closest('[data-close]')) api.close();   // z ekranu łączenia da się wyjść
+            });
             httpCheck = null;
             el.addEventListener('pointerdown', onActivity, true);
             clock();

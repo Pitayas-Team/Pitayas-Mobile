@@ -201,15 +201,22 @@ const toggle = (id, title, on, sub) => `<div class="set-group">${setRow('', titl
 
     // ───── Powiadomienia ─────
     function notifications() {
+        const lk = (st.settings && st.settings.lock) || {};
         const when = (d) => new Date(d).toLocaleString('pl-PL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
         openSheet('Powiadomienia', `
             <button class="btn" id="nfNew">Nowe powiadomienie</button>
             ${toggle('nfAuto', 'Powiadamiaj o aktualizacjach', st.settings.updateNotify !== false, 'Automatycznie, gdy wyjdzie nowy rdzeń albo moduł')}
+            <div class="hint" style="margin-top:10px"><b>Blokada aplikacji</b></div>
+            ${toggle('lkOn', 'Zablokuj całą aplikację na telefonach', Boolean(lk.on), 'Pokaże „Aplikacja wyłączona”. Znika po wyłączeniu i ponownym uruchomieniu aplikacji.')}
+            <textarea class="input" id="lkMsg" rows="2" maxlength="300" placeholder="Informacja dla użytkowników (opcjonalnie)"></textarea>
+            <button class="btn" id="lkSave">Zapisz blokadę</button>
             <div class="notif-list">${st.notifications.slice(0, 50).map((n) => `
                 <div class="notif${n.level === 'critical' ? ' crit' : ''}"><span class="ni">${n.level === 'critical' ? '⚠️' : n.kind === 'update' ? '⬇️' : '🔔'}</span>
                   <div class="nt"><b>${esc(n.title)}</b>${n.body ? `<p>${esc(n.body)}</p>` : ''}<small>${esc(when(n.createdAt))} · ${n.users && n.users.length ? esc(n.users.map(userName).join(', ')) : 'wszyscy'}</small></div>
                   <button class="mod-del" data-nd="${esc(n.id)}" title="Usuń"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>`).join('') || '<p class="hint" style="padding:12px">Brak powiadomień</p>'}</div>`, home);
         $('nfNew').onclick = newNotification;
+        $('lkMsg').value = lk.message || '';
+        $('lkSave').onclick = () => act($('lkSave'), () => api('settings', { lock: { on: $('lkOn').checked, message: $('lkMsg').value } }), 'Zapisano');
         $('nfAuto').onchange = () => act(null, () => api('settings', { updateNotify: $('nfAuto').checked }), 'Zapisano');
         document.querySelectorAll('[data-nd]').forEach((b) => (b.onclick = () => act(b, () => api(`notify/${b.dataset.nd}/delete`, {}), 'Usunięto', notifications)));
     }

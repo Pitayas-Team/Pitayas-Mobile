@@ -3,8 +3,8 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '4.3.12';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
-const CORE_LABEL = '0.6.3';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
+const CORE_VERSION = '4.3.13';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
+const CORE_LABEL = '0.6.4';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -54,7 +54,7 @@ document.body.insertAdjacentHTML('beforeend', `
   <section class="view" id="home" data-core-ui>
     <header class="head">
       <img src="icons/pitayas.png" alt="" class="head-logo">
-      <div class="head-title"><div class="kicker">PITAYAS</div><h1>Twoje <span>aplikacje</span></h1></div>
+      <div class="head-title"><div class="kicker">APLIKACJE</div><h1><span>Pitayas</span></h1></div>
       <button class="bar-btn" id="setBtn" title="Ustawienia"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
     </header>
 
@@ -1107,9 +1107,18 @@ function renderModules() {
         renderBanner();
     }));
     $('sheetBody').querySelectorAll('[data-remove]').forEach((b) => (b.onclick = async () => {
+        // Bez okna confirm() (w nowej aplikacji bywa zablokowane i zawsze odpowiada „nie”): drugie dotknięcie potwierdza
         const m = installed[b.dataset.remove];
-        if (!confirm(`Usunąć moduł ${m.name}?`)) return;
+        if (!b.classList.contains('arm')) {
+            b.classList.add('arm');
+            b.textContent = 'Usunąć?';
+            clearTimeout(b._arm);
+            b._arm = setTimeout(() => renderModules(), 3500);
+            return;
+        }
+        clearTimeout(b._arm);
         await removeModule(m.id);
+        toast(`Usunięto ${m.name}`);
         renderModules();
     }));
 }

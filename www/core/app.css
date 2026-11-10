@@ -378,6 +378,9 @@ h1 span { color: var(--m-accent); }
 .banner .chip { background: var(--m-accent); color: #fff; }
 .ios-sw input:checked + i { background: var(--m-leaf); }
 
+/* Usuwanie modułu: drugie dotknięcie potwierdza */
+.mod-del.arm { width: auto; padding: 6px 12px; border-radius: 999px; background: var(--m-danger); color: #fff; font-size: 13px; font-weight: 600; }
+
 /* Przyciski, żetony, pola: pigułki */
 .btn { border-radius: 999px; font-weight: 600; }
 .chip { font-weight: 600; }
