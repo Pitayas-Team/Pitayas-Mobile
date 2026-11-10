@@ -3,8 +3,8 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '4.3.7';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
-const CORE_LABEL = '0.5.8';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
+const CORE_VERSION = '4.3.12';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
+const CORE_LABEL = '0.6.3';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -62,7 +62,7 @@ document.body.insertAdjacentHTML('beforeend', `
 
     <button class="pc" id="pcBtn">
       <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
-      <div class="pc-text"><small>Komputer</small><b id="pcName">Dodaj komputer</b></div>
+      <div class="pc-text"><small>Komputer</small><div class="pc-line"><span class="dot" id="pcDot"></span><b id="pcName">Dodaj komputer</b></div></div>
       <svg viewBox="0 0 24 24" class="pc-chev"><path d="M9 6l6 6-6 6"/></svg>
     </button>
 
@@ -122,6 +122,8 @@ function makeApi(id) {
         close: () => showHome(),
         switcher: () => openSwitcher(),   // lista aplikacji — przejście do innego modułu
         cloud: () => settings.cloudSync !== false,
+        openLogin: () => openLogin(),
+        openSettings: () => openSettings(),
         shellUpdate: () => shellUpdate(),
         installShell: () => { const sh = shellUpdate(); if (sh) installShell(sh, true); },
         account: () => (account.token ? { user: account.user, token: account.token, server: accountServer() } : null),
@@ -185,6 +187,8 @@ async function refreshStatus() {
         const dot = $(`dot-${id}`);
         if (dot) dot.className = `dot ${online[id] ? 'on' : 'off'}`;
     });
+    // Kropka przy komputerze: zielona, gdy odpowiada choć jedna aplikacja, czerwona, gdy żadna
+    if ($('pcDot')) $('pcDot').className = `dot ${ids.some((id) => online[id]) ? 'on' : ids.length ? 'off' : ''}`;
     const off = ids.filter((id) => !online[id] && needsPc(installed[id])).map((id) => installed[id].name);
     $('homeHint').textContent = off.length
         ? `Nie widzę: ${off.join(', ')} na ${pc.host}. Uruchom na komputerze i sprawdź, czy telefon jest w tej samej sieci.`
@@ -198,7 +202,6 @@ function renderTiles() {
         <button class="tile${isSoon(m.id) ? ' locked soon' : hasAccess(m.id) ? '' : ' locked'}" data-open="${esc(m.id)}">
           <img src="${esc((m.base || '') + 'icon.png')}" alt="">
           <div class="tile-text"><b>${esc(m.name)}</b><small>${esc(m.description)}</small></div>
-          <span class="dot ${online[m.id] === true ? 'on' : online[m.id] === false ? 'off' : ''}" id="dot-${esc(m.id)}"></span>
         </button>`).join('') + `
         <button class="tile add" data-modules>
           <div class="tile-plus"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>
@@ -1072,7 +1075,7 @@ function renderModules() {
         const have = installed[m.id];
         const newer = have && vcmp(m.version, have.version) > 0;
         const ok = compatible(m);
-        const action = isSoon(m.id) ? '<span class="mod-pill lock">Wkrótce</span>'
+        const action = !ids.has(m.id) ? '<span class="mod-pill lock">Wycofany</span>' : isSoon(m.id) ? '<span class="mod-pill lock">Wkrótce</span>'
             : !hasAccess(m.id) ? '<span class="mod-pill lock">🔒 Testerzy</span>'
             : !ok ? `<span class="mod-pill">Rdzeń ${esc(m.minCore)}+</span>`
             : !have ? `<button class="mod-get" data-install="${esc(m.id)}">Pobierz</button>`
@@ -1173,7 +1176,6 @@ function openSettings() {
           ${setRow(setIcon('box', '#a77bff'), 'Moduły', esc(String(Object.keys(installed).length)), { id: 'sMods', sub: 'Pobierz, aktualizuj i usuwaj' })}
           ${setRow(setIcon('bell', '#ff9f45'), 'Powiadomienia', unread ? `<span class="set-badge">${unread}</span>` : '', { id: 'sNotifs' })}
           ${setRow(setIcon('refresh', '#ff4fa6'), 'Co dalej', null, { id: 'sRoad', sub: 'Plany rozwoju Pitayas' })}
-          ${u || IS_DESKTOP ? setRow(setIcon('phone', '#ff4fa6'), 'Tryb Pitayas Watch', null, { toggle: IS_DESKTOP ? settings.watchMode !== false : Boolean(settings.watchMode), toggleId: 'sWatch', sub: settings.watchMode ? 'Włączony — wyłącz, żeby wrócić do zwykłego ekranu z modułami' : 'Cała aplikacja staje się aplikacją do oglądania; inne moduły są pod przyciskiem „Aplikacje”' }) : ''}
         </div>
 
         <div class="set-label">Aktualizacje</div>
@@ -1647,7 +1649,24 @@ if (Plugins.App) {
     });
 }
 
+// ═══════ BLOKADA (zdalne wyłączenie aplikacji z panelu Pitayas) ═══════
+// Sprawdzana tylko przy uruchomieniu: po wyłączeniu blokady wystarczy uruchomić aplikację na nowo.
+async function checkRemoteLock() {
+    try {
+        const { lock } = await accountFetch('api/status');
+        if (!lock || !lock.on) return;
+        const el = document.createElement('div');
+        el.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:#121116;color:#f3f1f6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:32px;text-align:center;touch-action:none;user-select:none';
+        const h = document.createElement('div'); h.style.cssText = 'font-size:22px;font-weight:700;color:#ff4fa6'; h.textContent = 'Aplikacja wyłączona';
+        const p = document.createElement('div'); p.style.cssText = 'font-size:15px;opacity:.8;white-space:pre-wrap;max-width:420px'; p.textContent = lock.message || 'Aplikacja jest chwilowo niedostępna.';
+        el.append(h, p);
+        ['click', 'touchstart', 'touchmove', 'keydown', 'contextmenu'].forEach((t) => el.addEventListener(t, (e) => { e.preventDefault(); e.stopPropagation(); }, { passive: false }));
+        document.body.appendChild(el);
+    } catch { /* brak sieci albo serwera — nie blokujemy */ }
+}
+
 // ═══════ START ═══════
+checkRemoteLock();
 renderHome();
 window.PITAYAS_CORE_OK = true;   // powłoka wie, że rdzeń się uruchomił
 // Komputer bez modułu Watch: pobieramy go sami (czekamy, aż kanał aktualizacji się wczyta)

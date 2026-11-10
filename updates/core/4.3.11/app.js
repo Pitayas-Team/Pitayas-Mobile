@@ -3,8 +3,8 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '4.3.8';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
-const CORE_LABEL = '0.5.9';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
+const CORE_VERSION = '4.3.11';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
+const CORE_LABEL = '0.6.2';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -1074,7 +1074,7 @@ function renderModules() {
         const have = installed[m.id];
         const newer = have && vcmp(m.version, have.version) > 0;
         const ok = compatible(m);
-        const action = isSoon(m.id) ? '<span class="mod-pill lock">Wkrótce</span>'
+        const action = !ids.has(m.id) ? '<span class="mod-pill lock">Wycofany</span>' : isSoon(m.id) ? '<span class="mod-pill lock">Wkrótce</span>'
             : !hasAccess(m.id) ? '<span class="mod-pill lock">🔒 Testerzy</span>'
             : !ok ? `<span class="mod-pill">Rdzeń ${esc(m.minCore)}+</span>`
             : !have ? `<button class="mod-get" data-install="${esc(m.id)}">Pobierz</button>`
@@ -1175,7 +1175,6 @@ function openSettings() {
           ${setRow(setIcon('box', '#a77bff'), 'Moduły', esc(String(Object.keys(installed).length)), { id: 'sMods', sub: 'Pobierz, aktualizuj i usuwaj' })}
           ${setRow(setIcon('bell', '#ff9f45'), 'Powiadomienia', unread ? `<span class="set-badge">${unread}</span>` : '', { id: 'sNotifs' })}
           ${setRow(setIcon('refresh', '#ff4fa6'), 'Co dalej', null, { id: 'sRoad', sub: 'Plany rozwoju Pitayas' })}
-          ${u || IS_DESKTOP ? setRow(setIcon('phone', '#ff4fa6'), 'Tryb Pitayas Watch', null, { toggle: IS_DESKTOP ? settings.watchMode !== false : Boolean(settings.watchMode), toggleId: 'sWatch', sub: settings.watchMode ? 'Włączony — wyłącz, żeby wrócić do zwykłego ekranu z modułami' : 'Cała aplikacja staje się aplikacją do oglądania; inne moduły są pod przyciskiem „Aplikacje”' }) : ''}
         </div>
 
         <div class="set-label">Aktualizacje</div>
@@ -1649,7 +1648,24 @@ if (Plugins.App) {
     });
 }
 
+// ═══════ BLOKADA (zdalne wyłączenie aplikacji z panelu Pitayas) ═══════
+// Sprawdzana tylko przy uruchomieniu: po wyłączeniu blokady wystarczy uruchomić aplikację na nowo.
+async function checkRemoteLock() {
+    try {
+        const { lock } = await accountFetch('api/status');
+        if (!lock || !lock.on) return;
+        const el = document.createElement('div');
+        el.style.cssText = 'position:fixed;inset:0;z-index:2147483647;background:#121116;color:#f3f1f6;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:32px;text-align:center;touch-action:none;user-select:none';
+        const h = document.createElement('div'); h.style.cssText = 'font-size:22px;font-weight:700;color:#ff4fa6'; h.textContent = 'Aplikacja wyłączona';
+        const p = document.createElement('div'); p.style.cssText = 'font-size:15px;opacity:.8;white-space:pre-wrap;max-width:420px'; p.textContent = lock.message || 'Aplikacja jest chwilowo niedostępna.';
+        el.append(h, p);
+        ['click', 'touchstart', 'touchmove', 'keydown', 'contextmenu'].forEach((t) => el.addEventListener(t, (e) => { e.preventDefault(); e.stopPropagation(); }, { passive: false }));
+        document.body.appendChild(el);
+    } catch { /* brak sieci albo serwera — nie blokujemy */ }
+}
+
 // ═══════ START ═══════
+checkRemoteLock();
 renderHome();
 window.PITAYAS_CORE_OK = true;   // powłoka wie, że rdzeń się uruchomił
 // Komputer bez modułu Watch: pobieramy go sami (czekamy, aż kanał aktualizacji się wczyta)
