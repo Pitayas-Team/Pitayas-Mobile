@@ -3,8 +3,8 @@
 // Powłoka (www/index.html) ładuje pobraną wersję rdzenia albo wbudowaną. Rdzeń i moduły
 // aktualizują się z kanału aktualizacji (folder updates/ w repozytorium) bez nowego APK/IPA.
 (() => {
-const CORE_VERSION = '4.2.9';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
-const CORE_LABEL = '0.5.0';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
+const CORE_VERSION = '4.3.0';   // numer wewnętrzny (porównania, foldery) — rośnie zawsze; 4.x bo starsze telefony mają 4.x
+const CORE_LABEL = '0.5.1';     // wersja pokazywana użytkownikowi (od teraz schemat 0.4.x)
 const DEFAULT_SOURCE = 'https://raw.githubusercontent.com/Pitayas-Team/Pitayas-Mobile/main/updates/';
 const DEFAULT_ACCOUNTS = 'https://admin.pitayas.eu/';
 
@@ -687,6 +687,30 @@ async function logout() {
 
 const DISCORD_ICON = `<svg viewBox="0 0 24 24"><path d="M19.6 5.3A17 17 0 0 0 15.4 4l-.5 1.1a15.6 15.6 0 0 0-5.8 0L8.6 4a17 17 0 0 0-4.2 1.3C1.7 9.3 1 13.2 1.3 17a17 17 0 0 0 5.2 2.6l1.1-1.8-1.8-.9.4-.3a12 12 0 0 0 11.6 0l.4.3-1.8.9 1.1 1.8a17 17 0 0 0 5.2-2.6c.4-4.4-.7-8.3-3.1-11.7zM8.5 14.7c-1 0-1.9-1-1.9-2.1s.8-2.1 1.9-2.1 1.9 1 1.9 2.1-.8 2.1-1.9 2.1zm7 0c-1 0-1.9-1-1.9-2.1s.8-2.1 1.9-2.1 1.9 1 1.9 2.1-.8 2.1-1.9 2.1z"/></svg>`;
 const BROWSER_NAME = (window.Capacitor && window.Capacitor.getPlatform && window.Capacitor.getPlatform() === 'ios') ? 'Safari' : 'przeglądarce';
+function openRegister() {
+    openSheet('Nowe konto', `
+        <div class="login-hero"><img src="icons/pitayas.png" alt=""><h2>Utwórz konto <span>Pitayas</span></h2>
+          <p>Jedno konto na wszystkich telefonach: synchronizacja biblioteki Watch, powiadomienia i dostęp do modułów.</p></div>
+        <form class="pc-form login-form" id="rgForm">
+          <div class="field"><input id="rgName" placeholder="Imię lub pseudonim (opcjonalnie)" autocomplete="nickname"></div>
+          <div class="field"><input id="rgLogin" placeholder="Login (2–40 znaków)" autocapitalize="off" autocomplete="username" required></div>
+          <div class="field"><input id="rgPass" type="password" placeholder="Hasło (min. 8 znaków)" autocomplete="new-password" minlength="8" required></div>
+          <div class="field"><input id="rgPass2" type="password" placeholder="Powtórz hasło" autocomplete="new-password" required></div>
+          <button type="submit" class="btn">Utwórz konto</button>
+        </form>`, openLogin);
+    $('rgForm').onsubmit = async (e) => {
+        e.preventDefault();
+        if ($('rgPass').value !== $('rgPass2').value) return toast('Hasła nie są takie same', 'err');
+        const btn = $('rgForm').querySelector('.btn');
+        btn.disabled = true;
+        try {
+            setLogin(await accountFetch('api/register', { login: $('rgLogin').value.trim(), name: $('rgName').value.trim(), password: $('rgPass').value }));
+            toast('Konto utworzone — jesteś zalogowany');
+            openSettings();
+        } catch (err) { toast(errText(err), 'err'); btn.disabled = false; }
+    };
+}
+
 function openLogin() {
     openSheet('', `
         <div class="login-hero">
@@ -701,7 +725,8 @@ function openLogin() {
           <div class="field"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><input id="lgPass" type="password" placeholder="Hasło" autocomplete="current-password" required></div>
           <button type="submit" class="btn">Zaloguj</button>
         </form>
-        <p class="hint login-foot">Nie masz konta? Poproś administratora Pitayas.</p>`, openSettings);
+        <button class="btn ghost" id="lgReg" type="button">Utwórz konto</button>`, openSettings);
+    $('lgReg').onclick = openRegister;
     $('lgDiscord').onclick = loginDiscord;
     setTimeout(() => $('lgLogin') && $('lgLogin').focus(), 250);
     $('lgForm').onsubmit = async (e) => {
