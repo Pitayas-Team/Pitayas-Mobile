@@ -10,10 +10,10 @@ on:
     inputs:
       version:
         description: 'Wersja aplikacji (np. 0.5.0)'
-        default: '0.5.0'
+        default: '0.5.1'
       build:
         description: 'Numer kompilacji (liczba, rośnie przy każdym wydaniu)'
-        default: '8'
+        default: '9'
 
 jobs:
   ios:
@@ -29,7 +29,8 @@ jobs:
           BUILD: ${{ inputs.build }}
         run: |
           cp swc-ios/capacitor.config.json capacitor.config.json
-          sed -i '' "s#SwC-iOS/[0-9.]*#SwC-iOS/$VERSION#" capacitor.config.json
+          # w UA wersja i numer kompilacji – strona porównuje numer kompilacji (wersje zaczęły się od nowa: 0.5 jest nowsza niż stara 1.0.10)
+          sed -i '' "s#SwC-iOS/[0-9.]*#SwC-iOS/$VERSION SwC-Build/$BUILD#" capacitor.config.json
           rm -rf public && mkdir public && cp -R swc-ios/public/. public/
           npx cap sync ios
           # identyfikator, wersja

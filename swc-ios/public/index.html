@@ -3,288 +3,213 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="theme-color" content="#0b234d">
+  <meta name="theme-color" content="#113f87">
   <title>Szkoła w Chmurze</title>
+  <!--
+    Strona w paczce aplikacji „SwC Gry”. Capacitor otwiera ją, gdy strona się nie wczyta (server.errorPath).
+    1. „Łączę…” – przez kilka sekund po cichu sprawdzamy serwer (pierwsze nieudane wczytanie bywa chwilowe).
+    2. Dopiero gdy dalej nic – „Brak połączenia”. Sprawdzamy dalej sami: co kilka sekund, po powrocie sieci
+       i po powrocie do aplikacji, więc nie trzeba jej restartować.
+    3. Serwer odpowiada → „Połączono” i przejście na serwer, na którym aplikacja była ostatnio (oficjalny albo testowy).
+    Grafiki: render z Blendera (~/swc-render/app-offline.py). Kolory i czcionka jak na stronie: granat, pomarańcz, Sen.
+  -->
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    @font-face { font-family: 'Sen'; font-weight: 400 800; font-display: swap; src: url('fonts/sen-latin.woff2') format('woff2'); unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+    @font-face { font-family: 'Sen'; font-weight: 400 800; font-display: swap; src: url('fonts/sen-latin-ext.woff2') format('woff2'); unicode-range: U+0100-02AF, U+0304, U+0308, U+0329, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; background: #113f87; }
     body {
-      background: radial-gradient(circle at 50% 30%, #153e7e 0%, #0b234d 70%, #071733 100%);
-      color: #fff;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: env(safe-area-inset-top, 24px) 20px env(safe-area-inset-bottom, 24px);
-      text-align: center;
-      overflow: hidden;
-      position: relative;
+      color: #fff; font-family: 'Sen', -apple-system, system-ui, sans-serif; text-align: center; overflow: hidden;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: calc(env(safe-area-inset-top) + 20px) 24px calc(env(safe-area-inset-bottom) + 20px);
+      -webkit-user-select: none; user-select: none;
     }
+    /* chmurki płynące w tle – blade, płaskie, tylko transform */
+    .sky { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+    .sky svg { position: absolute; left: 0; fill: #fff; opacity: .05; animation: drift linear infinite; will-change: transform; }
+    .sky .a { width: 110px; top: 13%; animation-duration: 46s; animation-delay: -12s; }
+    .sky .b { width: 160px; top: 70%; animation-duration: 64s; animation-delay: -40s; }
+    .sky .c { width: 80px; top: 42%; animation-duration: 52s; animation-delay: -26s; opacity: .04; }
+    @keyframes drift { from { transform: translateX(-260px); } to { transform: translateX(calc(100vw + 40px)); } }
+    /* miasteczko ze szkołą na dole, jak w stopce strony */
+    .city { position: fixed; left: 0; right: 0; bottom: 0; height: calc(64px + env(safe-area-inset-bottom)); background: #0d3170; pointer-events: none; }
+    .city svg { position: absolute; left: 50%; bottom: calc(100% - 2px); width: 520px; max-width: 140%; transform: translateX(-50%); }
 
-    /* Pływające chmurki w tle */
-    .bg-clouds {
-      position: absolute;
-      top: 0; left: 0; right: 0; bottom: 0;
-      overflow: hidden;
-      pointer-events: none;
-      z-index: 1;
-    }
-    .cloud {
-      position: absolute;
-      opacity: 0.12;
-      animation: floatCloud linear infinite;
-    }
-    .cloud-1 { width: 140px; top: 12%; left: -140px; animation-duration: 26s; }
-    .cloud-2 { width: 200px; top: 65%; left: -200px; animation-duration: 38s; animation-delay: 5s; }
-    .cloud-3 { width: 110px; top: 40%; left: -110px; animation-duration: 32s; animation-delay: 14s; }
+    main { position: relative; width: min(400px, 100%); display: flex; flex-direction: column; align-items: center; margin-bottom: 56px; }
+    .art { position: relative; width: min(330px, 86vw); aspect-ratio: 7 / 5; margin-bottom: 6px; }
+    .art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0; transform: translateY(10px) scale(.97);
+      transition: opacity .35s ease, transform .45s cubic-bezier(.22, 1, .36, 1); }
+    body[data-s="wait"] .art .i-wait, body[data-s="off"] .art .i-off, body[data-s="ok"] .art .i-ok { opacity: 1; transform: none; }
+    body[data-s="wait"] .art .i-wait { animation: bob 3.2s ease-in-out infinite; }
+    @keyframes bob { 50% { transform: translateY(-7px); } }
+    h1 { font-size: 24px; font-weight: 800; letter-spacing: -.3px; margin-bottom: 8px; }
+    p { color: #cfdaf3; font-size: 15px; line-height: 1.5; max-width: 330px; }
+    .dots { display: inline-flex; gap: 6px; margin-top: 16px; }
+    .dots i { width: 8px; height: 8px; border-radius: 50%; background: #f6ae45; animation: dot 1.1s ease-in-out infinite; }
+    .dots i:nth-child(2) { animation-delay: .15s; } .dots i:nth-child(3) { animation-delay: .3s; }
+    @keyframes dot { 0%, 80%, 100% { transform: scale(.55); opacity: .45; } 40% { transform: scale(1); opacity: 1; } }
 
-    @keyframes floatCloud {
-      from { transform: translateX(0); }
-      to { transform: translateX(calc(100vw + 240px)); }
-    }
-
-    .card {
-      position: relative;
-      z-index: 2;
-      background: rgba(13, 37, 77, 0.78);
-      border: 1px solid rgba(140, 167, 227, 0.28);
-      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.45);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border-radius: 28px;
-      padding: 36px 24px 28px;
-      max-width: 380px;
-      width: 100%;
-    }
-
-    .logo-box {
-      position: relative;
-      width: 90px;
-      height: 90px;
-      margin: 0 auto 20px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .radar-wave {
-      position: absolute;
-      inset: -15px;
-      border: 2px solid rgba(140, 167, 227, 0.4);
-      border-radius: 50%;
-      animation: radarPulse 2.8s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
-      opacity: 0;
-    }
-    .radar-wave:nth-child(2) { animation-delay: 0.9s; }
-    .radar-wave:nth-child(3) { animation-delay: 1.8s; }
-
-    @keyframes radarPulse {
-      0% { transform: scale(0.6); opacity: 0.9; }
-      100% { transform: scale(1.6); opacity: 0; }
-    }
-
-    .logo-img {
-      width: 80px;
-      height: 80px;
-      object-fit: contain;
-      filter: drop-shadow(0 8px 18px rgba(0,0,0,0.35));
-      animation: floatLogo 4s ease-in-out infinite;
-    }
-    @keyframes floatLogo {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-6px); }
-    }
-
-    .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background: rgba(239, 68, 68, 0.16);
-      border: 1px solid rgba(239, 68, 68, 0.4);
-      color: #fca5a5;
-      font-size: 12px;
-      font-weight: 700;
-      padding: 5px 14px;
-      border-radius: 999px;
-      margin-bottom: 14px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      background: #ef4444;
-      border-radius: 50%;
-      animation: blinkDot 1.5s ease-in-out infinite;
-    }
-    @keyframes blinkDot {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.4; transform: scale(0.75); }
-    }
-
-    h1 {
-      font-size: 22px;
-      font-weight: 800;
-      margin-bottom: 10px;
-      letter-spacing: -0.3px;
-    }
-    p {
-      color: #b5c7e8;
-      font-size: 14px;
-      line-height: 1.5;
-      margin-bottom: 24px;
-    }
-
-    .btn-retry {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      width: 100%;
-      background: #f6ae45;
-      color: #113f87;
-      font-weight: 800;
-      font-size: 15px;
-      padding: 14px 24px;
-      border-radius: 999px;
-      border: none;
-      cursor: pointer;
-      box-shadow: 0 8px 20px rgba(246, 174, 69, 0.35);
-      transition: transform .15s, background .15s;
-    }
-    .btn-retry:active { transform: scale(0.97); }
-
-    .btn-spinner {
-      width: 16px;
-      height: 16px;
-      border: 2px solid rgba(17, 63, 135, 0.25);
-      border-top-color: #113f87;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      display: none;
-    }
-    .btn-retry.is-checking .btn-spinner { display: inline-block; }
-    .btn-retry.is-checking .btn-icon { display: none; }
+    .panel { display: none; flex-direction: column; align-items: center; width: 100%; }
+    body[data-s="wait"] .p-wait, body[data-s="off"] .p-off, body[data-s="ok"] .p-ok { display: flex; animation: up .35s cubic-bezier(.22, 1, .36, 1) both; }
+    @keyframes up { from { opacity: 0; transform: translateY(8px); } }
+    .btn { margin-top: 22px; width: 100%; max-width: 320px; border: 0; border-radius: 999px; padding: 15px 22px; background: #f6ae45; color: #113f87;
+      font: 800 16px 'Sen', system-ui, sans-serif; display: inline-flex; align-items: center; justify-content: center; gap: 10px; transition: transform .15s ease; }
+    .btn:active { transform: scale(.97); }
+    .btn .spin { width: 16px; height: 16px; border-radius: 50%; border: 2.5px solid rgba(17, 63, 135, .25); border-top-color: #113f87; display: none; animation: spin .8s linear infinite; }
+    .btn.busy .spin { display: inline-block; }
     @keyframes spin { to { transform: rotate(360deg); } }
-
-    .countdown-note {
-      font-size: 12px;
-      color: #8ca7e3;
-      margin-top: 14px;
-    }
-
-    .footer {
-      margin-top: 24px;
-      font-size: 11px;
-      color: #6a82aa;
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
-      padding-top: 14px;
-    }
+    .note { margin-top: 14px; font-size: 13px; color: #9fb6e8; min-height: 1.3em; }
+    .link { margin-top: 12px; background: none; border: 1.5px solid rgba(207, 218, 243, .45); color: #fff; border-radius: 999px; padding: 10px 18px;
+      font: 700 14px 'Sen', system-ui, sans-serif; display: none; }
+    .link.on { display: inline-block; }
+    .foot { position: fixed; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom) + 12px); font-size: 12px; color: #9fb6e8; }
+    .foot b { color: #fff; }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+    @media (max-height: 620px) { .art { width: min(220px, 64vw); } .city { display: none; } main { margin-bottom: 20px; } }
   </style>
 </head>
-<body>
-  <div class="bg-clouds">
-    <svg class="cloud cloud-1" viewBox="0 0 24 24" fill="#8ca7e3"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
-    <svg class="cloud cloud-2" viewBox="0 0 24 24" fill="#8ca7e3"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
-    <svg class="cloud cloud-3" viewBox="0 0 24 24" fill="#8ca7e3"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"/></svg>
+<body data-s="wait">
+  <div class="sky" aria-hidden="true">
+    <svg class="a" viewBox="0 0 64 40"><path d="M14 40C6 40 0 34 0 26s6-14 14-14h1C17 5 24 0 32 0c9 0 16 6 18 14 8 0 14 6 14 13s-6 13-14 13z"/></svg>
+    <svg class="b" viewBox="0 0 64 40"><path d="M14 40C6 40 0 34 0 26s6-14 14-14h1C17 5 24 0 32 0c9 0 16 6 18 14 8 0 14 6 14 13s-6 13-14 13z"/></svg>
+    <svg class="c" viewBox="0 0 64 40"><path d="M14 40C6 40 0 34 0 26s6-14 14-14h1C17 5 24 0 32 0c9 0 16 6 18 14 8 0 14 6 14 13s-6 13-14 13z"/></svg>
+  </div>
+  <div class="city" aria-hidden="true">
+    <svg viewBox="0 0 520 64" fill="none" stroke="#3f6fbe" stroke-width="2">
+      <path d="M0 63h520"/><path d="M30 63V40h26v23M64 63V30h20v33M92 63V46h18v17"/><circle cx="130" cy="48" r="9"/><path d="M130 57v6"/>
+      <path d="M190 63V38h40v25M230 63V30l30-16 30 16v33M290 63V38h40v25" stroke="#8ca7e3"/><path d="M252 63V48h16v15" stroke="#8ca7e3"/><circle cx="260" cy="28" r="5" stroke="#8ca7e3"/>
+      <path d="M260 14V4l10 3-10 3" stroke="#f6ae45" fill="#f6ae45"/><circle cx="390" cy="48" r="9"/><path d="M390 57v6"/><path d="M410 63V44h22v19M440 63V32h20v31M468 63V40h26v23"/>
+    </svg>
   </div>
 
-  <div class="card">
-    <div class="logo-box">
-      <div class="radar-wave"></div>
-      <div class="radar-wave"></div>
-      <div class="radar-wave"></div>
-      <svg class="logo-img" viewBox="0 0 100 70" fill="none">
-        <path d="M25 60 C12 60 2 50 2 38 C2 27 10 18 21 16 C26 7 36 1 47 1 C60 1 71 9 75 20 C78 19 82 18 85 18 C93 18 100 25 100 33 C100 42 93 49 84 49 C82 49 80 48 78 47 C74 55 65 60 55 60 Z" fill="#ffffff" opacity="0.95"/>
-      </svg>
+  <main>
+    <div class="art" aria-hidden="true">
+      <img class="i-wait" src="img/chmurka.png" alt="">
+      <img class="i-off" src="img/brak-sieci.png" alt="">
+      <img class="i-ok" src="img/polaczono.png" alt="">
     </div>
-
-    <div class="status-badge">
-      <span class="status-dot"></span>
-      <span>Brak połączenia z siecią</span>
+    <div class="panel p-wait" role="status">
+      <h1>Łączę ze Szkołą w Chmurze</h1>
+      <p>Chwilka, wczytuję Strefę Gier…</p>
+      <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
     </div>
-
-    <h1>Oczekiwanie na sieć</h1>
-    <p>Nie udało się połączyć ze Szkołą w Chmurze. Sprawdź połączenie Wi-Fi lub dane komórkowe.</p>
-
-    <button class="btn-retry" id="retryBtn" onclick="testConnection()">
-      <span class="btn-spinner"></span>
-      <span class="btn-icon">🔄</span>
-      <span id="btnText">Spróbuj ponownie</span>
-    </button>
-
-    <div class="countdown-note" id="countdownNote">
-      Automatyczne ponowienie za: <strong id="cdSeconds">10</strong>s
+    <div class="panel p-off" role="alert">
+      <h1>Brak połączenia</h1>
+      <p>Nie mogę połączyć się ze Szkołą w Chmurze. Sprawdź Wi-Fi albo dane komórkowe – gdy sieć wróci, wejdę sam.</p>
+      <button class="btn" id="retry" type="button"><span class="spin" aria-hidden="true"></span><span id="retryTx">Spróbuj ponownie</span></button>
+      <div class="note" id="note"></div>
+      <button class="link" id="official" type="button">Połącz z oficjalnym serwerem</button>
     </div>
-
-    <div class="footer">
-      Created by Pitayas Team • Szkoła w Chmurze iOS
+    <div class="panel p-ok" role="status">
+      <h1>Połączono!</h1>
+      <p>Wczytuję Strefę Gier…</p>
     </div>
-  </div>
+  </main>
+  <div class="foot">Created by <b>Pitayas Team</b></div>
 
   <script>
-    let countdown = 10, cdTimer = null, isChecking = false;
+  (function () {
+    var OFFICIAL = 'https://swc.pitayas.eu';
+    var okHost = function (u) {
+      try { var x = new URL(u); return x.protocol === 'https:' && /(^|\.)pitayas\.eu$|\.rakunek\.com$/.test(x.hostname) ? x.origin : null; } catch (e) { return null; }
+    };
+    var target = OFFICIAL, state = 'wait', busy = false, timer = null, left = 0;
+    var $ = function (id) { return document.getElementById(id); };
+    var set = function (s) { state = s; document.body.setAttribute('data-s', s); };
+    var plugin = function () { try { return window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SwcApp; } catch (e) { return null; } };
 
-    function startCountdown() {
-      countdown = 10;
-      const el = document.getElementById('cdSeconds');
-      if (el) el.textContent = countdown;
-      if (cdTimer) clearInterval(cdTimer);
-      cdTimer = setInterval(() => {
-        if (isChecking) return;
-        countdown--;
-        if (el) el.textContent = countdown;
-        if (countdown <= 0) {
-          clearInterval(cdTimer);
-          testConnection();
-        }
+    // ile razy z rzędu trafiliśmy na tę stronę (każde nieudane wczytanie otwiera ją od nowa)
+    var boot = { n: 0, t: 0 };
+    try { boot = JSON.parse(sessionStorage.getItem('swcBoot') || '{"n":0,"t":0}'); } catch (e) {}
+    if (Date.now() - boot.t > 60000) boot.n = 0;
+    boot.n++; boot.t = Date.now();
+    try { sessionStorage.setItem('swcBoot', JSON.stringify(boot)); } catch (e) {}
+
+    // serwer, na którym aplikacja była ostatnio (zapisuje go strona przez wtyczkę SwcApp; starsze wersje – zawsze oficjalny)
+    function loadTarget() {
+      var S = plugin();
+      if (!S || !S.status) return Promise.resolve();
+      return Promise.race([S.status(), new Promise(function (r) { setTimeout(r, 800); })]).then(function (st) {
+        var o = st && okHost(st.server || st.base);
+        if (o) target = o;
+        $('official').classList.toggle('on', target !== OFFICIAL);
+      }).catch(function () {});
+    }
+
+    // Czy serwer odpowiada? no-cors wystarcza: liczy się tylko, że odpowiedział (strona aplikacji ma inne pochodzenie niż serwer)
+    function probe(url, ms) {
+      return new Promise(function (resolve) {
+        var done = false, fin = function (v) { if (!done) { done = true; resolve(v); } };
+        var t = setTimeout(function () { fin(false); }, ms || 5000);
+        try {
+          fetch(url + '/api/public-config?ping=' + Date.now(), { mode: 'no-cors', cache: 'no-store', credentials: 'omit' })
+            .then(function () { clearTimeout(t); fin(true); }, function () { clearTimeout(t); fin(false); });
+        } catch (e) { fin(false); }
+      });
+    }
+
+    function go() {
+      clearInterval(timer);
+      set('ok');
+      setTimeout(function () { location.replace(target + '/'); }, 450);
+    }
+
+    function check(manual) {
+      if (busy || state === 'ok') return;
+      busy = true;
+      if (manual) { $('retry').classList.add('busy'); $('retryTx').textContent = 'Sprawdzam…'; $('note').textContent = ''; }
+      probe(target).then(function (ok) {
+        busy = false;
+        $('retry').classList.remove('busy'); $('retryTx').textContent = 'Spróbuj ponownie';
+        if (ok) return go();
+        if (state === 'off') countdown(manual ? 'Dalej brak połączenia. Spróbuję znowu za ' : 'Spróbuję znowu za ');
+      });
+    }
+
+    function countdown(prefix) {
+      clearInterval(timer); left = 5;
+      var draw = function () { $('note').textContent = prefix + left + ' s'; };
+      draw();
+      timer = setInterval(function () {
+        if (busy) return;
+        if (--left <= 0) { clearInterval(timer); $('note').textContent = 'Sprawdzam…'; check(false); } else draw();
       }, 1000);
     }
 
-    async function testConnection() {
-      if (isChecking) return;
-      isChecking = true;
-      const btn = document.getElementById('retryBtn');
-      const text = document.getElementById('btnText');
-      btn.classList.add('is-checking');
-      btn.disabled = true;
-      text.textContent = 'Sprawdzanie...';
-
-      try {
-        const controller = new AbortController();
-        const tid = setTimeout(() => controller.abort(), 4000);
-        const res = await fetch('https://swc.pitayas.eu/api/public-config', {
-          method: 'GET',
-          cache: 'no-store',
-          signal: controller.signal
-        });
-        clearTimeout(tid);
-        if (res.ok) {
-          text.textContent = 'Wczytywanie...';
-          window.location.replace('https://swc.pitayas.eu');
-          return;
-        }
-      } catch (e) {}
-
-      setTimeout(() => {
-        btn.classList.remove('is-checking');
-        btn.disabled = false;
-        text.textContent = 'Spróbuj ponownie';
-        isChecking = false;
-        startCountdown();
-      }, 700);
+    function offline() {
+      if (state !== 'wait') return;
+      set('off');
+      countdown('Spróbuję znowu za ');
     }
 
-    // Jeśli jesteśmy online, od razu spróbuj przejść do serwera
-    if (navigator.onLine) {
-      testConnection();
-    } else {
-      startCountdown();
+    // Faza „Łączę…”: ciche próby przez ~9 s. Gdy strona wraca tu raz po raz (serwer nie wstaje) – od razu komunikat.
+    function quiet() {
+      if (boot.n >= 3 || (navigator.onLine === false && boot.n >= 2)) { set('wait'); offline(); return; }
+      var gaps = [0, 1500, 2000, 2500], i = 0;
+      var deadline = setTimeout(offline, 9000);
+      (function next() {
+        if (state !== 'wait') return;
+        if (i >= gaps.length) { clearTimeout(deadline); return offline(); }
+        setTimeout(function () {
+          if (state !== 'wait' || busy) return;
+          busy = true;
+          probe(target, 3000).then(function (ok) { busy = false; if (state !== 'wait') return; if (ok) { clearTimeout(deadline); go(); } else next(); });
+        }, gaps[i++]);
+      })();
     }
 
-    window.addEventListener('online', () => testConnection());
+    $('retry').addEventListener('click', function () { check(true); });
+    $('official').addEventListener('click', function () {
+      target = OFFICIAL; $('official').classList.remove('on');
+      try { var S = plugin(); S && S.setServer && S.setServer({ base: OFFICIAL }); } catch (e) {}
+      check(true);
+    });
+    // sieć wróciła / powrót do aplikacji – sprawdzamy od razu, bez restartu
+    window.addEventListener('online', function () { check(false); });
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') check(false); });
+
+    loadTarget().then(quiet);
+  })();
   </script>
 </body>
 </html>

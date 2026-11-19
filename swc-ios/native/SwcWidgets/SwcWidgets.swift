@@ -32,6 +32,8 @@ enum SwcStore {
     static var d: UserDefaults? { UserDefaults(suiteName: group) }
     static var token: String? { let t = d?.string(forKey: "token"); return (t?.count ?? 0) >= 30 ? t : nil }
     static var base: String { d?.string(forKey: "base") ?? "https://swc.pitayas.eu" }
+    /// widżet połączony z innym serwerem niż oficjalny (np. testowym) – pokazujemy to na widżecie
+    static var isTest: Bool { (URL(string: base)?.host ?? "swc.pitayas.eu") != "swc.pitayas.eu" }
     static func cached() -> SwcWidgetData? {
         guard let s = d?.string(forKey: "widget"), let data = s.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(SwcWidgetData.self, from: data)
@@ -43,12 +45,18 @@ enum SwcStore {
 
 enum SwcNet {
     static func refresh() async -> SwcWidgetData? {
-        guard let token = SwcStore.token, let url = URL(string: SwcStore.base + "/api/app/t/inbox") else { return SwcStore.cached() }
+        guard let token = SwcStore.token else { return nil }   // widżet odłączony – nie pokazujemy starych danych
+        guard let url = URL(string: SwcStore.base + "/api/app/t/inbox") else { return SwcStore.cached() }
         var req = URLRequest(url: url, timeoutInterval: 12)
         req.setValue("Bearer " + token, forHTTPHeaderField: "Authorization")
         do {
             let (data, resp) = try await URLSession.shared.data(for: req)
-            guard (resp as? HTTPURLResponse)?.statusCode == 200 else { return SwcStore.cached() }
+            let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
+            if code == 401 || code == 403 {   // klucz nieważny (urządzenie odłączone, inny serwer) – widżet prosi o ponowne połączenie
+                for k in ["token", "widget", "widgetAt"] { SwcStore.d?.removeObject(forKey: k) }
+                return nil
+            }
+            guard code == 200 else { return SwcStore.cached() }
             let inbox = try JSONDecoder().decode(SwcInbox.self, from: data)
             if let list = inbox.notifications, !list.isEmpty { await post(list) }
             if let w = inbox.widget { SwcStore.save(w); return w }
@@ -80,7 +88,9 @@ struct SwcEntry: TimelineEntry { let date: Date; let data: SwcWidgetData?; let l
 struct SwcProvider: TimelineProvider {
     func placeholder(in context: Context) -> SwcEntry { SwcEntry(date: .now, data: .sample, linked: true) }
     func getSnapshot(in context: Context, completion: @escaping (SwcEntry) -> Void) {
-        completion(SwcEntry(date: .now, data: context.isPreview ? .sample : (SwcStore.cached() ?? .sample), linked: true))
+        // dane przykładowe tylko w galerii widżetów; na ekranie głównym prawdziwe albo „połącz widżet”
+        if context.isPreview { completion(SwcEntry(date: .now, data: .sample, linked: true)); return }
+        completion(SwcEntry(date: .now, data: SwcStore.cached(), linked: SwcStore.token != nil))
     }
     func getTimeline(in context: Context, completion: @escaping (Timeline<SwcEntry>) -> Void) {
         Task {
@@ -97,6 +107,18 @@ extension Color {
     static let swcGold = Color(red: 246 / 255, green: 174 / 255, blue: 69 / 255)
 }
 func swcDays(_ n: Int) -> String { n == 1 ? "dzień" : "dni" }
+
+/// mały znacznik „Testowy” w rogu, gdy widżet pokazuje dane serwera testowego
+struct SwcServerTag: ViewModifier {
+    func body(content: Content) -> some View {
+        content.overlay(alignment: .bottomTrailing) {
+            if SwcStore.isTest {
+                Text("🧪 Testowy").font(.system(size: 9, weight: .heavy)).padding(.horizontal, 5).padding(.vertical, 2)
+                    .background(Capsule().fill(Color.swcGold)).foregroundStyle(Color.swcNavy)
+            }
+        }
+    }
+}
 func swcLink(_ path: String) -> URL? {
     var c = URLComponents(); c.scheme = "swc"; c.host = "open"; c.queryItems = [URLQueryItem(name: "path", value: path)]; return c.url
 }
@@ -157,6 +179,7 @@ struct PassaView: View {
                 }
             }
         }
+        .modifier(SwcServerTag())
         .foregroundStyle(.white)
         .containerBackground(for: .widget) { Color.swcNavy }
         .widgetURL(swcLink("/"))
@@ -205,6 +228,7 @@ struct StolyView: View {
                 }
             }
         }
+        .modifier(SwcServerTag())
         .foregroundStyle(.white)
         .containerBackground(for: .widget) { Color.swcNavy }
         .widgetURL(swcLink("/gry"))
