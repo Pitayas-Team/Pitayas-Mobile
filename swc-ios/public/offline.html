@@ -255,7 +255,7 @@
       try {
         const controller = new AbortController();
         const tid = setTimeout(() => controller.abort(), 4000);
-        const res = await fetch('https://swc.rakunek.com/api/public-config', {
+        const res = await fetch('https://swc.pitayas.eu/api/public-config', {
           method: 'GET',
           cache: 'no-store',
           signal: controller.signal
@@ -263,7 +263,7 @@
         clearTimeout(tid);
         if (res.ok) {
           text.textContent = 'Wczytywanie...';
-          window.location.replace('https://swc.rakunek.com');
+          window.location.replace('https://swc.pitayas.eu');
           return;
         }
       } catch (e) {}

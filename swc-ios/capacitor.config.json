@@ -4,25 +4,38 @@
   "webDir": "public",
   "backgroundColor": "#0b234d",
   "server": {
-    "url": "https://swc.rakunek.com",
+    "url": "https://swc.pitayas.eu",
     "errorPath": "index.html",
     "cleartext": false,
     "androidScheme": "https",
     "allowNavigation": [
-      "swc.rakunek.com",
+      "swc.pitayas.eu",
+      "*.pitayas.eu",
+      "pitayas.eu",
       "*.rakunek.com",
       "discord.com",
       "*.discord.com",
-      "cdn.discordapp.com",
-      "pitayas.eu",
-      "*.pitayas.eu"
+      "cdn.discordapp.com"
     ]
   },
-  "appendUserAgent": " SwC-Mobile SwC-iOS/1.0.9",
+  "appendUserAgent": " SwC-Mobile SwC-iOS/0.5.0",
   "ios": {
     "contentInset": "never",
     "backgroundColor": "#0b234d",
     "allowsLinkPreview": false,
     "scrollEnabled": true
+  },
+  "plugins": {
+    "BackgroundRunner": {
+      "label": "com.pitayas.swc.inbox",
+      "src": "runners/swc-inbox.js",
+      "event": "inbox",
+      "repeat": true,
+      "interval": 15,
+      "autoStart": true
+    },
+    "LocalNotifications": {
+      "iconColor": "#113f87"
+    }
   }
 }

@@ -60,3 +60,9 @@ Telefonu nie masz — rdzeń i moduły sprawdzaj w Chromium: `python3 -m http.se
 - **Sekrety:** hasła, tokeny, klucze i pliki `.env` nigdy do kodu, logów, commitów ani rozmów.
 - **Uczciwość:** nie masz telefonu, iPhone'a ani Windowsa — wyraźnie napisz, czego nie dało się sprawdzić, zamiast twierdzić, że działa.
 - **Praca na serwerze:** projekty leżą w `~/Pitayas-Projects` na serwerze rakunek.com (kopia na komputerze właściciela to zapas). Nie startuj zbędnych procesów w tle ani dodatkowych sesji/agentów.
+
+## swc-ios – aplikacja „SwC Gry” (Szkoła w Chmurze), 2026-11-19
+- Budowana tylko workflow `.github/workflows/swc-ios.yml` (ręcznie, bez podpisu – AltStore/SideStore). Od 0.5.0 workflow dokłada (tylko w tej kompilacji, projekt Pitayas bez zmian): wtyczkę `swc-ios/native/SwcAppPlugin.swift` (klucz urządzenia do wspólnych danych), rozszerzenie z widżetami `swc-ios/native/SwcWidgets/` (WidgetKit, iOS 17+, „Passa” i „Otwarte stoły”, Liquid Glass na przezroczystym ekranie iOS 26) – przez `swc-ios/native/add-native.rb` (gem xcodeproj) – oraz skrypt tła Background Runnera `swc-ios/public/runners/swc-inbox.js` (etykieta `com.pitayas.swc.inbox`).
+- Wspólne dane aplikacji i widżetu: App Group `group.com.pitayas.swc`; AltStore/SideStore zmieniają identyfikator – kod czyta prawdziwy z `ALTAppGroups` w Info.plist. Paczka jest podpisywana „ad hoc” z uprawnieniami (`App.entitlements`, `SwcWidgets.entitlements`), żeby AltStore/SideStore je przeniosły. Z widżetem aplikacja zajmuje 2 identyfikatory darmowego konta Apple.
+- W SwC nie ma pytania o sieć lokalną (workflow wyłącza `requestLocalNetworkAccess()` w AppDelegate tej kompilacji).
+- Kod natywny pisany bez Maca – pierwsza kompilacja pokaże ewentualne błędy. Nie sprawdzone na iPhonie.
